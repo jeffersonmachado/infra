@@ -30,6 +30,26 @@ Esta stack replica o comportamento HTTP publicamente observável do host `10.10.
 - `content/`: origem padrão inicial para conteúdo estático.
 - `joomla-site/`: cópia sincronizada dos arquivos do Joomla legado.
 
+## Versionamento seguro
+
+O repositório foi preparado para não publicar segredos locais por padrão.
+
+- `.env` e arquivos `.env.*` ficam ignorados, com exceção de `.env.example`.
+- `joomla-site/configuration.php` fica ignorado porque contém credenciais e segredos do Joomla legado.
+
+Fluxo recomendado:
+
+1. mantenha valores reais apenas em arquivos `.env` locais ou no host remoto;
+2. use `.env.example` como contrato de variáveis obrigatórias;
+3. se precisar versionar configuração adicional do Joomla, faça isso fora de `configuration.php` ou com placeholders sem segredo.
+
+Para validar rapidamente antes de um commit:
+
+```bash
+git status --short
+git check-ignore -v .env .env.remote-10.10.2.30 .env.remote-10.10.2.30-ip60 joomla-site/configuration.php
+```
+
 ## Vhosts iniciais modelados
 
 Esta primeira versão já sobe o edge com os domínios e rotas mais importantes do corte inicial:
@@ -277,6 +297,7 @@ cp .env.example .env
 export DEPLOY_USER=root
 export DEPLOY_HOST=10.10.2.30
 export DEPLOY_PATH=/opt/results/infra
+export DEPLOY_ENV_FILE=.env.remote-10.10.2.30-ip60
 npm run deploy:remote:ssh:httpd
 ```
 
