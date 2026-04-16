@@ -1,0 +1,28 @@
+.post-content {
+    overflow: hidden;
+}
+
+.post-info {
+    clear: both;
+    margin-top: 30px;
+}
+
+.post-info + .post-info {
+    margin-top: 10px;
+}
+
+.post-rating, .post-bookmarks {
+    display: inline-block;
+}
+
+.post-rating a, .post-rating a:hover {
+    color: inherit;
+}
+
+.post-rating i[class^="factory-icon"] {
+    margin-right: 5px;
+}
+
+.post-rating span.voted {
+    color: #000000;
+}

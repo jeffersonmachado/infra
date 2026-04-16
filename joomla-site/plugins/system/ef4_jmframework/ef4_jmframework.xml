@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension
+	type="plugin"
+	version="3.0"
+	client="site"
+	method="upgrade"
+	group="system">
+	<name>plg_system_ef4_jmframework</name>
+	<creationDate>09/06/2020</creationDate>
+	<author>DJ-Extensions.com LTD</author>
+	<copyright>Copyright (C) DJ-Extensions.com, All rights reserved.</copyright>
+	<license> http://www.gnu.org/licenses GNU/GPL</license>
+	<authorEmail>contact@dj-extensions.com</authorEmail>
+	<authorUrl>http://dj-extensions.com</authorUrl>
+	<version>4.9.4</version>
+	<description>PLG_SYSTEM_JMFRAMEWORK_DESC</description>
+	<scriptfile>ef4_install.php</scriptfile>
+	<files>
+		<filename plugin="ef4_jmframework">ef4_jmframework.php</filename>
+		<filename>index.html</filename>
+		<filename>gpl.txt</filename>
+		<folder>language</folder>
+		<folder>includes</folder>
+	</files>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+				<field name="cfg_check_updates" type="radio" default="1" label="PLG_SYSTEM_EF4_JMFRAMEWORK_CFG_CHECK_UPDATES_LABEL" description="PLG_SYSTEM_EF4_JMFRAMEWORK_CFG_CHECK_UPDATES_DESC" class="btn-group">
+					<option value="1">JYES</option>
+					<option value="0">JNO</option>
+				</field>
+			</fieldset>
+		</fields>
+	</config>
+	<updateservers>
+		<server type="extension" priority="1" name="EF4 Joomla Monster Framework">http://www.joomla-monster.com/updates/ef4framework.xml</server>
+	</updateservers>
+</extension>

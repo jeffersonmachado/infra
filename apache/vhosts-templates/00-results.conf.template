@@ -1,0 +1,108 @@
+<VirtualHost *:8080>
+    ServerName ${RESULTS_SERVER_NAME}
+    ServerAlias ${RESULTS_SERVER_ALIAS}
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://${RESULTS_SERVER_NAME}${HTTPS_REDIRECT_SUFFIX}%{REQUEST_URI} [R=301,L]
+
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</VirtualHost>
+
+<VirtualHost *:8443>
+    ServerName ${RESULTS_SERVER_NAME}
+    ServerAlias ${RESULTS_SERVER_ALIAS}
+    DocumentRoot "/usr/local/apache2/htdocs"
+
+    SSLEngine on
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    SSLCipherSuite HIGH:!aNULL:!MD5:!3DES
+    SSLHonorCipherOrder Off
+    SSLCompression Off
+    SSLSessionTickets Off
+
+    ProxyPass        "/n8n/socket"  "ws://${UPSTREAM_HOST_30}:5678/socket"
+    ProxyPassReverse "/n8n/socket"  "ws://${UPSTREAM_HOST_30}:5678/socket"
+    ProxyPass        "/n8n/"  "http://${UPSTREAM_HOST_30}:5678/" nocanon
+    ProxyPassReverse "/n8n/"  "http://${UPSTREAM_HOST_30}:5678/"
+    <Location "/n8n/">
+        ProxyPassReverseCookiePath "/" "/n8n/"
+    </Location>
+
+    ProxyPass        "/r-agent2/ws"  "ws://${UPSTREAM_HOST_30}:8086/r-agent2/ws"
+    ProxyPassReverse "/r-agent2/ws"  "ws://${UPSTREAM_HOST_30}:8086/r-agent2/ws"
+    ProxyPass        "/r-agent2/api/ws"  "ws://${UPSTREAM_HOST_30}:8086/r-agent2/api/ws"
+    ProxyPassReverse "/r-agent2/api/ws"  "ws://${UPSTREAM_HOST_30}:8086/r-agent2/api/ws"
+    ProxyPass        "/r-agent2/assets"  "http://${UPSTREAM_HOST_30}:8086/assets" nocanon
+    ProxyPassReverse "/r-agent2/assets"  "http://${UPSTREAM_HOST_30}:8086/assets"
+    ProxyPass        "/r-agent2/images"  "http://${UPSTREAM_HOST_30}:8086/images" nocanon
+    ProxyPassReverse "/r-agent2/images"  "http://${UPSTREAM_HOST_30}:8086/images"
+    ProxyPass        "/r-agent2"  "http://${UPSTREAM_HOST_30}:8086" nocanon
+    ProxyPassReverse "/r-agent2"  "http://${UPSTREAM_HOST_30}:8086"
+    <Location "/r-agent2">
+        ProxyPassReverseCookiePath "/" "/r-agent2/"
+    </Location>
+
+    ProxyPass        "/aprende-ai/api"  "http://${UPSTREAM_HOST_30}:8088/api" nocanon
+    ProxyPassReverse "/aprende-ai/api"  "http://${UPSTREAM_HOST_30}:8088/api"
+    ProxyPass        "/aprende-ai/auth"  "http://${UPSTREAM_HOST_30}:8088/auth" nocanon
+    ProxyPassReverse "/aprende-ai/auth"  "http://${UPSTREAM_HOST_30}:8088/auth"
+    ProxyPass        "/aprende-ai/health"  "http://${UPSTREAM_HOST_30}:8088/health"
+    ProxyPassReverse "/aprende-ai/health"  "http://${UPSTREAM_HOST_30}:8088/health"
+    ProxyPass        "/aprende-ai/assets"  "http://${UPSTREAM_HOST_30}:8088/assets" nocanon
+    ProxyPassReverse "/aprende-ai/assets"  "http://${UPSTREAM_HOST_30}:8088/assets"
+    ProxyPass        "/aprende-ai"  "http://${UPSTREAM_HOST_30}:8088" nocanon
+    ProxyPassReverse "/aprende-ai"  "http://${UPSTREAM_HOST_30}:8088"
+    <Location "/aprende-ai">
+        ProxyPassReverseCookiePath "/" "/aprende-ai/"
+    </Location>
+
+    ProxyPass        "/oly-fit-balance/api"  "http://${UPSTREAM_HOST_30}:3000/api" nocanon
+    ProxyPassReverse "/oly-fit-balance/api"  "http://${UPSTREAM_HOST_30}:3000/api"
+    ProxyPass        "/oly-fit-balance/health"  "http://${UPSTREAM_HOST_30}:3000/health" nocanon
+    ProxyPassReverse "/oly-fit-balance/health"  "http://${UPSTREAM_HOST_30}:3000/health"
+    ProxyPass        "/oly-fit-balance/sw"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/sw" nocanon
+    ProxyPassReverse "/oly-fit-balance/sw"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/sw"
+    ProxyPass        "/oly-fit-balance/manifest"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/manifest" nocanon
+    ProxyPassReverse "/oly-fit-balance/manifest"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/manifest"
+    ProxyPass        "/oly-fit-balance/config"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/config" nocanon
+    ProxyPassReverse "/oly-fit-balance/config"  "http://${UPSTREAM_HOST_30}:3000/api/static/web/config"
+    ProxyPass        "/oly-fit-balance/assets"  "http://${UPSTREAM_HOST_30}:8087/assets" nocanon
+    ProxyPassReverse "/oly-fit-balance/assets"  "http://${UPSTREAM_HOST_30}:8087/assets"
+    ProxyPass        "/oly-fit-balance/"  "http://${UPSTREAM_HOST_30}:8087/" nocanon
+    ProxyPassReverse "/oly-fit-balance/"  "http://${UPSTREAM_HOST_30}:8087/"
+    <Location "/oly-fit-balance/">
+        ProxyPassReverseCookiePath "/" "/oly-fit-balance/"
+    </Location>
+
+    ProxyPass        "/oly-fit-balance-admin/config"  "http://${UPSTREAM_HOST_30}:3000/api/static/admin/config" nocanon
+    ProxyPassReverse "/oly-fit-balance-admin/config"  "http://${UPSTREAM_HOST_30}:3000/api/static/admin/config"
+    ProxyPass        "/oly-fit-balance-admin/assets"  "http://${UPSTREAM_HOST_30}:8089/assets" nocanon
+    ProxyPassReverse "/oly-fit-balance-admin/assets"  "http://${UPSTREAM_HOST_30}:8089/assets"
+    ProxyPass        "/oly-fit-balance-admin/"  "http://${UPSTREAM_HOST_30}:8089/" nocanon
+    ProxyPassReverse "/oly-fit-balance-admin/"  "http://${UPSTREAM_HOST_30}:8089/"
+    <Location "/oly-fit-balance-admin/">
+        ProxyPassReverseCookiePath "/" "/oly-fit-balance-admin/"
+    </Location>
+
+    ProxyPass        "/suporte"  "http://${UPSTREAM_HOST_7}:8001/newcentral"
+    ProxyPassReverse "/suporte"  "http://${UPSTREAM_HOST_7}:8001/newcentral"
+    ProxyPass        "/egroupware"  "http://${UPSTREAM_HOST_30}/egroupware/"
+    ProxyPassReverse "/egroupware"  "http://${UPSTREAM_HOST_30}/egroupware/"
+    ProxyPass        "/colaboracao"  "http://${UPSTREAM_HOST_30}/egroupware/"
+    ProxyPassReverse "/colaboracao"  "http://${UPSTREAM_HOST_30}/egroupware/"
+    ProxyPass        "/barcode"  "http://${UPSTREAM_HOST_22}:3030"
+    ProxyPassReverse "/barcode"  "http://${UPSTREAM_HOST_22}:3030"
+    ProxyPass        "/valid"  "http://${UPSTREAM_HOST_22}:3010"
+    ProxyPassReverse "/valid"  "http://${UPSTREAM_HOST_22}:3010"
+
+${RESULTS_ROOT_PROXY_BLOCK}
+
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</VirtualHost>

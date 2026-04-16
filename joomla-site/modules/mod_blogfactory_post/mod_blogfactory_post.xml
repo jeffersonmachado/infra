@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="3.5" client="site" method="upgrade">
+  <name>mod_blogfactory_post</name>
+  <description>Blog Factory Post module for Blog Factory component from thePHPfactory.com</description>
+  <files>
+    <filename module="mod_blogfactory_post">mod_blogfactory_post.php</filename>
+    <folder>tmpl</folder>
+    <filename>helper.php</filename>
+    <filename>index.html</filename>
+    <filename>mod_blogfactory_post.xml</filename>
+  </files>
+  <languages>
+    <language tag="en-GB">en-GB.mod_blogfactory_post.ini</language>
+    <language tag="en-GB">en-GB.mod_blogfactory_post.sys.ini</language>
+  </languages>
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="type" type="list" default="latest_posts" label="MOD_BLOGFACTORY_POST_FIELD_TYPE_LABEL" description="MOD_BLOGFACTORY_POST_FIELD_TYPE_DESC">
+          <option value="latest_posts">MOD_BLOGFACTORY_POST_FIELD_TYPE_OPTION_LATEST_POSTS</option>
+          <option value="random_posts">MOD_BLOGFACTORY_POST_FIELD_TYPE_OPTION_RANDOM_POSTS</option>
+          <option value="rated_posts">MOD_BLOGFACTORY_POST_FIELD_TYPE_OPTION_RATED_POSTS</option>
+        </field>
+        <field name="count" type="text" default="10" filter="intval" label="MOD_BLOGFACTORY_POST_FIELD_COUNT_LABEL" description="MOD_BLOGFACTORY_POST_FIELD_COUNT_DESC"/>
+        <field name="categories" type="category" extension="com_blogfactory" multiple="true" label="MOD_BLOGFACTORY_POST_FIELD_CATEGORIES_LABEL" description="MOD_BLOGFACTORY_POST_FIELD_CATEGORIES_DESC"/>
+        <field name="item_id" type="menuitem" default="" label="MOD_BLOGFACTORY_POST_FIELD_ITEM_ID_LABEL" description="MOD_BLOGFACTORY_POST_FIELD_ITEM_ID_DESC">
+          <option value=""/>
+        </field>
+      </fieldset>
+      <fieldset name="advanced">
+        <field name="layout" type="modulelayout" label="JFIELD_ALT_LAYOUT_LABEL" description="JFIELD_ALT_MODULE_LAYOUT_DESC"/>
+        <field name="moduleclass_sfx" type="textarea" rows="3" label="COM_MODULES_FIELD_MODULECLASS_SFX_LABEL" description="COM_MODULES_FIELD_MODULECLASS_SFX_DESC"/>
+        <field name="cache" type="list" default="1" label="COM_MODULES_FIELD_CACHING_LABEL" description="COM_MODULES_FIELD_CACHING_DESC">
+          <option value="1">JGLOBAL_USE_GLOBAL</option>
+          <option value="0">COM_MODULES_FIELD_VALUE_NOCACHING</option>
+        </field>
+        <field name="cache_time" type="text" default="900" label="COM_MODULES_FIELD_CACHE_TIME_LABEL" description="COM_MODULES_FIELD_CACHE_TIME_DESC"/>
+        <field name="cachemode" type="hidden" default="static">
+          <option value="static"/>
+        </field>
+      </fieldset>
+    </fields>
+  </config>
+  <version>4.3.0</version>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

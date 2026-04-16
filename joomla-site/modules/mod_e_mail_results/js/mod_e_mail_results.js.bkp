@@ -1,0 +1,24 @@
+ jQuery.fx.speeds._default = 1000;
+        jQuery("div.e_mail_results").fadeIn();
+	jQuery( "#bt_e_mail_results" ).button();
+	jQuery( "#e_mail_results" ).dialog({
+		modal: true,
+		autoOpen: false,
+		show: "blind",
+		hide: "explode",
+		buttons: { 
+                           "Entrar": 
+                           function() {
+                                        jQuery("#e_mail_form").submit();  
+                                        jQuery(this).dialog("close");
+                                      },
+                           "Sair": 
+                           function() { 
+                                        jQuery(this).dialog().dialog("close");
+		                      }
+                          }
+	});
+	jQuery( "#bt_e_mail_results" ).click(function() {
+		jQuery( "#e_mail_results" ).dialog( "open" );
+		return false;
+	});

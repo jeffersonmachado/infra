@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset name="details">
+        <field name="text" type="textarea" rows="5"/>
+        <field name="type" type="hidden"/>
+        <field name="item_id" type="hidden"/>
+    </fieldset>
+</form>

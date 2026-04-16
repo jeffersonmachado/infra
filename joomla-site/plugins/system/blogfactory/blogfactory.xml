@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension version="3.5" type="plugin" group="system" method="upgrade">
+  <name>plg_system_blogfactory</name>
+  <description>Blog Factory System plugin for Blog Factory component from thePHPfactory.com</description>
+  <files>
+    <filename plugin="blogfactory">blogfactory.php</filename>
+    <filename>index.html</filename>
+  </files>
+  <languages>
+    <language tag="en-GB">en-GB.plg_system_blogfactory.ini</language>
+    <language tag="en-GB">en-GB.plg_system_blogfactory.sys.ini</language>
+  </languages>
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="cache_assets" type="radio" class="btn-group btn-group-yesno" default="1" label="PLG_SYSTEM_BLOGFACTORY_FIELD_CACHE_ASSETS" description="PLG_SYSTEM_BLOGFACTORY_FIELD_CACHE_ASSETS_DESC">
+          <option value="1">JYES</option>
+          <option value="0">JNO</option>
+        </field>
+      </fieldset>
+    </fields>
+  </config>
+  <version>4.3.0</version>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

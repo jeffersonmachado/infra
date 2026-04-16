@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<install type="module" version="1.5.0">
+    <name>E_mail Results</name>
+    <author>Results</author>
+    <version>1.0.0</version>
+    <description>Abre caixa com dados para login.</description>
+    <files>
+        <filename module="mod_e_mail_results">mod_e_mail_results.php</filename>
+        <filename>index.html</filename>
+        <filename>helper.php</filename>
+        <filename>tmpl/default.php</filename>
+        <filename>tmpl/index.html</filename>
+    </files>
+    <params>
+    </params>
+</install>
+

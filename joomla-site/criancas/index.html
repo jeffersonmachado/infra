@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="msapplication-TileColor" content="#4CAF50">
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    <title>Toque na Cor - Jogo para Crianças</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-152x152.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+</head>
+<body>
+    <!-- Tela de inicialização -->
+    <div id="start-screen" class="start-screen">
+        <div class="start-content">
+            <h1>🎨 Toque na Cor</h1>
+            <p>Jogo educativo para crianças aprenderem cores</p>
+            <button id="start-game-btn" class="start-game-btn">🎮 Começar Jogo</button>
+            <div class="start-instructions">
+                <p>📱 Toque nas cores conforme solicitado</p>
+                <p>🔊 O jogo falará as instruções</p>
+                <p>🎉 Acertos geram comemoração!</p>
+            </div>
+            <div class="start-install-hint">
+                <p>💡 <strong>Dica:</strong> Instale este jogo como app para melhor experiência!</p>
+                <button id="start-install-btn" class="start-install-btn" style="display: none;">📱 Instalar App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela do jogo (inicialmente oculta) -->
+    <div id="game-screen" class="game-screen" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>Toque na Cor</h1>
+                <div class="score">Acertos: <span id="score">0</span></div>
+                <div class="touch-indicator" id="touch-indicator">📱 Toque Habilitado</div>
+                <div class="audio-timer" id="audio-timer">⏰ Áudio repete em: <span id="timer-countdown">5</span>s</div>
+                <button id="manual-install-btn" class="manual-install-btn" style="display: none;">📱 Instalar App</button>
+                <button id="audio-test-btn" class="audio-test-btn">🔊 Testar Áudio</button>
+                <button id="force-install-btn" class="force-install-btn" style="display: none;">📱 Forçar Instalação</button>
+            </div>
+            
+            <div class="instruction" id="instruction">
+                Toque no <span id="target-color">vermelho</span>!
+            </div>
+            
+            <div class="game-area" id="game-area">
+                <!-- Os círculos coloridos serão criados dinamicamente aqui -->
+            </div>
+            
+            <div class="confetti-container" id="confetti-container"></div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+    <script>
+        // Registrar Service Worker (apenas se estiver em HTTPS ou localhost)
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+                        
+                        // Verificar se há atualizações
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Nova versão disponível
+                                    if (confirm('Nova versão do jogo disponível! Deseja atualizar?')) {
+                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ Erro ao registrar Service Worker:', error);
+                    });
+            });
+        }
+
+        // Mostrar banner de instalação
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('🎯 beforeinstallprompt disparado!');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Mostrar banner imediatamente
+            showInstallBanner();
+        });
+        
+        function showInstallBanner() {
+            // Verificar se já existe um banner
+            if (document.getElementById('install-banner')) {
+                return;
+            }
+            
+            // Mostrar banner de instalação personalizado
+            const installBanner = document.createElement('div');
+            installBanner.id = 'install-banner';
+            installBanner.innerHTML = `
+                <div class="install-banner-content">
+                    <span>📱 Instalar "Toque na Cor" como app?</span>
+                    <button id="install-btn">Instalar</button>
+                    <button id="dismiss-btn">Agora não</button>
+                </div>
+            `;
+            document.body.appendChild(installBanner);
+            console.log('📱 Banner de instalação mostrado');
+            
+            // Eventos dos botões
+            document.getElementById('install-btn').addEventListener('click', () => {
+                console.log('🔘 Botão instalar clicado');
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('✅ App instalado pelo usuário');
+                        } else {
+                            console.log('❌ Instalação rejeitada pelo usuário');
+                        }
+                        deferredPrompt = null;
+                        installBanner.remove();
+                    });
+                }
+            });
+            
+            document.getElementById('dismiss-btn').addEventListener('click', () => {
+                console.log('🔘 Botão dispensar clicado');
+                deferredPrompt = null;
+                installBanner.remove();
+            });
+        }
+        
+        // Tentar mostrar banner após carregamento da página
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (deferredPrompt) {
+                    console.log('🔄 Tentando mostrar banner após carregamento...');
+                    showInstallBanner();
+                }
+            }, 3000);
+        });
+
+        // App instalado
+        window.addEventListener('appinstalled', () => {
+            console.log('🎉 App instalado com sucesso!');
+            const banner = document.getElementById('install-banner');
+            if (banner) banner.remove();
+        });
+        
+        // Debug: Verificar se PWA é instalável
+        window.addEventListener('load', () => {
+            console.log('🔍 Verificando requisitos PWA...');
+            console.log('  - Service Worker:', 'serviceWorker' in navigator);
+            console.log('  - Manifest:', !!document.querySelector('link[rel="manifest"]'));
+            console.log('  - HTTPS/Localhost:', window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            console.log('  - User Agent:', navigator.userAgent);
+            console.log('  - Standalone:', window.matchMedia('(display-mode: standalone)').matches);
+            console.log('  - Deferred Prompt:', !!deferredPrompt);
+            
+            // Verificar se já está instalado
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                console.log('✅ App já está instalado e rodando em modo standalone');
+            }
+            
+            // Mostrar botão manual de instalação se PWA for suportado
+            const manualInstallBtn = document.getElementById('manual-install-btn');
+            if (manualInstallBtn && 'serviceWorker' in navigator) {
+                manualInstallBtn.style.display = 'inline-block';
+                manualInstallBtn.addEventListener('click', () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('✅ App instalado pelo usuário (botão manual)');
+                            }
+                            deferredPrompt = null;
+                        });
+                    } else {
+                        alert('Para instalar o app:\n\nChrome/Edge: Clique no ícone de instalação na barra de endereços\nSafari: Toque em "Compartilhar" → "Adicionar à Tela Inicial"');
+                    }
+                });
+            }
+            
+            // Botão de forçar instalação
+            const forceInstallBtn = document.getElementById('force-install-btn');
+            if (forceInstallBtn) {
+                forceInstallBtn.style.display = 'inline-block';
+                forceInstallBtn.addEventListener('click', () => {
+                    console.log('🔧 Forçando instalação...');
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('✅ App instalado pelo usuário (forçado)');
+                            } else {
+                                console.log('❌ Instalação rejeitada pelo usuário (forçado)');
+                            }
+                            deferredPrompt = null;
+                        });
+                    } else {
+                        alert('Para instalar o app:\n\nChrome/Edge: Clique no ícone de instalação na barra de endereços\nSafari: Toque em "Compartilhar" → "Adicionar à Tela Inicial"\nFirefox: Toque no ícone de instalação na barra de endereços');
+                    }
+                });
+            }
+            
+            // Botão de teste de áudio
+            const audioTestBtn = document.getElementById('audio-test-btn');
+            if (audioTestBtn) {
+                audioTestBtn.addEventListener('click', () => {
+                    console.log('🔊 Testando áudio...');
+                    if (window.gameInstance) {
+                        window.gameInstance.speakInstruction();
+                    }
+                });
+            }
+            
+            // Botão de instalação na tela de início
+            const startInstallBtn = document.getElementById('start-install-btn');
+            if (startInstallBtn) {
+                startInstallBtn.style.display = 'inline-block';
+                startInstallBtn.addEventListener('click', () => {
+                    console.log('🔧 Instalação solicitada na tela de início...');
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('✅ App instalado pelo usuário (tela de início)');
+                            } else {
+                                console.log('❌ Instalação rejeitada pelo usuário (tela de início)');
+                            }
+                            deferredPrompt = null;
+                        });
+                    } else {
+                        alert('Para instalar o app:\n\nChrome/Edge: Clique no ícone de instalação na barra de endereços\nSafari: Toque em "Compartilhar" → "Adicionar à Tela Inicial"\nFirefox: Toque no ícone de instalação na barra de endereços');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

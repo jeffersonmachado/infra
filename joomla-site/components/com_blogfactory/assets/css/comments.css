@@ -1,0 +1,111 @@
+.blogfactory-comments-post {
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
+.comment-bubble {
+    background-color: #eeeeee;
+    padding: 20px;
+    border-radius: 10px;
+    position: relative;
+    margin-left: 90px;
+    border-bottom: 1px solid #cccccc;
+}
+
+.comment-bubble:after {
+    border-color: transparent #eeeeee transparent transparent;
+    border-image: none;
+    border-style: solid;
+    border-width: 13px;
+    content: "";
+    display: block;
+    left: -26px;
+    position: absolute;
+    top: 14px;
+    width: 0;
+}
+
+.blogfactory-post-comment + .blogfactory-post-comment {
+    margin-top: 30px;
+}
+
+.comment-user-photo {
+    height: 60px;
+    width: 80px;
+    float: left;
+    text-align: center;
+}
+
+.comment-user-photo img {
+    background-color: #eeeeee;
+    border-radius: 5px;
+    padding: 5px;
+    box-shadow: 0 0 10px -5px #999999 inset;
+}
+
+.comment-text {
+    color: #333333;
+}
+
+.comment-user {
+    margin-bottom: 10px;
+    color: #999999;
+}
+
+.comment-actions {
+    margin-top: 20px;
+    overflow: hidden;
+}
+
+.comment-user-actions {
+    float: right;
+}
+
+.comment-ratings {
+    display: inline-block;
+}
+
+.comment-ratings [class^="factory-icon-"] {
+    margin-right: 3px;
+}
+
+.comment-ratings .voted:hover,
+.comment-ratings .voted {
+    color: #333333;
+}
+
+.comment-ratings span,
+.comment-ratings span:hover {
+    color: #999999;
+}
+
+.comment-ratings a:hover {
+    text-decoration: underline;
+}
+
+.comment-vote-up + .comment-vote-down {
+    margin-left: 5px;
+}
+
+.comments-title {
+    font-weight: bold;
+    font-size: large;
+    margin-bottom: 20px;
+    margin-top: 20px;
+}
+
+.comment-pending {
+    font-style: italic;
+    margin-bottom: 10px;
+}
+
+.pagination a, .pagination span {
+    line-height: 25px;
+}
+
+#comment-reply textarea, #comment-reply input[type="text"] {
+    width: 50%;
+    min-height: 28px;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}

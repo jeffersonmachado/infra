@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<install type="module" version="1.5.0" position="status" method="upgrade">
+	<name>Art CSS Dock</name>
+	<author>artetics.com</author>
+	<creationDate>November 2011</creationDate>
+	<copyright>Copyright (C) 2011 artetics.com. All rights reserved.</copyright>
+	<license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+	<authorEmail>info@artetics.com</authorEmail>
+	<authorUrl>www.artetics.com</authorUrl>
+	<version>1.0.2</version>
+	<description><![CDATA[Art CSS Dock - Mac OS X style icon dock.<br /><br />&copy;&nbsp;<a href="http://www.artetics.com">Artetics.com</a> - Start Point For Your Website.]]></description>
+	<files>
+		<filename module="mod_artcssdock">mod_artcssdock.php</filename>
+		<folder module="mod_artcssdock">css</folder>
+		<folder module="mod_artcssdock">images</folder>
+	</files>
+	<params>
+    <param name="moduleclass_sfx" type="text" default="" label="Module Class Suffix" description="Module Class Suffix" />
+    <param name="icons" type="textarea" default="" rows="20" cols="30" label="Icons" description="Icons. One icon on each line" />
+    <param name="titles" type="textarea" default="" rows="20" cols="30" label="Titles" description="Titles. One title on each line" />
+    <param name="links" type="textarea" default="" rows="20" cols="30" label="Links" description="Links. One link on each line" />
+    <param name="width" type="text" default="32" label="Icon width" description="Default icon width" />
+    <param name="hoverWidth" type="text" default="64" label="Icon hover width" description="Default icon width on mouse over" />
+	</params>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+        <field name="moduleclass_sfx" type="text" default="" label="Module Class Suffix" description="Module Class Suffix" />
+				<field name="icons" type="textarea" default="" rows="20" cols="30" label="Icons" description="Icons. One icon on each line" />
+        <field name="titles" type="textarea" default="" rows="20" cols="30" label="Titles" description="Titles. One title on each line" />
+        <field name="links" type="textarea" default="" rows="20" cols="30" label="Links" description="Links. One link on each line" />
+        <field name="width" type="text" default="86" label="Icon width" description="Default icon width" />
+        <field name="hoverWidth" type="text" default="64" label="Icon hover width" description="Default icon width on mouse over" />
+			</fieldset>
+		</fields>
+	</config>
+
+</install>

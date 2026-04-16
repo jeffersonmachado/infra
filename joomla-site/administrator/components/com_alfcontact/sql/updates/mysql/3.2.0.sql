@@ -1,0 +1,1 @@
+ALTER TABLE `#__alfcontact` ADD COLUMN `bcc` VARCHAR(255) NOT NULL AFTER `email`;

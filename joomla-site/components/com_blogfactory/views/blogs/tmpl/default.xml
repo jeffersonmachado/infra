@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<metadata>
+    <layout title="COM_BLOGFACTORY_BLOGS_VIEW_DEFAULT_TITLE">
+        <message><![CDATA[COM_BLOGFACTORY_BLOGS_VIEW_DEFAULT_DESC]]></message>
+    </layout>
+
+    <fields name="params">
+        <fieldset name="basic">
+            <field name="limit" type="text" filter="integer" default="10"
+                   label="COM_BLOGFACTORY_BLOGS_VIEW_REQUEST_LIMIT_LABEL"
+                   description="COM_BLOGFACTORY_BLOGS_VIEW_REQUEST_LIMIT_DESC"/>
+        </fieldset>
+    </fields>
+</metadata>

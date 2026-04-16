@@ -1,0 +1,2 @@
+ALTER TABLE `#__jdownloads_usergroups_limits` ADD `form_created_id` TINYINT( 1 ) NOT NULL DEFAULT '0' AFTER `form_extra_large_input_2_x`;
+ALTER TABLE `#__jdownloads_usergroups_limits` ADD `form_created_id_x` TINYINT( 1 ) NOT NULL DEFAULT '0' AFTER `form_created_id`;

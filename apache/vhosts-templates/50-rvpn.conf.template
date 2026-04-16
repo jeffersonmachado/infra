@@ -1,0 +1,27 @@
+<VirtualHost *:8080>
+    ServerName ${RVPN_SERVER_NAME}
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://${RVPN_SERVER_NAME}${HTTPS_REDIRECT_SUFFIX}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+<VirtualHost *:8443>
+    ServerName ${RVPN_SERVER_NAME}
+
+    SSLEngine on
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    SSLCipherSuite HIGH:!aNULL:!MD5:!3DES
+    SSLHonorCipherOrder Off
+    SSLCompression Off
+    SSLSessionTickets Off
+    SSLProxyEngine On
+
+    ProxyPass        "/"  "https://${RVPN_UPSTREAM_HOST}:${RVPN_UPSTREAM_PORT}/"
+    ProxyPassReverse "/"  "https://${RVPN_UPSTREAM_HOST}:${RVPN_UPSTREAM_PORT}/"
+
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</VirtualHost>

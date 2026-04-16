@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" client="site" version="3.1" method="upgrade">
+	<name>jDownloads View Limits</name>
+	<author>Arno Betz</author>
+	<creationDate>2017-07-25</creationDate>
+	<copyright>(C) 2009-2017 by Arno Betz. All rights reserved.</copyright>
+	<license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
+	<authorEmail>info@jDownloads.com</authorEmail>
+	<authorUrl>www.jDownloads.com</authorUrl>
+	<version>3.2.53</version>
+	<description>MOD_JDOWNLOADS_VIEW_LIMITS_XML_DESCRIPTION</description>
+	<files>
+		<filename module="mod_jdownloads_view_limits">mod_jdownloads_view_limits.php</filename>
+		<filename>index.html</filename>
+		<filename>helper.php</filename>		
+		<folder>tmpl</folder>
+		<folder>language</folder>
+	</files>
+	<config>
+		<fields name="params">       
+			<fieldset name="basic">
+				<field name="limit_types" type="list" default="" multiple="true" 
+				       label="MOD_JDOWNLOADS_VIEW_LIMITS_TYPES_TITLE" 
+					   description="MOD_JDOWNLOADS_VIEW_LIMITS_TYPES_DESC" >
+					<option value="daily">MOD_JDOWNLOADS_VIEW_LIMITS_DAILY</option>
+					<option value="weekly">MOD_JDOWNLOADS_VIEW_LIMITS_WEEKLY</option>
+					<option value="monthly">MOD_JDOWNLOADS_VIEW_LIMITS_MONTHLY</option>
+					<option value="daily_vol">MOD_JDOWNLOADS_VIEW_LIMITS_DAILY_VOL</option>
+					<option value="weekly_vol">MOD_JDOWNLOADS_VIEW_LIMITS_WEEKLY_VOL</option>
+					<option value="monthly_vol">MOD_JDOWNLOADS_VIEW_LIMITS_MONTHLY_VOL</option>
+				</field>
+				<field
+					name="display_link_to_history"
+					type="radio"
+					label="MOD_JDOWNLOADS_VIEW_LIMITS_LINK_TO_HISTORY_LABEL"
+					description="MOD_JDOWNLOADS_VIEW_LIMITS_LINK_TO_HISTORY_DESC"
+					class="btn-group btn-group-yesno"
+					default="0"
+					filter="integer"
+					>
+					<option value="1">MOD_JDOWNLOADS_VIEW_LIMITS_YES</option>
+					<option value="0">MOD_JDOWNLOADS_VIEW_LIMITS_NO</option>
+				</field>
+				<field
+					name="display_user_group"
+					type="radio"
+					label="MOD_JDOWNLOADS_VIEW_LIMITS_VIEW_USER_GROUP_LABEL"
+					description="MOD_JDOWNLOADS_VIEW_LIMITS_VIEW_USER_GROUP_DESC"
+					class="btn-group btn-group-yesno"
+					default="0"
+					filter="integer"
+					>
+					<option value="1">MOD_JDOWNLOADS_VIEW_LIMITS_YES</option>
+					<option value="0">MOD_JDOWNLOADS_VIEW_LIMITS_NO</option>
+				</field>
+				<field
+					name="display_no_limits_found_msg"
+					type="radio"
+					label="MOD_JDOWNLOADS_VIEW_LIMITS_VIEW_NO_LIMITS_MSG_LABEL"
+					description="MOD_JDOWNLOADS_VIEW_LIMITS_VIEW_NO_LIMITS_MSG_DESC"
+					class="btn-group btn-group-yesno"
+					default="0"
+					filter="integer"
+					>
+					<option value="1">MOD_JDOWNLOADS_VIEW_LIMITS_YES</option>
+					<option value="0">MOD_JDOWNLOADS_VIEW_LIMITS_NO</option>
+				</field>				
+			</fieldset>
+			<fieldset name="advanced">
+				<field name="layout" type="modulelayout" default="" label="MOD_JDOWNLOADS_VIEW_LIMITS_LAYOUT_TITLE" description="MOD_JDOWNLOADS_VIEW_LIMITS_LAYOUT_DESC" />
+				<field name="moduleclass_sfx" type="text" default="" label="MOD_JDOWNLOADS_VIEW_LIMITS_CLASS_SUFFIX_TITLE" description="MOD_JDOWNLOADS_VIEW_LIMITS_CLASS_SUFFIX_DESC" />
+				<field name="alignment" type="list" label="MOD_JDOWNLOADS_VIEW_LIMITS_ALIGN_TITLE" default="left" description="MOD_JDOWNLOADS_VIEW_LIMITS_ALIGN_DESC">
+					<option value="left">MOD_JDOWNLOADS_VIEW_LIMITS_LEFT</option>
+					<option value="right">MOD_JDOWNLOADS_VIEW_LIMITS_RIGHT</option>
+					<option value="center">MOD_JDOWNLOADS_VIEW_LIMITS_CENTER</option>
+				</field>
+				<field name="spacer6" type="spacer" default="" label="MOD_JDOWNLOADS_VIEW_LIMITS_SPACER" description="" />
+				<field name="cache" type="list" default="1" label="MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_LABEL" description="MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_DESCRIPTION">
+					<option value="1">MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_USE_GLOBAL</option>
+					<option value="0">MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_NO_CACHING</option>
+				</field>
+				<field name="cache_time" type="text" default="900" label="MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_TIME_LABEL" description="MOD_JDOWNLOADS_VIEW_LIMITS_CACHE_TIME_DESCRIPTION" />
+			</fieldset>
+		</fields>
+    </config>
+</extension>

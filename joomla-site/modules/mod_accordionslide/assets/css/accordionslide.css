@@ -1,0 +1,87 @@
+body {
+	font-family: 'Open Sans', Arial, sans-serif;
+	font-size: 14px;
+}
+.credit{ position: absolute;    right: 5px;bottom: 5px;z-index: 9999;}
+.accordion-default .panel-counter, .accordion-dynamic .panel-counter, .accordion-swap .panel-counter  {
+	padding: 5px;
+	font-size: 20px;
+	color: #333;
+	-moz-transform-origin: left bottom;
+	-webkit-transform-origin: left bottom;
+	transform-origin: left bottom;
+	-moz-transform: rotate(-90deg) translateY(100%);
+	-webkit-transform: rotate(-90deg) translateY(100%);
+	transform: rotate(-90deg) translateY(100%);
+}
+
+@media (max-width: 860px) {
+	.accordion-default.custom-responsive .panel-counter {
+		font-size: 16px;
+		padding: 2px;
+		bottom: 2px !important;
+		left: 2px !important;
+	}
+
+	.accordion-default.custom-responsive .hide-medium-screen,
+	.accordion-dynamic .hide-medium-screen,
+    .accordion-dynamic .panel-counter {
+		display: none;
+	}
+}
+
+@media (max-width: 640px) {
+	.accordion-default.custom-responsive .as-layer,
+	.accordion-dynamic.as-horizontal .as-layer {
+		font-size: 12px;
+	}
+
+	.accordion-default.custom-responsive .hide-small-screen,
+	.accordion-dynamic .hide-small-screen,
+    .accordion-dynamic .panel-counter {
+		display: none;
+	}
+}
+
+@media (max-width: 450px) {
+	.accordion-default.custom-responsive .as-layer,
+	.accordion-dynamic.as-horizontal .as-layer {
+		font-size: 10px;
+		padding: 2px;
+	}
+    .accordion-dynamic .panel-counter {display: none;}
+}
+
+/*.accordion-dynamic .as-panel {
+	border: 2px solid #333;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}   */
+
+
+#example-xml .as-panel-counter {
+	padding: 5px;
+	font-size: 20px;
+	color: #333;
+	-moz-transform-origin: left bottom;
+	-webkit-transform-origin: left bottom;
+	transform-origin: left bottom;
+	-moz-transform: rotate(-90deg) translateY(100%);
+	-webkit-transform: rotate(-90deg) translateY(100%);
+	transform: rotate(-90deg) translateY(100%);
+}
+
+.controls,
+.example-description {
+	margin-top: 30px;
+	text-align: center;
+}
+
+.controls a {
+	color: #333;
+}
+
+.controls span.custom-arrow {
+	display: none;
+}

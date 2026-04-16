@@ -1,0 +1,5 @@
+.mod_blogfactory_calendar table { margin: 0; }
+.mod_blogfactory_calendar td, .mod_blogfactory_calendar th { text-align: right; }
+.mod_blogfactory_calendar caption { text-align: left; margin-bottom: 5px; }
+.mod_blogfactory_calendar tfoot td { padding-top: 15px; }
+.mod_blogfactory_calendar thead th { background-color: #DFF0D8; }

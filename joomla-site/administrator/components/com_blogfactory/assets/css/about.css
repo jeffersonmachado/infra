@@ -1,0 +1,18 @@
+.about-factory h1 {
+    padding: 0 0 10px 0 !important;
+    margin: 0 !important;
+}
+
+.about-factory .text {
+    margin-bottom: 30px;
+}
+
+.about-factory .version-label {
+    width: 140px;
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+.about-factory .fb-like {
+    display: inline-block;
+}

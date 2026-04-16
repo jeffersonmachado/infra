@@ -1,0 +1,10 @@
+{
+  "name": "infra-httpd-secure",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deploy remoto por SSH da stack Apache segura",
+  "scripts": {
+    "deploy:remote:ssh:httpd": "./scripts/docker-deploy.sh",
+    "deploy:remote:ssh:httpd:dry-run": "./scripts/docker-deploy.sh --dry-run"
+  }
+}

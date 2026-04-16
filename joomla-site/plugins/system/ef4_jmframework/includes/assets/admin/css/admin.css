@@ -1,0 +1,1095 @@
+/*--------------------------------------------------------------
+# Copyright (C) joomla-monster.com
+# License: http://www.joomla-monster.com/license.html Joomla-Monster Proprietary Use License
+# Website: http://www.joomla-monster.com
+# Support: info@joomla-monster.com
+---------------------------------------------------------------*/
+
+/*********************** ADMINISTRATOR BACKEND STYLES ***********************/
+
+/** get web font **/
+@import url("//fonts.googleapis.com/css?family=Open+Sans:400,600");
+
+/** chosen **/
+
+.chzn-container,
+.chzn-drop,
+.chzn-container-multi {
+	width: 100% !important;
+	max-width: 322px !important;
+}
+
+.chzn-container-single .chzn-single {
+	padding: 0 0 0 15px;
+	height: 40px;
+	line-height: 40px;
+}
+
+.chzn-container-multi .chzn-choices li.search-choice {
+	line-height: 14px;
+	background: #f8f8f8;
+	border: 1px solid #a6a6a7;
+	box-shadow: none;
+	color: #7c7c7c;
+	margin: 3px;
+	padding: 5px;
+}
+
+.chzn-container-multi .chzn-choices li.search-choice .search-choice-close {
+	color: #7c7c7c;
+}
+
+.chzn-container-multi .chzn-choices li.search-choice + li.search-field input[type="text"] {
+	padding-left: 5px;
+}
+
+.chzn-container-multi .chzn-choices li.search-field input[type="text"] {
+	padding: 5px 15px;
+	margin: 3px 0;
+	height: 16px;
+	box-sizing: content-box;
+	-moz-box-sizing: content-box;
+	-webkit-box-sizing: content-box;
+	color: #555;
+	font-family: inherit;
+}
+
+.chzn-container-multi .chzn-choices li.search-field input[style*="width: 90px;"] {
+	width: 100% !important;
+}
+
+.chzn-container-single .chzn-single abbr {
+	top: 4px;
+}
+
+.chzn-container-single .chzn-single span {
+	margin-right: 20px;
+}
+
+.chzn-container-single .chzn-single div {
+	width: 20px;
+	background: none;
+	border: 0;
+}
+
+.chzn-container-active.chzn-with-drop .chzn-single div {
+	background: none;
+	border: 0;
+}
+
+.chzn-container-single .chzn-single div b {
+	background-position: 0 10px;
+}
+
+.chzn-container-active.chzn-with-drop .chzn-single div b {
+	background-position: -18px 10px;
+}
+
+.chzn-container .chzn-drop,
+.chzn-container-single .chzn-single,
+.chzn-container-active.chzn-with-drop .chzn-single,
+.chzn-container-multi .chzn-choices {
+	background: #fff;
+	border-color: #a6a6a7;
+	box-shadow: none;
+	color: #555;
+}
+
+.chzn-container-multi .chzn-choices {
+	padding: 3px;
+}
+
+.chzn-container .chzn-results li {
+	line-height: 18px;
+	padding: 10px 11px;
+}
+
+.chzn-container .chzn-results li.highlighted {
+	background: #2f4050;
+}
+
+.chzn-container-single .chzn-search input[type="text"] {
+	background: #fff;
+}
+
+.jmframework .container-main .form-horizontal.js-calendar .btn {
+	padding: 4px 12px;
+}
+
+.jmframework .container-main .chzn-disabled .chzn-single {
+	cursor: not-allowed;
+}
+
+/** main label **/
+span.jmtext label {
+	text-transform: uppercase;
+	font-weight: 600 !important;
+	color: #393939;
+	cursor: default;
+}
+
+span.jmtext.jmlabel label {
+	text-transform: none;
+	border-bottom: 1px solid #ddd;
+	max-width: 322px;
+	line-height: 30px;
+	padding-bottom: 5px;
+	margin: 0;
+}
+
+/** code **/
+code.jm_code {
+	margin-top: 0;
+	padding: 10px 15px;
+	font-size: 13px;
+	vertical-align: middle;
+	display: inline-block;
+	white-space: normal;
+}
+
+/** main container **/
+.jmframework .container-main {
+	padding-bottom: 31px;
+}
+
+/** toolbar buttons **/
+.jmframework .subhead-collapse .subhead {
+	margin-bottom: 0;
+}
+
+/** system messages **/
+.jmframework .alert {
+	margin: 20px 0;
+}
+
+/** main form **/
+.jmframework form#style-form {
+	margin: 0 -20px;
+}
+
+.jmframework .form-inline-header {
+	margin: 0;
+	padding: 29px 30px 20px;
+	border-bottom: 1px solid #dedede;
+	background: #fff;
+}
+
+.jmframework .container-main .control-group {
+	margin-bottom: 25px;
+}
+
+.jmframework .container-main .form-horizontal {
+	display: inline-block;
+	width: 100%;
+	position: relative;
+	background: #fcfcfc;
+	font-family: 'Open Sans', sans-serif;
+	color: #676a6c;
+}
+
+.jmframework .container-main .form-horizontal .control-label {
+	float: none;
+	width: auto;
+}
+
+.jmframework .container-main .form-horizontal .controls {
+	margin: 0;
+}
+
+html[dir="rtl"] .jmframework .container-main .form-horizontal {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.jmframework .container-main .form-horizontal:before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 160px;
+	height: 100%;
+	background: #2f4050;
+}
+
+/** tabs **/
+
+.jmframework #myTabTabs {
+	width: 160px;
+	float: left;
+	border: none;
+}
+
+.jmframework #myTabTabs + .tab-content {
+	padding: 60px;
+	/*overflow: auto;*/
+	float: left;
+	width: calc(100% - 160px);
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+}
+
+.jmframework #myTabTabs > li {
+	float: none;
+	margin: 0;
+}
+
+.jmframework #myTabTabs > li > a {
+	background-color: #2f4050;
+	color: #a7b1c2;
+	font-size: 12px;
+	font-weight: 600;
+	border: none;
+	border-radius: 0;
+	-webkit-border-radius: 0;
+	margin: 0;
+	line-height: 21px;
+	padding: 25px 15px 15px;
+	text-align: center;
+	outline: none !important;
+	position: relative;
+	border-left: 4px solid transparent;
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+}
+
+.jmframework #myTabTabs > li > a:hover {
+	background-color: #293846;
+	color: #fff;
+}
+
+.jmframework #myTabTabs > li.active > a {
+	background-color: #293846;
+	color: #fff;
+	border-left: 4px solid #86c105;
+}
+
+.jmframework #myTabTabs > li > a:before {
+	content: '';
+	display: block;
+	margin: 0 auto 7px;
+	width: 32px;
+	height: 32px;
+	background-image: url("../images/icons.png");
+	background-repeat: no-repeat;
+	background-position: 0 0;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(1) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(1) > a:before {
+	background-position: -32px 0;
+}
+
+.jmframework #myTabTabs > li:nth-child(2) > a:before {
+	background-position: 0 -33px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(2) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(2) > a:before {
+	background-position: -32px -33px;
+}
+
+/*.jmframework #myTabTabs > li:nth-child(3) > a:before {
+	background-position: 0 -66px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(3) > a:before {
+	background-position: -32px -66px;
+}*/
+
+.jmframework #myTabTabs > li:nth-child(3) > a:before {
+	background-position: 0 -99px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(3) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(3) > a:before {
+	background-position: -32px -99px;
+}
+
+.jmframework #myTabTabs > li:nth-child(4) > a:before {
+	background-position: 0 -132px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(4) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(4) > a:before {
+	background-position: -32px -132px;
+}
+
+.jmframework #myTabTabs > li:nth-child(5) > a:before {
+	background-position: 0 -165px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(5) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(5) > a:before {
+	background-position: -32px -165px;
+}
+
+.jmframework #myTabTabs > li:nth-child(6) > a:before {
+	background-position: 0 -198px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(6) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(6) > a:before {
+	background-position: -32px -198px;
+}
+
+.jmframework #myTabTabs > li:nth-child(7) > a:before {
+	background-position: 0 -231px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(7) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(7) > a:before {
+	background-position: -32px -231px;
+}
+
+.jmframework #myTabTabs > li:nth-child(8) > a:before {
+	background-position: 0 -264px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(8) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(8) > a:before {
+	background-position: -32px -264px;
+}
+
+.jmframework #myTabTabs > li:nth-child(9) > a:before {
+	background-position: 0 -297px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(9) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(9) > a:before {
+	background-position: -32px -297px;
+}
+
+.jmframework #myTabTabs > li:nth-child(10) > a:before {
+	background-position: 0 -330px;
+}
+
+.jmframework #myTabTabs > li.active:nth-child(10) > a:before,
+.jmframework #myTabTabs > li:hover:nth-child(10) > a:before {
+	background-position: -32px -330px;
+}
+
+/** hide updates tab **/
+.jmframework #myTabTabs > li:nth-child(9) {
+	display: none;
+}
+
+/** tabs for fields **/
+
+.jmframework [id*="attrib-jm"] .control-group + .nav-tabs {
+	padding-top: 10px;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs {
+	border-color: #ddd;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs > li {
+	margin-bottom: -1px;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs > li > a {
+	color: #293846;
+	padding: 10px 25px;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs > .active > a {
+	background: #293846;
+	color: #fff;
+	border-color: transparent;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs > li > a:hover,
+.jmframework [id*="attrib-jm"] .nav-tabs > li > a:focus {
+	border-color: transparent;
+	border-bottom-color: #ddd;
+}
+
+.jmframework [id*="attrib-jm"] .nav-tabs > .active > a:hover,
+.jmframework [id*="attrib-jm"] .nav-tabs > .active > a:focus {
+	border-color: transparent;
+}
+
+/** input, select, texarea **/
+
+.jmframework .container-main .form-horizontal input,
+.jmframework .container-main .form-horizontal button,
+.jmframework .container-main .form-horizontal select,
+.jmframework .container-main .form-horizontal textarea {
+	font-family: 'Open Sans', sans-serif;
+	outline: none !important;
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+}
+
+html[dir="rtl"] .jmframework .container-main .form-horizontal input,
+html[dir="rtl"] .jmframework .container-main .form-horizontal button,
+html[dir="rtl"] .jmframework .container-main .form-horizontal select,
+html[dir="rtl"] .jmframework .container-main .form-horizontal textarea {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.jmframework .container-main .form-horizontal select,
+.jmframework .container-main .form-horizontal textarea,
+.jmframework .container-main .form-horizontal input[type="text"] {
+	border: 1px solid #a6a6a7;
+	box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+	padding: 10px 15px;
+	color: #555;
+}
+
+.jmframework .container-main .form-horizontal input.minicolors {
+	padding: 10px 15px 10px 40px;
+}
+
+.jmframework .container-main .form-horizontal .minicolors-swatch {
+	height: 30px;
+	width: 30px;
+}
+
+.jmframework .container-main .form-horizontal .minicolors-swatch span {
+	box-shadow: 0 15px 0 rgba(255, 255, 255, 0.1) inset;
+	-webkit-box-shadow: 0 15px 0 rgba(255, 255, 255, 0.1) inset;
+}
+
+.jmframework .container-main .form-horizontal textarea,
+.jmframework .container-main .form-horizontal input[type="text"] {
+	width: 100%;
+	max-width: 322px;
+}
+
+.jmframework .container-main .form-horizontal input[type="text"] {
+	height: 40px;
+}
+
+.jmframework .container-main .form-horizontal input.input-small[type="text"] {
+	width: 100%;
+	max-width: 125px;
+}
+
+.jmframework .container-main .form-horizontal select {
+	width: 100%;
+	max-width: 322px;
+}
+
+.jmframework .container-main .form-horizontal select {
+	height: 40px;
+	line-height: 40px;
+}
+
+.jmframework .container-main .form-horizontal select[multiple],
+.jmframework .container-main .form-horizontal select[size] {
+	height: auto;
+}
+
+.jmframework .container-main .form-horizontal input[type="file"] {
+	height: auto;
+	line-height: normal;
+}
+
+.jmframework .container-main .form-horizontal .input-prepend span.add-on,
+.jmframework .container-main .form-horizontal .input-append span.add-on {
+	border: 1px solid #a6a6a7;
+	text-shadow: none;
+	background: #fff;
+	padding: 10px;
+}
+
+.jmframework .container-main .form-horizontal .input-prepend.input-append a.icon-remove {
+	padding: 10px;
+}
+
+/** labels **/
+
+/*.jmframework .container-main .form-horizontal label[id*="jform_params"] {
+	line-height: 30px;
+	max-width: 155px;
+}*/
+
+.jmframework .container-main .form-horizontal label[id*="jform_params_spacer"],
+.jmframework .container-main .form-horizontal #attrib-jmlayoutbuilder label,
+.jmframework .container-main .form-horizontal #attrib-jmstorage label,
+.jmframework .container-main .form-horizontal #attrib-jmdocumentation label,
+.jmframework .container-main .form-horizontal #attrib-jmversion label {
+	max-width: none;
+	cursor: default;
+}
+
+/*.jmframework .container-main .form-horizontal label[id*="jform_params"] span {
+	display: block;
+	font-size: 12px;
+	line-height: 18px;
+}*/
+
+.jmframework .container-main .form-horizontal #attrib-jmlayoutbuilder > .control-group:first-child,
+.jmframework .container-main .form-horizontal #attrib-jmversion > .control-group:first-child {
+	display: none;
+}
+
+/** buttons and icons **/
+
+.jmframework .container-main .form-horizontal .btn {
+	border: 1px solid #a6a6a7;
+	background: #f8f8f8;
+	color: #555;
+	padding: 10px 25px;
+	text-shadow: none;
+	box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+}
+
+.jmframework .container-main .form-horizontal .btn:hover,
+.jmframework .container-main .form-horizontal .btn.active,
+.jmframework .container-main .form-horizontal .btn:active {
+	background: #2f4050;
+	color: #fff;
+	border: 1px solid #2f4050;
+}
+
+.jmframework .container-main .btn-group .btn:hover,
+.jmframework .container-main .btn-group .btn:active {
+	color: #2f4050;
+	background: #eee;
+	border-color: #a6a6a7;
+}
+
+.jmframework .container-main .btn-group .btn.active {
+	cursor: default;
+}
+
+.jmframework .container-main .form-horizontal .btn [class^="icon-"],
+.jmframework .container-main .form-horizontal .btn [class*=" icon-"] {
+	text-transform: none;
+	margin: 0;
+}
+
+.jmframework .container-main .form-horizontal .btn-danger.active {
+	border: 1px solid #db2219;
+	background: #db2219;
+	color: #fff;
+}
+
+.jmframework .container-main .form-horizontal .btn-success.active {
+	border: 1px solid #78a614;
+	background: #78a614;
+	color: #fff;
+}
+
+.jmframework .container-main .form-horizontal .controls fieldset {
+	padding-top: 0;
+}
+
+.jmframework .container-main .form-horizontal #jform_params_error404article_clear .icon-remove {
+	margin-right: 5px;
+}
+
+/** color picker **/
+
+.jmframework .container-main .form-horizontal .iris-border {
+	border: 1px solid #a6a6a7;
+	background: #f7f7f7;
+}
+
+/** details **/
+
+.jmframework .container-main .form-horizontal #details .span9 > h3,
+.jmframework .container-main .form-horizontal #details .span9 > h3 + .info-labels {
+	display: none;
+}
+
+.jmframework .container-main .form-horizontal #details .span9 > hr,
+.jmframework .container-main .form-horizontal #details .span9 > hr + .control-group + .control-group {
+	display: none;
+}
+
+.jmframework .container-main .form-horizontal #details .span9 > hr + .control-group + .control-group + .control-group,
+.jmframework .container-main .form-horizontal #details .span9 > hr + .control-group + .control-group + .control-group + .control-group + .control-group {
+	margin-bottom: 0;
+}
+
+.jmframework .container-main .form-horizontal #details .span9 > .control-group:nth-last-child(3) .jm_code {
+	color: #78a614;
+}
+
+.jmframework .container-main .form-horizontal #details .jm-alert a {
+	text-decoration: underline;
+}
+
+.jmframework .container-main .form-horizontal #details .jm-alert a:focus,
+.jmframework .container-main .form-horizontal #details .jm-alert a:hover {
+	text-decoration: none;
+}
+
+/** font upload **/
+
+.jmframework .container-main .form-horizontal #attrib-jmfont .alert {
+	margin: 0 0 10px;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmfont .jm-upload-wraper {
+	margin: 20px 0 0;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmfont .jm-upload-filelist {
+	margin: 20px 0;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmfont .jm-upload-console {
+	margin: 20px 0 0;
+}
+
+/** documentation **/
+
+.jmframework .container-main .form-horizontal #attrib-jmdocumentation .control-group img {
+	margin-bottom: 25px;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmdocumentation .control-group {
+	margin-bottom: 0;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmdocumentation label {
+	line-height: 20px;
+}
+
+.jmframework .container-main .form-horizontal .jmlink .jm-anchor {
+	background: url("../images/li.png") no-repeat left center;
+	padding: 0 0 0 15px;
+}
+
+/** settings storage **/
+
+.jmframework .container-main #attrib-jmstorage > .control-group:nth-child(2) {
+	display: none;
+}
+
+.jmframework .container-main label#jform_params_config-lbl {
+	cursor: default;
+}
+
+.jmframework .container-main input#jm_config_save_input {
+	width: 100%;
+	max-width: 200px;
+}
+
+.jmframework .container-main select#jm_config_load_input {
+	width: 100%;
+	max-width: 228px;
+}
+
+.jmframework .container-main #jm_config_load_input_chzn,
+.jmframework .container-main select#jm_config_load_input,
+.jmframework .container-main a#jm_config_load_button,
+.jmframework .container-main a#jm_config_download_button,
+.jmframework .container-main input#jm_config_upload_input,
+.jmframework .container-main a#jm_config_upload_button {
+	margin-bottom: 5px;
+}
+
+.jmframework .container-main a#jm_config_download_button {
+	margin-left: 3px;
+}
+
+/** menu assignement **/
+
+.jmframework .container-main #assignment .thumbnail {
+	border-radius: 0;
+	-webkit-border-radius: 0;
+	border: 1px solid #a6a6a7;
+	padding: 30px;
+}
+
+.jmframework .container-main #assignment > .btn-toolbar {
+	margin-bottom: 30px;
+}
+
+.jmframework .container-main #assignment .menu-links > li:nth-child(4n+1) {
+	clear: both;
+	margin-left: 0;
+	margin-right: 0;
+}
+
+/** alert **/
+
+.jmframework .container-main .form-horizontal .jm-alert {
+	display: block;
+	max-width: 452px;
+	margin: 0;
+}
+
+.jmframework .container-main .form-horizontal #attrib-jmstorage .control-label .jm-alert label,
+.jmframework .container-main .form-horizontal .jm-alert label {
+	margin: 0;
+	line-height: 18px;
+	cursor: default;
+}
+
+/** groups **/
+
+.jm-group:before,
+.jm-group:after {
+	display: table;
+	content: "";
+	line-height: 0;
+}
+
+.jm-group:after {
+	clear: both;
+}
+
+.jm-group[class*="cols"] {
+	margin-left: -15px;
+	margin-right: -15px;
+}
+
+.jm-group[class*="cols"] .control-group {
+	float: left;
+	padding-left: 15px;
+	padding-right: 15px;
+	box-sizing: border-box;
+	-wekit-box-sizing: border-box;
+}
+
+.jm-group.cols2 .control-group {
+	width: 50%;
+}
+
+.jm-group.cols3 .control-group {
+	width: 33.33%;
+}
+
+.jm-group.cols4 .control-group {
+	width: 25%;
+}
+
+.jm-group.cols5 .control-group {
+	width: 20%;
+}
+
+.jm-group.cols6 .control-group {
+	width: 16.66%;
+}
+
+/** error article **/
+
+#jform_params_error404article_name {
+	max-width: 158px;
+}
+
+#jform_params_error404article_name + .btn .icon-file {
+	display: none;
+}
+
+#jform_params_error404article_name + a.btn + button.btn {
+	font-size: 0; /* hide button label */
+	line-height: 1;
+}
+
+#jform_params_error404article_name + a.btn + button.btn .icon-remove {
+	font-size: 13px; /* show x */
+	line-height: 18px;
+	height: 18px;
+}
+
+/* modal fix */
+.modal-header .close {
+	line-height: 20px;
+}
+
+.modal-body {
+	padding: 20px;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}
+
+/*********************** ADMINISTRATOR BACKEND RTL STYLES ***********************/
+
+html[dir="rtl"] .jmframework #myTabTabs {
+	float: right;
+}
+
+html[dir="rtl"] .jmframework #myTabTabs > li > a {
+	border-right: 4px solid transparent;
+	border-left: 0;
+}
+
+html[dir="rtl"] .jmframework #myTabTabs > li.active > a {
+	border-right: 4px solid #86c105;
+	border-left: 0;
+}
+
+html[dir="rtl"] .jmframework .container-main .form-horizontal:before {
+	left: auto;
+	right: 0;
+}
+
+html[dir="rtl"] .form-horizontal .controls {
+	margin-right: 180px;
+	margin-top: 0;
+}
+
+html[dir="rtl"] .form-horizontal #details .controls {
+	margin-right: 0;
+}
+
+html[dir="rtl"] .jmframework .container-main .form-horizontal .jmlink .jm-anchor {
+	background: url("../images/li.png") no-repeat right center;
+	padding: 0 15px 0 0;
+}
+
+/** chosen **/
+
+html[dir="rtl"] .chzn-container-single .chzn-single {
+	padding: 0 15px 0 0;
+}
+
+html[dir="rtl"] .chzn-container-multi .chzn-choices li.search-choice + li.search-field input[type="text"] {
+	padding-right: 5px;
+	padding-left: 15px;
+}
+
+html[dir="rtl"] .chzn-container-single .chzn-single span {
+	margin-right: 0;
+	margin-left: 20px;
+}
+
+html[dir="rtl"] .chzn-container-single .chzn-single div b {
+	background-position: 2px 10px;
+}
+
+html[dir="rtl"] .chzn-container-active.chzn-with-drop .chzn-single div b {
+	background-position: -16px 10px;
+}
+
+html[dir="rtl"] .jmframework .container-main a#jm_config_download_button {
+	margin-left: 0;
+	margin-right: 3px;
+}
+
+html[dir="rtl"] .jmframework .container-main .form-horizontal #jform_params_error404article_clear .icon-remove {
+	margin-right: 0;
+	margin-left: 5px;
+}
+
+/*********************** ADMINISTRATOR BACKEND RESPONSIVE STYLES ***********************/
+
+@media (max-width: 1360px) {
+	.jmframework [id*="attrib-jm"] .nav-tabs > li > a {
+		padding: 8px;
+	}
+	.jm-group.cols4 .control-group,
+	.jm-group.cols5 .control-group,
+	.jm-group.cols6 .control-group {
+		width: 33.33%;
+	}
+	.jm-group.cols4 .control-group:nth-of-type(3n+1),
+	.jm-group.cols5 .control-group:nth-of-type(3n+1),
+	.jm-group.cols6 .control-group:nth-of-type(3n+1) {
+		clear: both;
+	}
+}
+
+@media (max-width: 979px) {
+	.jmframework [id*="attrib-jm"] .nav-tabs > li {
+		float: left;
+		width: 100%;
+		box-sizing: border-box;
+		display: none;
+		width: 23%;
+		margin: 0;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li > a {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		word-wrap: normal;
+		width: 100%;
+		text-align: center;
+		vertical-align: top;
+		box-sizing: border-box;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.active {
+		width: 54%;
+	}
+	/*.jmframework [id*="attrib-jm"] .nav-tabs > li:first-child {*/
+		/*margin-left: 23%;*/
+	/*}*/
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.active,
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.prev,
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.next {
+		display: block;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.next > a,
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.prev > a {
+		-webkit-transition: none;
+		transition: none;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.next .text,
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.prev .text{
+		display: none;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.next > a:after,
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.prev > a:after {
+		position: relative;
+		display: inline-block;
+		vertical-align: middle;
+		font-family: 'IcoMoon';
+		font-style: normal;
+		font-weight: 400;
+		line-height: 1;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		color: #293846;
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.prev > a:after {
+		content: "\7c";
+	}
+	.jmframework [id*="attrib-jm"] .nav-tabs > li.next > a:after {
+		content: "\7b";
+	}
+	html[dir="rtl"] .jmframework [id*="attrib-jm"] .nav-tabs > li {
+		float: right;
+	}
+	html[dir="rtl"] .jmframework [id*="attrib-jm"] .nav-tabs > li.prev > a:after {
+		direction: ltr;
+		content: "\7b";
+	}
+	html[dir="rtl"] .jmframework [id*="attrib-jm"] .nav-tabs > li.next > a:after {
+		direction: ltr;
+		content: "\7c";
+	}
+	.jmframework .container-main .form-horizontal #details > .row-fluid > div[class*="span"] {
+		width: 100%;
+		margin-left: 0;
+		margin-right: 0;
+	}
+	.jmframework form#style-form {
+		margin: 0 -10px;
+	}
+	.jmframework .container-main .form-horizontal .control-label {
+		float: none;
+		width: auto;
+		padding-top: 0;
+		text-align: left;
+	}
+	.jmframework .container-main .form-horizontal label[id*="jform_params"],
+	.jmframework .container-main .form-horizontal #attrib-jmstorage .control-label label {
+		max-width: none;
+	}
+	html[dir="rtl"] .jmframework .container-main .form-horizontal .control-label {
+		text-align: right;
+	}
+	.jmframework .container-main .form-horizontal .controls {
+		margin-left: 0;
+	}
+	html[dir="rtl"] .jmframework .container-main .form-horizontal .controls {
+		margin-right: 0;
+	}
+}
+
+@media (max-width: 767px) {
+	.jmframework .container-main .form-horizontal:before {
+		width: 67px;
+	}
+
+	.jmframework .container-main .form-horizontal #myTabTabs {
+		width: 67px;
+	}
+
+	.jmframework .container-main .form-horizontal #myTabTabs > li > a {
+		font-size: 0;
+		line-height: 0;
+		text-indent: -9999px;
+	}
+
+	.jmframework #myTabTabs + .tab-content {
+		width: calc(100% - 67px);
+	}
+
+	.jmframework .container-main .form-horizontal .jm-description .pull-left {
+		max-width: none !important;
+		float: none !important;
+	}
+
+	.jmframework .container-main .form-horizontal .jm-description .pull-left > div {
+		float: none !important;
+	}
+
+	.jmframework .container-main .form-horizontal .jm-description .pull-left + .pull-left {
+		padding: 30px 0 !important;
+	}
+
+	.jmframework .container-main .form-horizontal input.input-small[type="text"] {
+		max-width: 45px;
+	}
+
+	html[dir="rtl"] .jmframework .container-main .form-horizontal [class*="span"],
+	html[dir="rtl"] .jmframework .container-main .form-horizontal .uneditable-input[class*="span"],
+	html[dir="rtl"] .jmframework .container-main .form-horizontal .row-fluid [class*="span"] {
+		float: none !important;
+		margin-right: 0 !important;
+	}
+
+	input#jm_config_save_input {
+		max-width: 67px;
+	}
+
+	.jmframework .container-main input#jm_config_save_input {
+		max-width: 98px;
+	}
+	.jm-group.cols2 .control-group,
+	.jm-group.cols3 .control-group,
+	.jm-group.cols4 .control-group,
+	.jm-group.cols5 .control-group,
+	.jm-group.cols6 .control-group{
+		width: 100%;
+	}
+	.jm-group.cols4 .control-group:nth-of-type(3n+1),
+	.jm-group.cols5 .control-group:nth-of-type(3n+1),
+	.jm-group.cols6 .control-group:nth-of-type(3n+1) {
+		clear: none;
+	}
+}
+
+/** input append/prepend Boostrap4 alike **/
+
+
+.input-append,
+.input-prepend {
+	position: relative;
+	display: -ms-flexbox;
+	display: flex !important;
+	-ms-flex-align: stretch;
+	align-items: stretch;
+	width: 100% !important;
+	max-width: 322px !important;
+}
+
+.input-append .add-on,
+.input-prepend .add-on {
+	display: -ms-flexbox;
+	display: flex;
+	-ms-flex-align: center;
+	align-items: center;
+}
+
+.input-append input,
+.input-prepend input,
+.input-append select,
+.input-prepend select,
+.input-append .uneditable-input,
+.input-prepend .uneditable-input {
+	display: -ms-flexbox;
+	display: flex;
+	-ms-flex-align: center;
+	align-items: center;
+	position: relative;
+	z-index: 2;
+	-ms-flex: 1 1 auto;
+	flex: 1 1 auto;
+	width: 1% !important;
+	max-width: none !important;
+	margin-bottom: 0;
+}

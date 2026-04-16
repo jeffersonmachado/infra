@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<config>
+	<fieldset 
+		name="component"
+		label="COM_ALFCONTACT_OPTIONS_LABEL"
+		description="COM_ALFCONTACT_OPTIONS_DESC">
+		
+		<field
+			name="maxchars"
+			type="text"
+			label="COM_ALFCONTACT_OPTIONS_MAXCHARS"
+			description="COM_ALFCONTACT_OPTIONS_MAXCHARS_DESC"
+			size="5"
+			Default=" ">
+		</field>
+		<field
+			name="autouser"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			default="1"
+			label="COM_ALFCONTACT_OPTIONS_AUTOFILL_USERNAME"
+			description="COM_ALFCONTACT_OPTIONS_AUTOFILL_USERNAME_DESC">
+			<option
+				value="0">JNO</option>
+			<option
+				value="1">JYES</option>
+		</field>
+		<field
+			name="fromsite"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			default="0"
+			label="COM_ALFCONTACT_OPTIONS_USE_SITEADDRESS"
+			description="COM_ALFCONTACT_OPTIONS_USE_SITEADDRESS_DESC">
+			<option
+				value="0">JNO</option>
+			<option
+				value="1">JYES</option>
+		</field>
+		<field
+			name="captcha"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			default="0"
+			label="COM_ALFCONTACT_OPTIONS_USE_CAPTCHA"
+			description="COM_ALFCONTACT_OPTIONS_USE_CAPTCHA_DESC">
+			<option
+				value="0">JNO</option>
+			<option
+				value="1">JYES</option>
+			<option
+				value="2">COM_ALFCONTACT_OPTIONS_GUESTS_ONLY</option>	
+		</field>
+		<field
+			name="copytome"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			default="1"
+			label="COM_ALFCONTACT_OPTIONS_COPY_TO_ME"
+			description="COM_ALFCONTACT_OPTIONS_COPY_TO_ME_DESC">
+			<option
+				value="0">JNO</option>
+			<option
+				value="1">JYES</option>
+		</field>
+		<field
+			name="resetbtn"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			default="1"
+			label="COM_ALFCONTACT_OPTIONS_RESET_BTN"
+			description="COM_ALFCONTACT_OPTIONS_RESET_BTN_DESC">
+			<option
+				value="0">JNO</option>
+			<option
+				value="1">JYES</option>
+		</field>
+		<field
+				name="verbose"
+				type="list"
+				label="COM_ALFCONTACT_OPTIONS_VERBOSE"
+				description="COM_ALFCONTACT_OPTIONS_VERBOSE_DESC"
+				default="1">
+			<option value="1">COM_ALFCONTACT_OPTIONS_VERBOSE_ALL</option>
+			<option value="2">COM_ALFCONTACT_OPTIONS_VERBOSE_NAME_AND_EMAIL</option>
+			<option value="3">COM_ALFCONTACT_OPTIONS_VERBOSE_NONE</option>
+		</field>
+		<field
+			name="mailformat"
+			type="radio"
+			class="btn-group btn-group-yesno"
+			data-toggle="buttons-radio"
+			default="1"
+			label="COM_ALFCONTACT_OPTIONS_MAIL_FORMAT"
+			description="COM_ALFCONTACT_OPTIONS_MAIL_FORMAT_DESC">
+			<option
+				value="0">COM_ALFCONTACT_OPTIONS_MAIL_FORMAT_TEXT</option>
+			<option
+				value="1">COM_ALFCONTACT_OPTIONS_MAIL_FORMAT_HTML</option>
+		</field>
+		<field
+				name="gpdrcheck"
+				type="radio"
+				class="btn-group btn-group-yesno"
+				default="0"
+				label="COM_ALFCONTACT_OPTIONS_GPDR_CHK"
+				description="COM_ALFCONTACT_OPTIONS_GPDR_CHK_DESC">
+			<option
+					value="0">JNO</option>
+			<option
+					value="1">JYES</option>
+		</field>
+	</fieldset>
+	<fieldset
+		name="Redirect"
+		label="COM_ALFCONTACT_REDIRECT_OPTIONS_LABEL"
+		description="COM_ALFCONTACT_REDIRECT_OPTIONS_DESC"
+		>
+        <field
+			name="redirect_option"
+			type="list"
+			label="COM_ALFCONTACT_OPTIONS_REDIRECT_OPTION"
+			description="COM_ALFCONTACT_OPTIONS_REDIRECT_OPTION_DESC"
+			default="1">
+			<option value="1">COM_ALFCONTACT_OPTIONS_REDIRECT_HOME</option>
+			<option value="2">COM_ALFCONTACT_OPTIONS_REDIRECT_FORM</option>
+			<option value="3">COM_ALFCONTACT_OPTIONS_REDIRECT_CUSTOM</option>
+			<option value="4">COM_ALFCONTACT_OPTIONS_REDIRECT_URL</option>
+		</field>
+		<field
+			name="custom_header"
+			type="text"
+			label="COM_ALFCONTACT_OPTIONS_CUSTOM_HEADER"
+			description="COM_ALFCONTACT_OPTIONS_CUSTOM_HEADER_DESC"
+			size="40"
+			Default=" "
+			showon="redirect_option:3">
+		</field>
+		<field
+			type="textarea"
+			name="custom_text"
+			label="COM_ALFCONTACT_OPTIONS_CUSTOM_TEXT"
+            description="COM_ALFCONTACT_OPTIONS_CUSTOM_TEXT_DESC"
+			cols="30"
+			rows="9"
+			filter="safehtml"
+			showon="redirect_option:3">
+		</field>
+		<field
+			name="url"
+			type="text"
+			label="COM_ALFCONTACT_OPTIONS_URL"
+			description="COM_ALFCONTACT_OPTIONS_URL_DESC"
+			size="40"
+			Default=" "
+			showon="redirect_option:4">
+	</field>
+	</fieldset>
+	<fieldset
+		name="CSS"
+		label="COM_ALFCONTACT_OPTIONS_CSS_LABEL"
+		description="COM_ALFCONTACT_OPTIONS_CSS_DESC"
+		>
+
+		<field
+				type="textarea"
+				name="css_style"
+				label="COM_ALFCONTACT_OPTIONS_CSS_STYLE"
+                description="COM_ALFCONTACT_OPTIONS_CSS_STYLE_DESC"
+				cols="30"
+				rows="9"
+				filter="safehtml">
+		</field>
+	</fieldset>
+	<fieldset
+		name="permissions"
+		label="JCONFIG_PERMISSIONS_LABEL"
+		description="JCONFIG_PERMISSIONS_DESC"
+		>
+
+		<field
+			name="rules"
+			type="rules"
+			label="JCONFIG_PERMISSIONS_LABEL"
+			filter="rules"
+			component="com_alfcontact"
+			section="component" >
+		</field>	
+	</fieldset>
+</config>

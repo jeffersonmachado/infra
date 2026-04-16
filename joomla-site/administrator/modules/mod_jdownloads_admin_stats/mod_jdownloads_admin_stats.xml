@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" client="administrator" version="3.1" method="upgrade" position="cpanel">
+        <name>jDownloads admin stats</name>
+        <author>Arno Betz</author>
+        <creationDate>2016-08-12</creationDate>
+        <copyright>(C) 2007-2016 Arno Betz. All rights reserved.</copyright>
+        <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
+        <authorEmail>info@jdownloads.com</authorEmail>
+        <authorUrl>www.jDownloads.com</authorUrl>
+        <version>3.2.46</version>
+        <description>MOD_JDOWNLOADS_ADMIN_STATS_DESC</description>
+        <files>
+            <filename module="mod_jdownloads_admin_stats">mod_jdownloads_admin_stats.php</filename>
+            <filename>index.html</filename>
+            <filename>mod_jdownloads_admin_stats.xml</filename>
+            <file>helper.php</file>
+            <folder>tmpl</folder>
+            <folder>language</folder>
+        </files>
+        <config>
+            <fields name="params">
+                <fieldset name="basic">
+                    <field name="view_latest" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_LATEST_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>
+                    <field name="view_popular" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_POPULAR_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>
+                    <field name="view_featured" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_FEATURED_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>                    
+                    <field name="view_most_rated" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_MOST_RATED_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>
+                    <field name="view_top_rated" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_TOP_RATED_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>
+                    <field name="view_statistics" type="radio" class="btn-group" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_VIEW_STATISTICS_TAB">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_NO</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_YES</option>
+                    </field>
+                    <field name="amount_items" type="integer" default="5" label="MOD_JDOWNLOADS_ADMIN_STATS_AMOUNT_ITEMS_LABEL" description="MOD_JDOWNLOADS_ADMIN_STATS_AMOUNT_ITEMS_DESC" first="1" last="25" step="1" />
+                </fieldset>
+                <fieldset name="advanced">
+                    <field name="cache" type="list" default="1" label="MOD_JDOWNLOADS_ADMIN_STATS_CACHE_LABEL" description="MOD_JDOWNLOADS_ADMIN_STATS_CACHE_DESCRIPTION">
+                        <option value="0">MOD_JDOWNLOADS_ADMIN_STATS_CACHE_NO_CACHING</option>
+                        <option value="1">MOD_JDOWNLOADS_ADMIN_STATS_CACHE_USE_GLOBAL</option>
+                    </field>
+                    <field name="cache_time" type="text" default="900" label="MOD_JDOWNLOADS_ADMIN_STATS_CACHE_TIME_LABEL" description="MOD_JDOWNLOADS_ADMIN_STATS_CACHE_TIME_DESCRIPTION"/>
+                </fieldset>
+            </fields>
+        </config>
+</extension>

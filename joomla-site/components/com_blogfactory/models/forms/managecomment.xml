@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset name="author">
+        <field name="user_id" type="user" readonly="true"/>
+        <field name="name" type="text"/>
+        <field name="url" type="text" filter="url" validate="url"/>
+        <field name="email" type="text" filter="email" validate="email"/>
+    </fieldset>
+
+    <fieldset name="status">
+        <field name="approved" type="list">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="reported" type="list">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+
+    <field name="created_at" type="BlogFactoryCalendar" filter="user_utc"/>
+
+    <fieldset name="content">
+        <field name="text" type="textarea" rows="10" required="true"/>
+    </fieldset>
+
+    <field name="post_id" type="hidden" filter="integer"/>
+    <field name="id" type="hidden" filter="integer"/>
+</form>

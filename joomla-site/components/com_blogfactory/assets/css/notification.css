@@ -1,0 +1,12 @@
+.tooltip.top.tooltip-error .tooltip-arrow {
+    border-top-color: #cc0000;
+}
+
+.tooltip-error .tooltip-inner {
+    background-color: #cc0000;
+}
+
+.tooltip .tooltip-inner {
+    line-height: 14px;
+    padding: 5px 8px;
+}

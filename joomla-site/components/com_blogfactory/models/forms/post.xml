@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset name="details">
+        <field name="title" type="BlogFactoryText" placeholder="form_post_title_placeholder"/>
+        <field name="alias" type="BlogFactoryAlias" observe="title"/>
+
+        <field name="content" type="BlogFactoryPostEditor" rows="5" filter="BlogFactoryHelper::filterPostContent"/>
+
+        <field name="user_id" type="hidden" filter="integer"/>
+        <field name="id" type="hidden" filter="integer"/>
+    </fieldset>
+
+    <fieldset name="status">
+        <field type="list" name="published" class="advancedSelect">
+            <option value="1">Published</option>
+            <option value="0">Draft</option>
+        </field>
+
+        <field type="list" name="visibility" class="advancedSelect">
+            <option value="1">COM_BLOGFACTORY_FORM_POST_FIELD_VISIBILITY_OPTION_EVERYONE</option>
+            <option value="2">COM_BLOGFACTORY_FORM_POST_FIELD_VISIBILITY_OPTION_REGISTERED</option>
+        </field>
+
+        <field type="BlogFactoryCalendar" name="publish_up" extra="immediately" filter="user_utc"/>
+        <field type="BlogFactoryCalendar" name="publish_down" extra="never" filter="user_utc"/>
+    </fieldset>
+
+    <fieldset name="category">
+        <field type="category" name="category_id" extension="com_blogfactory" class="advancedSelect"/>
+    </fieldset>
+
+    <fieldset name="discussion">
+        <field type="list" name="comments" class="advancedSelect" default="1">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+
+        <field type="list" name="pingbacks" class="advancedSelect" default="1">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+
+    <fields name="metadata">
+        <fieldset name="metadata">
+            <field name="description" type="textarea" rows="5"/>
+            <field name="keywords" type="textarea" rows="5"/>
+        </fieldset>
+    </fields>
+
+    <fieldset name="tags">
+        <field name="tags" type="BlogFactoryPostTags"/>
+    </fieldset>
+</form>

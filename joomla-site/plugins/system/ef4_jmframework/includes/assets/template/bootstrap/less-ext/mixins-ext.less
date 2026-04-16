@@ -1,0 +1,166 @@
+//
+// Mixins Extended
+// --------------------------------------------------
+
+
+// The Grid Extended
+#grid-ext {
+  
+  .core (@gridColumnWidth, @gridGutterWidth) {
+
+    .spanX (@index) when (@index > 0) {
+      .span@{index} { .span(@index); }
+      .spanX(@index - 1);
+    }
+    .spanX (0) {}
+
+    .offsetX (@index) when (@index > 0) {
+      .offset@{index} { .offset(@index); }
+      .offsetX(@index - 1);
+    }
+    .offsetX (0) {}
+
+    .offset (@columns) {
+      margin-left: (@gridColumnWidth * @columns) + (@gridGutterWidth * (@columns + 1));
+    }
+
+    .span (@columns) {
+      width: (@gridColumnWidth * @columns) + (@gridGutterWidth * (@columns - 1));
+    }
+
+    .row {
+      margin-left: @gridGutterWidth * -1;
+      .clearfix();
+    }
+
+    [class*="span"] {
+      float: left;
+      min-height: 1px; // prevent collapsing columns
+      margin-left: @gridGutterWidth;
+    }
+
+    // Set the container width, and override it for fixed navbars in media queries
+    .container,
+    .navbar-static-top .container,
+    .navbar-fixed-top .container,
+    .navbar-fixed-bottom .container { .span(@gridColumns); }
+
+    // generate .spanX and .offsetX
+    .spanX (@gridColumns);
+    .offsetX (@gridColumns);    
+    
+    // negative offset
+    .offset-X (@index) when (@index > 0) {
+      .offset-@{index} { .offset-(@index); }
+      .offset-X(@index - 1);
+    }
+    .offset-X (0) {}
+
+    .offset- (@columns) {
+      margin-left: -(@gridColumnWidth * @columns) - (@gridGutterWidth * (@columns - 1));
+    }
+    
+    // generate .offset-X
+    .offset-X (@gridColumns);
+  }
+  
+  .fluid (@fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+    
+    .spanX (@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP) when (@index > 0) {
+      .span@{index} { .span(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .spanX(@index - 1, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+    .spanX (0, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {}
+
+    .offsetX (@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP) when (@index > 0) {
+      .offset@{index} { .offset(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .offsetX(@index - 1, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+    .offsetX (0, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {}
+
+    .offset (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      margin-left: percentage(@columns/@gridColumns);
+    }
+
+    .span (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      width: percentage(@columns/@gridColumns);
+
+    }
+
+    // negative offset
+    .offset-X (@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP) when (@index > 0) {
+      .offset-@{index} { .offset-(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .offset-X(@index - 1, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+    .offset-X (0, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {}
+
+    .offset- (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      margin-left: -(percentage(@columns/@gridColumns));
+    }
+
+    .row-fluid {
+      margin: 0 -(@JMfluidGridGutterWidth / 2);
+      width: auto !important;
+      .clearfix();
+      [class*="span"] {
+        display: block;
+        width: 100%;
+        .box-sizing(border-box);
+        float: left;
+        margin-left: 0;
+        padding: 0 (@JMfluidGridGutterWidth / 2);
+      }
+
+      // generate .spanX and .offsetX
+      .spanX (@gridColumns, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+      .offsetX (@gridColumns, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+
+      // generate .offset-X
+      .offset-X (@gridColumns, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }    
+    
+  }
+  .fluid-inputs (@fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+
+    .spanX (@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP) when (@index > 0) {
+      .span@{index} { .span(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .spanX(@index - 1, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+    .spanX (0, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {}
+
+    .offsetX (@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP) when (@index > 0) {
+      .offset@{index} { .offset(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .offset@{index}:first-child { .offsetFirstChild(@index, @fluidGridColumnWidthP, @fluidGridGutterWidthP); }
+      .offsetX(@index - 1, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+    .offsetX (0, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {}
+
+    .offset (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      margin-left: (@fluidGridColumnWidthP * @columns) + (@fluidGridGutterWidthP * (@columns - 1)) + (@fluidGridGutterWidthP*2);
+    }
+
+    .offsetFirstChild (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      margin-left: (@fluidGridColumnWidthP * @columns) + (@fluidGridGutterWidthP * (@columns - 1)) + (@fluidGridGutterWidthP);
+    }
+
+    .span (@columns, @fluidGridColumnWidthP, @fluidGridGutterWidthP) {
+      width: (@fluidGridColumnWidthP * @columns) + (@fluidGridGutterWidthP * (@columns - 1));
+    }
+
+    .row-fluid {
+
+      // Space grid-sized controls properly if multiple per line
+      .controls-row [class*="span"] + [class*="span"] {
+        margin-left: @fluidGridGutterWidthP;
+      }
+    }
+    .row-fluid .controls {
+
+      // generate .spanX and .offsetX
+      .spanX (@gridColumns, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+      .offsetX (@gridColumns, @fluidGridColumnWidthP, @fluidGridGutterWidthP);
+    }
+
+  }
+
+}

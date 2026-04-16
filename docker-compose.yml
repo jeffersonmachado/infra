@@ -1,0 +1,168 @@
+services:
+  apache:
+    build:
+      context: ./apache
+    container_name: secure-httpd
+    restart: unless-stopped
+    depends_on:
+      joomla:
+        condition: service_started
+      lsyncd:
+        condition: service_started
+    ports:
+      - "${EDGE_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:8080"
+      - "${EDGE_BIND_IP:-0.0.0.0}:${HTTPS_PORT:-443}:8443"
+    environment:
+      SERVER_NAME: ${SERVER_NAME}
+      RESULTS_SERVER_NAME: ${RESULTS_SERVER_NAME:-${SERVER_NAME}}
+      RESULTS_SERVER_ALIAS: ${RESULTS_SERVER_ALIAS:-www.results.com.br}
+      RESULTS_ROOT_BACKEND_SCHEME: ${RESULTS_ROOT_BACKEND_SCHEME:-}
+      RESULTS_ROOT_BACKEND_HOST: ${RESULTS_ROOT_BACKEND_HOST:-}
+      RESULTS_ROOT_BACKEND_PORT: ${RESULTS_ROOT_BACKEND_PORT:-}
+      RESULTS_ROOT_BACKEND_PATH: ${RESULTS_ROOT_BACKEND_PATH:-/}
+      RESULTS_ROOT_BACKEND_SSL_INSECURE: ${RESULTS_ROOT_BACKEND_SSL_INSECURE:-0}
+      COLABORACAO_SERVER_NAME: ${COLABORACAO_SERVER_NAME-}
+      OLIMPICSHAPE_SERVER_NAME: ${OLIMPICSHAPE_SERVER_NAME-}
+      PLAY_SERVER_NAME: ${PLAY_SERVER_NAME-}
+      PLAY_DEV_SERVER_NAME: ${PLAY_DEV_SERVER_NAME-}
+      RIPABX_SERVER_NAME: ${RIPABX_SERVER_NAME-}
+      RVPN_SERVER_NAME: ${RVPN_SERVER_NAME-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ACME_CA_URL: ${ACME_CA_URL:-https://acme-v02.api.letsencrypt.org/directory}
+      HTTPS_EXTERNAL_PORT: ${HTTPS_PORT:-443}
+      UPSTREAM_HOST_30: ${UPSTREAM_HOST_30:-10.10.2.30}
+      UPSTREAM_HOST_22: ${UPSTREAM_HOST_22:-10.10.2.22}
+      UPSTREAM_HOST_7: ${UPSTREAM_HOST_7:-10.10.2.7}
+      RIPABX_INTERNAL_HOST: ${RIPABX_INTERNAL_HOST:-ripabx.results.intranet}
+      RVPN_UPSTREAM_HOST: ${RVPN_UPSTREAM_HOST:-10.10.2.30}
+      RVPN_UPSTREAM_PORT: ${RVPN_UPSTREAM_PORT:-10443}
+    volumes:
+      - site-data:/usr/local/apache2/htdocs:ro
+      - md-data:/usr/local/apache2/md
+      - runtime-conf:/usr/local/apache2/conf/runtime
+      - reload-signal:/var/run/apache-runtime
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -S --spider http://127.0.0.1:8080/ 2>&1 | grep -q 'HTTP/1.1 301' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  joomla:
+    build:
+      context: ./joomla
+    container_name: results-joomla
+    restart: unless-stopped
+    depends_on:
+      joomla-lsyncd:
+        condition: service_started
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      JOOMLA_DB_HOST: ${JOOMLA_DB_HOST:-10.10.2.99}
+      JOOMLA_DB_NAME: ${JOOMLA_DB_NAME:-joomla}
+      JOOMLA_DB_USER: ${JOOMLA_DB_USER:-resultsdba}
+      JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-}
+    volumes:
+      - joomla-site-data:/var/www/html/results
+      - joomla-logs:/var/www/html/results/logs
+    tmpfs:
+      - /var/www/html/results/cache:size=${JOOMLA_CACHE_TMPFS_SIZE:-256m}
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  subdomain-sync:
+    build:
+      context: ./subdomain-sync
+    container_name: httpd-subdomain-sync
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-10.10.2.99}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-results}
+      MYSQL_USER: ${MYSQL_USER:-results}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      MYSQL_SSL: ${MYSQL_SSL:-preferred}
+      DYNAMIC_VHOSTS_TABLE: ${DYNAMIC_VHOSTS_TABLE:-apache_vhosts}
+      DYNAMIC_SYNC_INTERVAL: ${DYNAMIC_SYNC_INTERVAL:-15}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+    volumes:
+      - runtime-conf:/work/runtime
+      - reload-signal:/work/control
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /work/runtime/90-dynamic-generated.conf || test -f /work/runtime/.sync-ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  lsyncd:
+    build:
+      context: ./lsyncd
+    container_name: httpd-lsyncd
+    restart: unless-stopped
+    environment:
+      SOURCE_DIR: /source
+      DEST_DIR: /target
+      LSYNC_DELAY: ${LSYNC_DELAY:-5}
+      LSYNC_DELETE: ${LSYNC_DELETE:-true}
+    volumes:
+      - ${CONTENT_SOURCE_PATH:-./content}:/source:ro
+      - site-data:/target
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep lsyncd >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  joomla-lsyncd:
+    build:
+      context: ./lsyncd
+    container_name: joomla-lsyncd
+    restart: unless-stopped
+    environment:
+      SOURCE_DIR: /source
+      DEST_DIR: /target
+      LSYNC_DELAY: ${JOOMLA_LSYNC_DELAY:-5}
+      LSYNC_DELETE: ${JOOMLA_LSYNC_DELETE:-true}
+      LSYNC_EXCLUDES: ${JOOMLA_LSYNC_EXCLUDES:-configuration.php}
+    volumes:
+      - ${JOOMLA_SOURCE_PATH:-./joomla-site}:/source:ro
+      - joomla-site-data:/target
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep lsyncd >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  site-data:
+  md-data:
+  runtime-conf:
+  reload-signal:
+  joomla-site-data:
+  joomla-logs:

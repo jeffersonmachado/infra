@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<permissions>
+
+    <permission type="logged">
+        <view>blogedit</view>
+        <view>dashboard</view>
+        <view>integrations</view>
+        <view>managebookmarks</view>
+        <view>managesubscriptions</view>
+        <view>managecomment</view>
+        <view>managecomments</view>
+        <view>managefollowers</view>
+        <view>manageposts</view>
+        <view>media</view>
+        <view>postedit</view>
+        <view>profile</view>
+
+        <controller>blog</controller>
+        <controller>helper</controller>
+        <controller>managebookmark</controller>
+        <controller>managesubscription</controller>
+        <controller>managecomment</controller>
+        <controller>managecomments</controller>
+        <controller>manageposts</controller>
+        <controller>media</controller>
+        <controller>profile</controller>
+
+        <task>post.save</task>
+        <task>post.quickpost</task>
+        <task>post.publish</task>
+        <task>post.delete</task>
+        <task>post.autosave</task>
+    </permission>
+
+    <permission type="has_blog">
+        <view>dashboard</view>
+        <view>managecomments</view>
+        <view>managefollowers</view>
+        <view>manageposts</view>
+        <view>media</view>
+        <view>postedit</view>
+
+        <controller>managecomment</controller>
+        <controller>managecomments</controller>
+        <controller>manageposts</controller>
+    </permission>
+
+    <permission type="create_blog">
+        <view>blogedit</view>
+        <task>blog.save</task>
+        <task>blog.auto</task>
+    </permission>
+
+</permissions>

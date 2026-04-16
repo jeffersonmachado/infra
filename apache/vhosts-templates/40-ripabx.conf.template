@@ -1,0 +1,72 @@
+<VirtualHost *:8080>
+    ServerName ${RIPABX_SERVER_NAME}
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://${RIPABX_SERVER_NAME}${HTTPS_REDIRECT_SUFFIX}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+<VirtualHost *:8443>
+    ServerName ${RIPABX_SERVER_NAME}
+
+    SSLEngine on
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    SSLCipherSuite HIGH:!aNULL:!MD5:!3DES
+    SSLHonorCipherOrder Off
+    SSLCompression Off
+    SSLSessionTickets Off
+
+    ProxyPass        "/asr-ws"  "ws://${UPSTREAM_HOST_30}:5001"
+    ProxyPassReverse "/asr-ws"  "ws://${UPSTREAM_HOST_30}:5001"
+    ProxyPass        "/face"  "http://${UPSTREAM_HOST_30}:5002"
+    ProxyPassReverse "/face"  "http://${UPSTREAM_HOST_30}:5002"
+    ProxyPass        "/tts-ws"  "ws://${UPSTREAM_HOST_30}:5003"
+    ProxyPassReverse "/tts-ws"  "ws://${UPSTREAM_HOST_30}:5003"
+    ProxyPass        "/praia"  "http://${UPSTREAM_HOST_30}:5004/"
+    ProxyPassReverse "/praia"  "http://${UPSTREAM_HOST_30}:5004/"
+    ProxyPass        "/praia-ws"  "ws://${UPSTREAM_HOST_30}:5004/ws"
+    ProxyPassReverse "/praia-ws"  "ws://${UPSTREAM_HOST_30}:5004/ws"
+    ProxyPass        "/api"  "http://${UPSTREAM_HOST_22}/api"
+    ProxyPassReverse "/api"  "http://${UPSTREAM_HOST_22}/api"
+    ProxyPass        "/doc"  "http://${UPSTREAM_HOST_22}/doc"
+    ProxyPassReverse "/doc"  "http://${UPSTREAM_HOST_22}/doc"
+    ProxyPass        "/systemd/"  "http://${UPSTREAM_HOST_22}/systemd/"
+    ProxyPassReverse "/systemd/"  "http://${UPSTREAM_HOST_22}/systemd/"
+    ProxyPass        "/whatsapp/"  "http://${UPSTREAM_HOST_22}/whatsapp/"
+    ProxyPassReverse "/whatsapp/"  "http://${UPSTREAM_HOST_22}/whatsapp/"
+    ProxyPass        "/rchatbot-ws"  "ws://${UPSTREAM_HOST_22}:2029"
+    ProxyPassReverse "/rchatbot-ws"  "ws://${UPSTREAM_HOST_22}:2029"
+    ProxyPass        "/ria/rchatbot/treino"  "http://${UPSTREAM_HOST_22}"
+    ProxyPassReverse "/ria/rchatbot/treino"  "http://${UPSTREAM_HOST_22}"
+    ProxyPass        "/pentaho"  "http://${UPSTREAM_HOST_22}:8080/pentaho"
+    ProxyPassReverse "/pentaho"  "http://${UPSTREAM_HOST_22}:8080/pentaho"
+    ProxyPass        "/ia-ws"  "http://${RIPABX_INTERNAL_HOST}:16556"
+    ProxyPassReverse "/ia-ws"  "http://${RIPABX_INTERNAL_HOST}:16556"
+    ProxyPass        "/chat-ws"  "ws://${RIPABX_INTERNAL_HOST}:9090"
+    ProxyPassReverse "/chat-ws"  "ws://${RIPABX_INTERNAL_HOST}:9090"
+    ProxyPass        "/teste-ws"  "ws://${RIPABX_INTERNAL_HOST}:9091"
+    ProxyPassReverse "/teste-ws"  "ws://${RIPABX_INTERNAL_HOST}:9091"
+    ProxyPass        "/janus/"  "ws://${RIPABX_INTERNAL_HOST}:8188/janus/"
+    ProxyPassReverse "/janus/"  "ws://${RIPABX_INTERNAL_HOST}:8188/janus/"
+    ProxyPass        "/chat"  "http://${RIPABX_INTERNAL_HOST}/chat"
+    ProxyPassReverse "/chat"  "http://${RIPABX_INTERNAL_HOST}/chat"
+    ProxyPass        "/chatGPT"  "http://${RIPABX_INTERNAL_HOST}/chatGPT"
+    ProxyPassReverse "/chatGPT"  "http://${RIPABX_INTERNAL_HOST}/chatGPT"
+    ProxyPass        "/monitor/"  "http://${UPSTREAM_HOST_22}/monitor/"
+    ProxyPassReverse "/monitor/"  "http://${UPSTREAM_HOST_22}/monitor/"
+    ProxyPass        "/rchatbot"  "http://${RIPABX_INTERNAL_HOST}/rchatbot"
+    ProxyPassReverse "/rchatbot"  "http://${RIPABX_INTERNAL_HOST}/rchatbot"
+    ProxyPass        "/mapa"  "http://${UPSTREAM_HOST_22}/mapa"
+    ProxyPassReverse "/mapa"  "http://${UPSTREAM_HOST_22}/mapa"
+    ProxyPass        "/rconf-std"  "http://${UPSTREAM_HOST_22}/rconf-std/"
+    ProxyPassReverse "/rconf-std"  "http://${UPSTREAM_HOST_22}/rconf-std/"
+    ProxyPass        "/ripabx-ws"  "ws://${UPSTREAM_HOST_30}:8088/ws"
+    ProxyPassReverse "/ripabx-ws"  "ws://${UPSTREAM_HOST_30}:8088/ws"
+    ProxyPass        "/"  "http://${UPSTREAM_HOST_30}:8082/"
+    ProxyPassReverse "/"  "http://${UPSTREAM_HOST_30}:8082/"
+
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</VirtualHost>

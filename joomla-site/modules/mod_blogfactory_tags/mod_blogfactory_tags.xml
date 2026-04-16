@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="3.5" client="site" method="upgrade">
+  <name>mod_blogfactory_tags</name>
+  <description>Blog Factory Tags module for Blog Factory component from thePHPfactory.com</description>
+  <files>
+    <filename module="mod_blogfactory_tags">mod_blogfactory_tags.php</filename>
+    <folder>tmpl</folder>
+    <filename>helper.php</filename>
+    <filename>index.html</filename>
+    <filename>mod_blogfactory_tags.xml</filename>
+  </files>
+  <languages>
+    <language tag="en-GB">en-GB.mod_blogfactory_tags.ini</language>
+    <language tag="en-GB">en-GB.mod_blogfactory_tags.sys.ini</language>
+  </languages>
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="limit" type="text" filter="integer" default="5" label="MOD_BLOGFACTORY_TAGS_FIELD_LIMIT_LABEL" description="MOD_BLOGFACTORY_TAGS_FIELD_LIMIT_DESC"/>
+        <field name="min_count" type="text" filter="integer" default="0" label="MOD_BLOGFACTORY_TAGS_FIELD_MIN_COUNT_LABEL" description="MOD_BLOGFACTORY_TAGS_FIELD_MIN_COUNT_DESC"/>
+        <field name="min_size" type="text" filter="integer" default="10" label="MOD_BLOGFACTORY_TAGS_FIELD_MIN_SIZE_LABEL" description="MOD_BLOGFACTORY_TAGS_FIELD_MIN_SIZE_DESC"/>
+        <field name="max_size" type="text" filter="integer" default="20" label="MOD_BLOGFACTORY_TAGS_FIELD_MAX_SIZE_LABEL" description="MOD_BLOGFACTORY_TAGS_FIELD_MAX_SIZE_DESC"/>
+      </fieldset>
+      <fieldset name="advanced">
+        <field name="layout" type="modulelayout" label="JFIELD_ALT_LAYOUT_LABEL" description="JFIELD_ALT_MODULE_LAYOUT_DESC"/>
+        <field name="moduleclass_sfx" type="textarea" rows="3" label="COM_MODULES_FIELD_MODULECLASS_SFX_LABEL" description="COM_MODULES_FIELD_MODULECLASS_SFX_DESC"/>
+        <field name="cache" type="list" default="1" label="COM_MODULES_FIELD_CACHING_LABEL" description="COM_MODULES_FIELD_CACHING_DESC">
+          <option value="1">JGLOBAL_USE_GLOBAL</option>
+          <option value="0">COM_MODULES_FIELD_VALUE_NOCACHING</option>
+        </field>
+        <field name="cache_time" type="text" default="900" label="COM_MODULES_FIELD_CACHE_TIME_LABEL" description="COM_MODULES_FIELD_CACHE_TIME_DESC"/>
+        <field name="cachemode" type="hidden" default="static">
+          <option value="static"/>
+        </field>
+      </fieldset>
+    </fields>
+  </config>
+  <version>4.3.0</version>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

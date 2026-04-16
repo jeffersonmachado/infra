@@ -1,0 +1,47 @@
+#content .mce-btn button {
+    padding: 2px 9px;
+}
+
+#content .mce-btn {
+    border: 0;
+    background: none;
+    box-shadow: none;
+    margin-right: 1px;
+}
+
+#content .mce-btn:hover {
+    background-color: #cccccc;
+}
+
+#content .mce-panel {
+    background: #eeeeee;
+}
+
+#content .mce-tinymce {
+    border-radius: 5px;
+    border: 1px solid #cccccc;
+}
+
+#content .mce-container, #content .mce-container *, #content .mce-widget, #content .mce-widget * {
+    font-size: 12px;
+    border-radius: 5px;
+    /*border-color: #cccccc;*/
+}
+
+#content .mce-ico {
+    font-size: 14px;
+    width: 10px;
+}
+
+.mce-tooltip .mce-tooltip-inner {
+    box-shadow: none;
+}
+
+#content .mce-splitbtn .mce-open {
+    padding-left: 0;
+    padding-right: 4px;
+}
+
+.mce-btn-group .mce-btn.mce-active, .mce-btn-group .mce-btn.mce-active:hover, .mce-btn-group .mce-btn:active {
+    background-color: #cccccc !important;
+}

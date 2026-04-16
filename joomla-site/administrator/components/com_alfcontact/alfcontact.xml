@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" version="3.0.0" method="upgrade">
+ 
+        <name>COM_ALFCONTACT</name>
+        <!-- The following elements are optional and free of formatting constraints -->
+        <creationDate>October 2018</creationDate>
+        <author>Alfred Vink</author>
+        <authorEmail>alfred@alfsoft.com</authorEmail>
+        <authorUrl>https://www.alfsoft.com</authorUrl>
+        <copyright>Copyright © 2018 - All rights reserved.</copyright>
+        <license>GNU/GPL</license>
+        <!--  The version string is recorded in the components table -->
+        <version>3.4.1</version>
+        <!-- The description is optional and defaults to the name -->
+        <!-- <description>COM_ALFCONTACT_DESCRIPTION</description> -->
+ 
+		<scriptfile>script.php</scriptfile>
+ 
+		<install> <!-- Runs on install -->
+                <sql>
+                        <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+                </sql>
+        </install>
+        <uninstall> <!-- Runs on uninstall -->
+                <sql>
+                        <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+                </sql>
+        </uninstall>
+		<update> <!-- Runs on update -->
+                <schemas>
+                        <schemapath type="mysql">sql/updates/mysql</schemapath>
+                </schemas>
+        </update>
+ 
+        <!-- Site Main File Copy Section -->
+        <!-- Note the folder attribute: This attribute describes the folder
+                to copy FROM in the package to install therefore files copied
+                in this section are copied from /site/ in the package -->
+        <files folder="site">
+                <filename>index.html</filename>
+                <filename>alfcontact.php</filename>
+                <filename>controller.php</filename>
+	            <!-- <filename>router.php</filename> -->
+                <folder>views</folder>
+				<folder>models</folder>
+				<folder>language</folder>
+        </files>
+		
+		<media destination="com_alfcontact" folder="media">
+                <filename>index.html</filename>
+                <folder>images</folder>
+        </media>
+		 
+        <administration>
+                <menu img="../media/com_alfcontact/images/alfcontact-16.png">COM_ALFCONTACT_MENU</menu>
+                <!-- Administration Main File Copy Section -->
+                <!-- Note the folder attribute: This attribute describes the folder
+                        to copy FROM in the package to install therefore files copied
+                        in this section are copied from /admin/ in the package -->
+                <files folder="admin">
+                        <!-- Admin Main File Copy Section -->
+                        <filename>index.html</filename>
+                        <filename>alfcontact.php</filename>
+						<filename>controller.php</filename>
+						<filename>config.xml</filename>
+						<filename>access.xml</filename>
+                        <folder>sql</folder>
+						<folder>tables</folder>
+						<folder>models</folder>
+						<folder>views</folder>
+						<folder>controllers</folder>
+						<folder>help</folder>
+				</files>
+				<languages folder="admin">
+                        
+                        <language tag="en-GB">language/en-GB/en-GB.com_alfcontact.ini</language>
+                        <language tag="en-GB">language/en-GB/en-GB.com_alfcontact.sys.ini</language>
+						<language tag="nl-NL">language/nl-NL/nl-NL.com_alfcontact.ini</language>
+						<language tag="nl-NL">language/nl-NL/nl-NL.com_alfcontact.sys.ini</language>
+
+						<language tag="bg-BG">language/bg-BG/bg-BG.com_alfcontact.ini</language>
+                        <language tag="bg-BG">language/bg-BG/bg-BG.com_alfcontact.sys.ini</language>
+						<language tag="cs-CZ">language/cs-CZ/cs-CZ.com_alfcontact.ini</language>
+                        <language tag="cs-CZ">language/cs-CZ/cs-CZ.com_alfcontact.sys.ini</language>
+						<language tag="sk-SK">language/sk-SK/sk-SK.com_alfcontact.ini</language>
+						<language tag="sk-SK">language/sk-SK/sk-SK.com_alfcontact.sys.ini</language>
+                        <language tag="fi-FI">language/fi-FI/fi-FI.com_alfcontact.ini</language>
+                        <language tag="fi-FI">language/fi-FI/fi-FI.com_alfcontact.sys.ini</language>
+						<language tag="de-DE">language/de-DE/de-DE.com_alfcontact.ini</language>
+						<language tag="de-DE">language/de-DE/de-DE.com_alfcontact.sys.ini</language>
+						<language tag="lt-LT">language/lt-LT/lt-LT.com_alfcontact.ini</language>
+						<language tag="lt-LT">language/lt-LT/lt-LT.com_alfcontact.sys.ini</language>
+						<language tag="sl-SI">language/sl-SI/sl-SI.com_alfcontact.ini</language>
+						<language tag="sl-SI">language/sl-SI/sl-SI.com_alfcontact.sys.ini</language>
+						<language tag="ru-RU">language/ru-RU/ru-RU.com_alfcontact.ini</language>
+						<language tag="ru-RU">language/ru-RU/ru-RU.com_alfcontact.sys.ini</language>
+						<language tag="tr-TR">language/tr-TR/tr-TR.com_alfcontact.ini</language>
+						<language tag="tr-TR">language/tr-TR/tr-TR.com_alfcontact.sys.ini</language>
+						<language tag="fr-FR">language/fr-FR/fr-FR.com_alfcontact.ini</language>
+                        <language tag="fr-FR">language/fr-FR/fr-FR.com_alfcontact.sys.ini</language>
+						<language tag="ar-SA">language/ar-SA/ar-SA.com_alfcontact.ini</language>
+						<language tag="ar-SA">language/ar-SA/ar-SA.com_alfcontact.sys.ini</language>
+						<language tag="nb-NO">language/nb-NO/nb-NO.com_alfcontact.ini</language>
+						<language tag="nb-NO">language/nb-NO/nb-NO.com_alfcontact.sys.ini</language>
+						<language tag="pl-PL">language/pl-PL/pl-PL.com_alfcontact.ini</language>
+						<language tag="pl-PL">language/pl-PL/pl-PL.com_alfcontact.sys.ini</language>
+						<language tag="pt-PT">language/pt-PT/pt-PT.com_alfcontact.ini</language>
+						<language tag="pt-PT">language/pt-PT/pt-PT.com_alfcontact.sys.ini</language>
+						<language tag="pt-BR">language/pt-BR/pt-BR.com_alfcontact.ini</language>
+						<language tag="pt-BR">language/pt-BR/pt-BR.com_alfcontact.sys.ini</language>
+						<language tag="sr-RS">language/sr-RS/sr-RS.com_alfcontact.ini</language>
+						<language tag="sr-RS">language/sr-RS/sr-RS.com_alfcontact.sys.ini</language>
+						<language tag="sr-YU">language/sr-YU/sr-YU.com_alfcontact.ini</language>
+						<language tag="sr-YU">language/sr-YU/sr-YU.com_alfcontact.sys.ini</language>
+						<language tag="sv-SE">language/sv-SE/sv-SE.com_alfcontact.ini</language>
+						<language tag="sv-SE">language/sv-SE/sv-SE.com_alfcontact.sys.ini</language>
+						<language tag="el-GR">language/el-GR/el-GR.com_alfcontact.ini</language>
+                        <language tag="el-GR">language/el-GR/el-GR.com_alfcontact.sys.ini</language>
+						<language tag="es-ES">language/es-ES/es-ES.com_alfcontact.ini</language>
+						<language tag="es-ES">language/es-ES/es-ES.com_alfcontact.sys.ini</language>
+						<language tag="zh-CN">language/zh-CN/zh-CN.com_alfcontact.ini</language>
+						<language tag="zh-CN">language/zh-CN/zh-CN.com_alfcontact.sys.ini</language>
+						<language tag="da-DK">language/da-DK/da-DK.com_alfcontact.ini</language>
+						<language tag="da-DK">language/da-DK/da-DK.com_alfcontact.sys.ini</language>
+						<language tag="hu-HU">language/hu-HU/hu-HU.com_alfcontact.ini</language>
+						<language tag="hu-HU">language/hu-HU/hu-HU.com_alfcontact.sys.ini</language>
+
+                </languages>
+        </administration>
+		
+		<!-- UPDATESERVER DEFINITION -->
+        <updateservers>
+			<server type="extension" priority="1" name="ALFContact Updates">https://updates.alfsoft.com/alfcontact.xml</server>
+        </updateservers>
+</extension>

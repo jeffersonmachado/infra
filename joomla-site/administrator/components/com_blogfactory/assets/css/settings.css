@@ -1,0 +1,13 @@
+#permissions-sliders .tab-content {
+    padding-bottom: 50px;
+}
+
+#jform_comments_pingbacks_update_services_list,
+#jform_post_tags_whitelist,
+#jform_post_attrs_whitelist,
+#jform_banned_words_words {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    width: 100%;
+    min-height: 28px;
+}

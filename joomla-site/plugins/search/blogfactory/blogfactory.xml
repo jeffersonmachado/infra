@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension version="3.5" type="plugin" group="search" method="upgrade">
+  <name>plg_search_blogfactory</name>
+  <description>Blog Factory Search plugin for Blog Factory component from thePHPfactory.com</description>
+  <languages>
+    <language tag="en-GB">en-GB.plg_search_blogfactory.ini</language>
+    <language tag="en-GB">en-GB.plg_search_blogfactory.sys.ini</language>
+  </languages>
+  <files>
+    <filename plugin="blogfactory">blogfactory.php</filename>
+    <filename>index.html</filename>
+  </files>
+  <version>4.3.0</version>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

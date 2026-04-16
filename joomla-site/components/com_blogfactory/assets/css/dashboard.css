@@ -1,0 +1,247 @@
+.blogfactory-dashboard-column {
+    float: left;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    min-height: 25px;
+}
+
+.blogfactory-dashboard-column:empty {
+    background-color: red;
+}
+
+.sortable-placeholder,
+.blogfactory-portlet {
+    margin-bottom: 15px;
+}
+
+.blogfactory-portlet {
+    border: 1px solid #dddddd;
+    border-radius: 5px;
+}
+
+.blogfactory-portlet-header {
+    background-color: #eeeeee;
+    background: linear-gradient(to bottom, #eeeeee, #dddddd);
+    color: #000000;
+    font-weight: bold;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom: 1px solid #cccccc;
+    cursor: move;
+    text-shadow: 0 1px 0 #FFFFFF;
+}
+
+.blogfactory-portlet-header,
+.blogfactory-portlet-toggle-handle {
+    padding: 7px 15px;
+}
+
+.blogfactory-portlet-content {
+    padding: 15px;
+    background-color: #fafafa;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    color: #444444;
+}
+
+a [class^="factory-icon-"] {
+    margin-right: 5px;
+}
+
+.sortable-placeholder {
+    height: 50px;
+    background-color: #ffffdd;
+    border: 1px dashed #cccccc;
+    border-radius: 5px;
+}
+
+.blogfactory-portlet-toggle-handle {
+    float: right;
+    cursor: pointer;
+    display: none;
+}
+
+.blogfactory-portlet-toggle-handle i {
+    vertical-align: middle;
+}
+
+.blogfactory-portlet:hover .blogfactory-portlet-toggle-handle {
+    display: block;
+}
+
+.blogfactory-portlet.portlet-minimized .blogfactory-portlet-content {
+    display: none;
+}
+
+.blogfactory-portlet.portlet-minimized .blogfactory-portlet-header {
+    border-bottom: 0;
+    border-radius: 4px;
+}
+
+.blogfactory-portlet .blogfactory-portlet-toggle-handle .factory-icon-chevron-expand {
+    display: none;
+}
+
+.blogfactory-portlet .blogfactory-portlet-toggle-handle .factory-icon-chevron {
+    display: block;
+}
+
+.blogfactory-portlet.portlet-minimized .blogfactory-portlet-toggle-handle .factory-icon-chevron-expand {
+    display: block;
+}
+
+.blogfactory-portlet.portlet-minimized .blogfactory-portlet-toggle-handle .factory-icon-chevron {
+    display: none;
+}
+
+/* Portlets */
+.portlet-footer {
+    background-color: #eeeeee;
+    border-top: 1px solid #dddddd;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    padding: 7px 15px;
+}
+
+.portlet-no-results {
+    padding: 15px;
+}
+
+/* Portlet QuickPost */
+#portlet-quickpost form {
+    margin: 0;
+}
+
+#portlet-quickpost input[type="text"],
+#portlet-quickpost textarea {
+    width: 100%;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    min-height: 28px;
+    resize: vertical;
+    margin-bottom: 10px;
+}
+
+.quickpost-actions {
+    margin-top: 5px;
+}
+
+#portlet-quickpost .quickpost-save-result .alert {
+    margin-bottom: 10px;
+}
+
+/* Portlet Overview */
+.portlet-overview .portlet-footer {
+    margin: 15px -15px -15px -15px;
+}
+
+.portlet-overview-row {
+    overflow: hidden;
+}
+
+.portlet-overview-row + .portlet-overview-row {
+    margin-top: 15px;
+}
+
+.portlet-overview-column {
+    width: 50%;
+    float: left;
+}
+
+.portlet-overview-counter {
+    width: 30px;
+    text-align: right;
+    display: inline-block;
+    margin-right: 5px;
+    font-weight: bold;
+    font-size: large;
+    color: #000000;
+}
+
+.portlet-overview-column a {
+    color: #666666;
+}
+
+.portlet-overview-column a:hover {
+    text-decoration: none;
+    color: #000000;
+}
+
+/* Portlet Posts, Comments, Bookmarks, Followers */
+#portlet-posts .blogfactory-portlet-content,
+#portlet-bookmarks .blogfactory-portlet-content,
+#portlet-followers .blogfactory-portlet-content,
+#portlet-comments .blogfactory-portlet-content {
+    padding: 0;
+}
+
+.portlet-posts-post,
+.portlet-bookmarks-bookmark,
+.portlet-comments-comment {
+    padding: 20px;
+}
+
+.portlet-posts-post + .portlet-posts-post,
+.portlet-bookmarks-bookmark + .portlet-bookmarks-bookmark,
+    /*.portlet-followers-follower + .portlet-followers-follower,*/
+.portlet-comments-comment + .portlet-comments-comment {
+    border-top: 1px solid #eeeeee;
+}
+
+.portlet-posts-post.post-pending,
+.portlet-comments-comment.comment-pending {
+    background-color: #FCF8E3;
+}
+
+/* Portlet Followers */
+.portlet-followers-follower {
+    float: left;
+    padding: 0 0 20px 20px;
+    width: 80px;
+    text-align: center;
+    overflow: hidden;
+}
+
+.portlet-followers-follower .follower-username {
+    text-align: center;
+    line-height: 12px;
+    margin-top: 5px;
+}
+
+.portlet-followers-follower img {
+    background-color: #dddddd;
+    border-radius: 5px;
+}
+
+/* Portlet Posts */
+.portlet-posts-post a {
+    font-weight: bold;
+}
+
+/* Portlet Comments */
+.portlet-comments-comment:last-child {
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+.portlet-comments-comment a.post-title {
+    /*font-weight: bold;*/
+}
+
+.portlet-comments-comment .comment-photo {
+    float: left;
+}
+
+.portlet-comments-comment .comment-photo img {
+    background-color: #dddddd;
+    border-radius: 5px;
+}
+
+.portlet-comments-comment .comment-info {
+    margin-left: 64px;
+}
+
+.comment-approval-info {
+    font-style: italic;
+    margin-bottom: 5px;
+}

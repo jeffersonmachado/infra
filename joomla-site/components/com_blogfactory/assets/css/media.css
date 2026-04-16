@@ -1,0 +1,247 @@
+.blogfactory-media-manager-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background-color: #ffffff;
+    z-index: 9999;
+    opacity: .75;
+}
+
+#blogfactory-media-manager .blogfactory-media-manager-overlay {
+    position: fixed;
+    background-color: #000000;
+    opacity: .7;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+#blogfactory-media-manager .blogfactory-media-pane {
+    position: fixed;
+    background-color: #ffffff;
+    top: 10%;
+    bottom: 10%;
+    left: 10%;
+    right: 10%;
+    z-index: 1001;
+    border: 1px solid #000000;
+    overflow: hidden;
+    border-radius: 10px;
+}
+
+#blogfactory-media-manager .blogfactory-media-pane.loading {
+    background-image: url('../images/loader_large.gif');
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-folders,
+#blogfactory-media-manager .blogfactory-media-explorer .pane-files,
+#blogfactory-media-manager .blogfactory-media-explorer .pane-file-details,
+#blogfactory-media-manager .blogfactory-media-explorer .pane-upload {
+    position: absolute;
+    top: 40px;
+    overflow: auto;
+    bottom: 40px;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-folders {
+    border-right: 1px solid #aaaaaa;
+    background-color: #f6f6f6;
+    left: 0;
+    width: 20%;
+    padding: 10px;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-files {
+    right: 20%;
+    width: 60%;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-files.extended {
+    right: 0;
+    width: 80%;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-upload {
+    left: 0;
+    width: 100%;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-file-details {
+    right: 0;
+    width: 20%;
+    border-left: 1px solid #aaaaaa;
+    background-color: #f6f6f6;
+    padding: 10px;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-buttons,
+#blogfactory-media-manager .blogfactory-media-explorer .pane-title,
+#blogfactory-media-manager .blogfactory-media-explorer .pane-status {
+    background: #eeeeee linear-gradient(to bottom, #eeeeee, #cccccc);
+    color: #333333;
+    height: 40px;
+    width: 100%;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    padding: 10px;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-buttons {
+    border-bottom: 1px solid #aaaaaa;
+}
+
+#blogfactory-media-manager .blogfactory-media-explorer .pane-status {
+    border-top: 1px solid #aaaaaa;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+}
+
+.pane-folders ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+.pane-folders li > ul {
+    padding-left: 15px;
+}
+
+.pane-folders li a,
+.pane-folders li a:hover {
+    padding: 4px;
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 100px;
+}
+
+.blogfactory-media-explorer .active {
+    /*background: #666666 linear-gradient(#999999, #666666) repeat-x;*/
+    background: #666666 linear-gradient(#3875d7, #2a62bc) repeat-x;
+    color: white;
+    border-radius: 4px;
+}
+
+.blogfactory-media-explorer a.active,
+.blogfactory-media-explorer a.active:hover {
+    color: #ffffff;
+}
+
+.pane-status a,
+.pane-status a:hover {
+    color: inherit;
+}
+
+.pane-files {
+    padding: 0 20px 20px 0;
+}
+
+.pane-upload {
+    padding: 20px;
+}
+
+.pane-upload .upload-status {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    margin-top: 20px;
+}
+
+.pane-upload .upload-status li {
+    padding: 10px;
+    border-bottom: 1px solid #dddddd;
+}
+
+.pane-upload .upload-status li:nth-child(2n+1) {
+    background-color: #eeeeee;
+}
+
+.pane-upload .upload-status li a {
+    float: left;
+}
+
+.pane-upload .upload-status li .upload-file-status {
+    padding-left: 10px;
+}
+
+.pane-upload .upload-status li .info {
+    padding-left: 35px;
+}
+
+.pane-upload progress {
+    background: none repeat scroll 0 0 padding-box #FFFFFF;
+    border: 1px solid #AAAAAA;
+    border-radius: 3px 3px 3px 3px;
+    height: 8px;
+    width: 100%;
+}
+
+.pane-files .file {
+    float: left;
+    height: 105px;
+    width: 100px;
+    margin: 15px 0 0 15px;
+    padding: 5px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.pane-files .file .preview {
+    width: 100%;
+    height: 80px;
+    position: relative;
+}
+
+.pane-files .file .preview img {
+    max-width: 100%;
+    max-height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+}
+
+.pane-files .file .title {
+    padding-top: 5px;
+    height: 25px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.pane-new-folder {
+    position: absolute;
+    top: 40px;
+    width: 100%;
+    background: #eeeeee linear-gradient(to bottom, #eeeeee, #cccccc);
+    border-bottom: 1px solid #aaaaaa;
+    padding: 10px;
+}
+
+.pane-new-folder input[type="text"] {
+    margin: 0;
+}
+
+.pane-file-details input[type="text"],
+.pane-file-details select {
+    width: 100%;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    min-height: 28px;
+}

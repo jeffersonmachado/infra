@@ -1,0 +1,26 @@
+.blogfactory-calendar .text span {
+    font-weight: bold;
+}
+
+.blogfactory-calendar .edit {
+    margin-top: 10px;
+}
+
+.blogfactory-calendar .blogfactory-calendar-day,
+.blogfactory-calendar .blogfactory-calendar-hour,
+.blogfactory-calendar .blogfactory-calendar-minutes {
+    width: 16px;
+    margin: 0;
+    text-align: center;
+}
+
+.blogfactory-calendar .blogfactory-calendar-year {
+    width: 28px;
+    margin: 0;
+    text-align: center;
+}
+
+.blogfactory-calendar select {
+    width: 60px;
+    margin: 0;
+}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset name="details">
+        <field name="title" type="text" required="true"/>
+        <field name="description" type="textarea" rows="5" filter="safehtml"/>
+        <field name="photo" type="BlogFactoryBlogPhoto"/>
+
+        <field name="user_id" type="hidden" filter="integer"/>
+        <field name="id" type="hidden" filter="integer"/>
+    </fieldset>
+
+    <fieldset name="notifications">
+        <field name="notification_comment" type="list" default="1">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+
+        <field name="notification_report" type="list" default="1">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+
+    <fields name="params">
+        <fieldset name="thumbnails">
+            <field name="thumbnail_small_size" type="text" filter="intval" default="100"/>
+            <field name="thumbnail_medium_size" type="text" filter="intval" default="400"/>
+            <field name="thumbnail_large_size" type="text" filter="intval" default="800"/>
+        </fieldset>
+    </fields>
+</form>

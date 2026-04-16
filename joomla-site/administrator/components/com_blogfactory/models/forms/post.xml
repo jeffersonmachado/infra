@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<form>
+    <fieldset name="details">
+        <field name="blog_id" type="BlogFactoryBlog">
+            <option value=""></option>
+        </field>
+
+        <field name="visibility" type="list" default="1">
+            <option value="1">COM_BLOGFACTORY_POST_FORM_FIELD_VISIBILITY_OPTION_EVERYONE</option>
+            <option value="2">COM_BLOGFACTORY_POST_FORM_FIELD_VISIBILITY_OPTION_REGISTERED_USERS</option>
+        </field>
+
+        <field name="category_id" type="category" extension="com_blogfactory"/>
+
+        <field name="id" type="text" class="readonly" readonly="true"
+               label="JGLOBAL_FIELD_ID_LABEL" description="JGLOBAL_FIELD_ID_DESC" size="10" default="0"/>
+    </fieldset>
+
+    <fieldset name="publishing">
+        <field name="published" type="list" default="1">
+            <option value="0">JUNPUBLISHED</option>
+            <option value="1">JPUBLISHED</option>
+        </field>
+
+        <field name="publish_up" type="calendar" filter="user_utc"/>
+        <field name="publish_down" type="calendar" filter="user_utc"/>
+    </fieldset>
+
+    <fieldset name="discussion">
+        <field type="FactoryBoolean" name="comments" default="1"/>
+        <field type="FactoryBoolean" name="pingbacks" default="1"/>
+    </fieldset>
+
+    <fieldset name="content">
+        <field name="title" type="text"/>
+        <field name="content" type="BlogFactoryPostEditor" filter="BlogFactoryHelper::filterPostContent"/>
+    </fieldset>
+
+    <fields name="metadata">
+        <fieldset name="metadata">
+            <field name="description" type="textarea" rows="5"/>
+            <field name="keywords" type="textarea" rows="5"/>
+        </fieldset>
+    </fields>
+
+    <fieldset name="tags">
+        <field name="tags" type="BlogFactoryPostTags"/>
+    </fieldset>
+</form>

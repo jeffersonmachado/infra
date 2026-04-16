@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset name="details">
+        <field name="name" type="text" required="true"/>
+        <field name="url" type="text" filter="url" validate="url"/>
+        <field name="email" type="text" filter="email" validate="email" required="true"/>
+        <field name="text" type="textarea" rows="5" required="true"/>
+        <field name="post_id" type="hidden" filter="integer"/>
+
+        <field name="captcha" type="captcha" validate="blogfactorycaptcha"/>
+    </fieldset>
+</form>

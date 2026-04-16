@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<form>
+
+    <fields name="general">
+        <fields name="enable">
+            <fieldset name="general" tab="general" side="left">
+                <field name="router_plugin" type="FactoryBoolean" default="1"/>
+                <field name="categories" type="FactoryBoolean" default="1"/>
+            </fieldset>
+        </fields>
+
+        <fieldset name="general">
+            <field name="blog_creation" type="radio" class="btn-group btn-group-yesno" default="manual">
+                <option value="manual">Manual</option>
+                <option value="automatic">Automatic</option>
+            </field>
+        </fieldset>
+    </fields>
+
+
+    <fields name="post">
+        <fields name="enable">
+            <fieldset name="posts" tab="posts" side="left">
+                <field name="votes" type="FactoryBoolean" default="1"/>
+                <field name="guest_view" type="FactoryBoolean" default="1"/>
+                <field name="bookmarks" type="FactoryBoolean" default="1"/>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="post">
+        <fields name="tags">
+            <fieldset name="post_writing" tab="posts" side="left">
+                <field name="whitelist" type="textarea"
+                       default="ol,li,span,em,strong,ul,blockquote,p,a,h1,h2,h3,h4,h5,h6,hr,img,sup,sub,code"/>
+            </fieldset>
+        </fields>
+
+        <fields name="attrs">
+            <fieldset name="post_writing" tab="posts" side="left">
+                <field name="whitelist" type="textarea" default="src,style,href,height,width,target,class,alt"/>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="comments">
+        <fieldset name="comments" tab="comments" side="left">
+            <field name="approval" type="list" default="0">
+                <option value="0">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_COMMENTS_APPROVAL_OPTION_NONE</option>
+                <option value="1">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_COMMENTS_APPROVAL_OPTION_BLOGGER</option>
+                <option value="2">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_COMMENTS_APPROVAL_OPTION_ADMIN</option>
+            </field>
+        </fieldset>
+
+        <fields name="enable">
+            <fieldset name="comments" tab="comments" side="left">
+                <!--<field name="guest_comments" type="FactoryBoolean" default="1" />-->
+                <field name="captcha" type="plugins" folder="captcha" default="0" filter="cmd">
+                    <option value="0">JOPTION_DO_NOT_USE</option>
+                </field>
+                <field name="votes" type="FactoryBoolean" default="1"/>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="comments">
+        <fields name="pagination">
+            <fieldset name="pagination" tab="comments" side="right">
+                <field name="limit" type="text" default="20"/>
+                <field name="order" type="list" default="1">
+                    <option value="1">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_COMMENTS_PAGINATION_ORDER_FIRST_NEWEST
+                    </option>
+                    <option value="2">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_COMMENTS_PAGINATION_ORDER_FIRST_OLDEST
+                    </option>
+                </field>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="comments">
+        <fields name="pingbacks">
+            <fieldset name="pingbacks" tab="comments" side="right">
+                <field name="enabled" type="FactoryBoolean" default="1"/>
+
+                <fields name="update_services">
+                    <field name="enabled" type="FactoryBoolean" default="1"/>
+                    <field name="list" type="textarea" rows="5" default="http://rpc.pingomatic.com"/>
+                </fields>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="user_folder">
+        <fields name="general">
+            <fieldset name="user_folder" tab="user_folder" side="left">
+                <field name="enabled" type="FactoryBoolean" default="1"/>
+                <field name="limit" type="list" default="0">
+                    <option value="0">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_USER_FOLDER_GENERAL_LIMIT_OPTION_UNLIMITED
+                    </option>
+                    <option value="1">COM_BLOGFACTORY_SETTINGS_FORM_FIELD_USER_FOLDER_GENERAL_LIMIT_OPTION_GROUP
+                    </option>
+                </field>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="user_folder">
+        <fieldset name="user_folder_limit" tab="user_folder" side="right">
+            <field name="quota" type="BlogFactoryUserFolderLimit"/>
+        </fieldset>
+    </fields>
+
+
+    <fields name="export">
+        <fieldset name="export" tab="export" side="left">
+            <field name="enable" type="FactoryBoolean" default="0"/>
+            <field name="category" type="category" extension="com_content"/>
+            <field name="status" type="list" filter="intval" size="1" default="1">
+                <option value="1">JPUBLISHED</option>
+                <option value="0">JUNPUBLISHED</option>
+                <option value="2">JARCHIVED</option>
+                <option value="-2">JTRASHED</option>
+            </field>
+            <field name="access" type="accesslevel"/>
+            <field name="language" type="contentlanguage">
+                <option value="*">JALL</option>
+            </field>
+            <field name="featured" type="list" default="0">
+                <option value="1">JYES</option>
+                <option value="0">JNO</option>
+            </field>
+        </fieldset>
+    </fields>
+
+
+    <fields name="avatars">
+        <fields name="enable">
+            <fieldset name="avatars" tab="avatars" side="left">
+                <field name="avatars" type="FactoryBoolean" default="1"/>
+                <field name="gravatars" type="FactoryBoolean" default="1"/>
+                <field name="cb" type="FactoryBoolean" default="0"/>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="avatars">
+        <fields name="size">
+            <fieldset name="avatars_size" tab="avatars" side="right">
+                <field name="height" type="text" filter="int" default="100"/>
+                <field name="width" type="text" filter="int" default="100"/>
+            </fieldset>
+        </fields>
+    </fields>
+
+
+    <fields name="banned_words">
+        <fieldset name="banned_words" tab="banned_words" side="left">
+            <field name="words" type="textarea" rows="10"/>
+        </fieldset>
+    </fields>
+
+
+    <fields name="integrations">
+        <fieldset name="integrations" tab="posts" side="right">
+            <field name="extensions" type="BlogFactoryDataProviders" multiple="true"/>
+        </fieldset>
+    </fields>
+
+
+    <fieldset name="permissions" tab="permissions" side="full">
+        <field name="rules" type="BlogFactoryRules" filter="rules" validate="rules" component="com_blogfactory"
+               section="component">
+            <action name="frontend.blog.create"/>
+            <action name="frontend.comment.create"/>
+            <action name="frontend.post.vote"/>
+        </field>
+    </fieldset>
+
+    <fieldset name="backup" tab="backup" side="left">
+        <field type="BlogFactoryBackup" name="backup"/>
+    </fieldset>
+
+    <fieldset name="restore" tab="backup" side="right">
+        <field type="BlogFactoryRestore" name="restore"/>
+    </fieldset>
+</form>

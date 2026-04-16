@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" client="site" version="3.1" method="upgrade">
+        <name>jDownloads Rated</name>
+        <author>Arno Betz</author>
+        <creationDate>2016-04-03</creationDate>
+        <copyright>(C) 2007-2016 Arno Betz. All rights reserved.</copyright>
+        <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
+        <authorEmail>info@jdownloads.com</authorEmail>
+        <authorUrl>www.jDownloads.com</authorUrl>
+        <version>3.2.42</version>
+        <description>MOD_JDOWNLOADS_RATED_XML_DESCRIPTION</description>
+        <files>
+                <filename module="mod_jdownloads_rated">mod_jdownloads_rated.php</filename>
+                <filename>index.html</filename>
+                <filename>helper.php</filename>
+                <filename>mod_jdownloads_rated.xml</filename>        
+                <folder>tmpl</folder>
+                <folder>language</folder>
+                <folder>fields</folder>                              
+        </files>
+        <config>
+		    <fields name="params" addfieldpath="/modules/mod_jdownloads_rated/fields">
+			    <fieldset name="basic">
+		            <field name="top_view" type="list" default="1" label="MOD_JDOWNLOADS_RATED_VIEW_TYPE" description="MOD_JDOWNLOADS_RATED_VIEW_TYPE_DESC">
+					    <option value="1">MOD_JDOWNLOADS_RATED_TOP_VIEW</option>
+					    <option value="0">MOD_JDOWNLOADS_RATED_VIEW</option>
+				    </field>
+                    <field name="text_before" type="textarea" cols="30" rows="2" default="" label="MOD_JDOWNLOADS_RATED_TEXT_BEFORE_TITLE" description="MOD_JDOWNLOADS_RATED_TEXT_BEFORE_DESC"/>
+                    <field name="text_after" type="textarea" cols="30" rows="2" default="" label="MOD_JDOWNLOADS_RATED_TEXT_AFTER_TITLE" description="MOD_JDOWNLOADS_RATED_TEXT_AFTER_DESC"/>
+                    <field name="cat_id" type="jdCategorySelectPure" multiple="true" size="10" default="" label="MOD_JDOWNLOADS_RATED_CAT_ID_TITLE" description="MOD_JDOWNLOADS_RATED_CAT_ID_DESC"/>
+                    <field name="sum_view" type="text" default="5" label="MOD_JDOWNLOADS_RATED_NO_FILES_TITLE" description="MOD_JDOWNLOADS_RATED_NO_FILES_DESC"/>
+                    <field name="sum_char" type="text" default="" label="MOD_JDOWNLOADS_RATED_TITLE_CHAR_LENGTH_TITLE" description="MOD_JDOWNLOADS_RATED_TITLE_CHAR_LENGTH_DESC"/>
+                    <field name="short_char" type="text" default="" label="MOD_JDOWNLOADS_RATED_TITLE_REPLACE_CHAR_TITLE" description="MOD_JDOWNLOADS_RATED_TITLE_REPLACE_CHAR_DESC"/>
+                    <field name="short_version" type="text" default="" label="MOD_JDOWNLOADS_RATED_CHAR_BEFORE_RELEASE_TITLE" description="MOD_JDOWNLOADS_RATED_CHAR_BEFORE_RELEASE_DESC"/>
+                    <field name="detail_view" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_LINK_TO_DETAIL_TITLE" default="1" description="MOD_JDOWNLOADS_RATED_LINK_TO_DETAIL_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="view_pics" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_VIEW_MIME_PIC" default="1" description="MOD_JDOWNLOADS_RATED_VIEW_MIME_PIC_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="view_pics_size" type="text" default="18" label="MOD_JDOWNLOADS_RATED_SET_SIZE_FROM_MIME_PICS" description="MOD_JDOWNLOADS_RATED_SET_SIZE_FROM_MIME_PICS_DESC"/>
+                    <field name="view_numerical_list" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_VIEW_NUMERICAL_LIST" default="0" description="MOD_JDOWNLOADS_RATED_VIEW_NUMERICAL_LIST_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="view_stars" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_VIEW_STARS_TITLE" default="1" description="MOD_JDOWNLOADS_RATED_VIEW_STARS_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="view_stars_new_line" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_VIEW_STARS_NEW_LINE_TITLE" default="1" description="MOD_JDOWNLOADS_RATED_VIEW_STARS_NEW_LINE_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="view_stars_rating_count" type="radio" class="btn-group" label="MOD_JDOWNLOADS_RATED_VIEW_STARS_RATING_COUNT_TITLE" default="1" description="MOD_JDOWNLOADS_RATED_VIEW_STARS_RATING_COUNT_DESC">
+                            <option value="1">JYES</option>
+                            <option value="0">JNO</option>
+                    </field>
+                    <field name="alignment" type="list" label="MOD_JDOWNLOADS_RATED_ALIGN_TITLE" default="left" description="MOD_JDOWNLOADS_RATED_ALIGN_DESC">
+                            <option value="left">MOD_JDOWNLOADS_RATED_LEFT</option>
+                            <option value="right">MOD_JDOWNLOADS_RATED_RIGHT</option>
+                            <option value="center">MOD_JDOWNLOADS_RATED_CENTER</option>
+                    </field> 
+                    <field name="moduleclass_sfx" type="text" default="" label="MOD_JDOWNLOADS_RATED_CLASS_SUFFIX_TITLE" description="MOD_JDOWNLOADS_RATED_CLASS_SUFFIX_DESC"/>
+                </fieldset>
+		        <fieldset name="advanced">
+                    <field name="cache" type="list" default="1" label="MOD_JDOWNLOADS_RATED_CACHE_LABEL" description="MOD_JDOWNLOADS_RATED_CACHE_DESCRIPTION">
+                        <option value="1">MOD_JDOWNLOADS_RATED_CACHE_USE_GLOBAL</option>
+                        <option value="0">MOD_JDOWNLOADS_RATED_CACHE_NO_CACHING</option>
+                    </field>
+                    <field name="cache_time" type="text" default="900" label="MOD_JDOWNLOADS_RATED_CACHE_TIME_LABEL" description="MOD_JDOWNLOADS_RATED_CACHE_TIME_DESCRIPTION" />
+		        </fieldset>
+		    </fields>
+        </config>
+</extension>

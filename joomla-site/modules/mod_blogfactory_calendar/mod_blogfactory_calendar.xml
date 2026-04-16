@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="3.5" client="site" method="upgrade">
+  <name>mod_blogfactory_calendar</name>
+  <version>4.3.0</version>
+  <description>Blog Factory Calendar module for Blog Factory component from thePHPfactory.com</description>
+  <files>
+    <filename module="mod_blogfactory_calendar">mod_blogfactory_calendar.php</filename>
+    <folder>assets</folder>
+    <folder>tmpl</folder>
+    <filename>helper.php</filename>
+    <filename>index.html</filename>
+    <filename>mod_blogfactory_calendar.xml</filename>
+  </files>
+  <languages>
+    <language tag="en-GB">en-GB.mod_blogfactory_calendar.ini</language>
+    <language tag="en-GB">en-GB.mod_blogfactory_calendar.sys.ini</language>
+  </languages>
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="nav_buttons_format" type="list" default="M Y" label="MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_LABEL" description="MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_DESC">
+          <option value="M Y">MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_OPTION_MY</option>
+          <option value="F Y">MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_OPTION_FY</option>
+          <option value="M">MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_OPTION_M</option>
+          <option value="F">MOD_BLOGFACTORY_CALENDAR_FIELD_NAV_BUTTONS_FORMAT_OPTION_F</option>
+        </field>
+        <field name="week_start" type="list" default="0" filter="integer" label="MOD_BLOGFACTORY_CALENDAR_FIELD_WEEK_START_LABEL" description="MOD_BLOGFACTORY_CALENDAR_FIELD_WEEK_START_DESC">
+          <option value="0">MOD_BLOGFACTORY_CALENDAR_FIELD_WEEK_START_OPTION_SUNDAY</option>
+          <option value="1">MOD_BLOGFACTORY_CALENDAR_FIELD_WEEK_START_OPTION_MONDAY</option>
+        </field>
+      </fieldset>
+      <fieldset name="advanced">
+        <field name="layout" type="modulelayout" label="JFIELD_ALT_LAYOUT_LABEL" description="JFIELD_ALT_MODULE_LAYOUT_DESC"/>
+        <field name="moduleclass_sfx" type="textarea" rows="3" label="COM_MODULES_FIELD_MODULECLASS_SFX_LABEL" description="COM_MODULES_FIELD_MODULECLASS_SFX_DESC"/>
+        <field name="cache" type="list" default="1" label="COM_MODULES_FIELD_CACHING_LABEL" description="COM_MODULES_FIELD_CACHING_DESC">
+          <option value="1">JGLOBAL_USE_GLOBAL</option>
+          <option value="0">COM_MODULES_FIELD_VALUE_NOCACHING</option>
+        </field>
+        <field name="cache_time" type="text" default="900" label="COM_MODULES_FIELD_CACHE_TIME_LABEL" description="COM_MODULES_FIELD_CACHE_TIME_DESC"/>
+        <field name="cachemode" type="hidden" default="static">
+          <option value="static"/>
+        </field>
+      </fieldset>
+    </fields>
+  </config>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

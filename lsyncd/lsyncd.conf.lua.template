@@ -1,0 +1,27 @@
+settings {
+    nodaemon = true,
+    logfile = "/dev/stdout",
+    statusFile = "/tmp/lsyncd.status",
+    statusInterval = 10,
+    insist = true
+}
+
+sync {
+    default.rsync,
+    source = "${SOURCE_DIR}",
+    target = "${DEST_DIR}",
+    delay = ${LSYNC_DELAY},
+    delete = ${LSYNC_DELETE},
+    rsync = {
+        archive = true,
+        compress = false,
+        verbose = true,
+        whole_file = false,
+        _extra = {
+            "--omit-dir-times",
+            "--no-perms",
+            "--no-owner",
+            "--no-group",${LSYNC_EXCLUDE_ARGS}
+        }
+    }
+}

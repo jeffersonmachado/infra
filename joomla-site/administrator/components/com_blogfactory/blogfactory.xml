@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" version="3.5" method="upgrade">
+  <name>com_blogfactory</name>
+  <description>Blog Factory component from thePHPfactory.com</description>
+  <scriptfile>script.php</scriptfile>
+  <install>
+    <sql>
+      <file charset="utf8" driver="mysql">sqls/install.mysql.sql</file>
+    </sql>
+  </install>
+  <uninstall>
+    <sql>
+      <file charset="utf8" driver="mysql">sqls/uninstall.mysql.sql</file>
+    </sql>
+  </uninstall>
+  <update>
+    <schemas>
+      <schemapath type="mysql">sqls/updates/mysql</schemapath>
+    </schemas>
+  </update>
+  <media destination="com_blogfactory" folder="media">
+    <folder>avatars</folder>
+    <folder>blogs</folder>
+    <folder>default</folder>
+    <folder>share</folder>
+    <folder>temp</folder>
+    <folder>users</folder>
+    <filename>index.html</filename>
+  </media>
+  <files folder="frontend">
+    <folder>assets</folder>
+    <folder>controllers</folder>
+    <folder>framework</folder>
+    <folder>helpers</folder>
+    <folder>libraries</folder>
+    <folder>models</folder>
+    <folder>vendor</folder>
+    <folder>views</folder>
+    <filename>blogfactory.php</filename>
+    <filename>controller.php</filename>
+    <filename>index.html</filename>
+    <filename>permissions.xml</filename>
+    <filename>router.php</filename>
+  </files>
+  <languages folder="languages">
+    <language tag="en-GB">frontend/en-GB.com_blogfactory.ini</language>
+  </languages>
+  <administration>
+    <menu>com_blogfactory</menu>
+    <submenu>
+      <menu view="comments">com_blogfactory_submenu_comments</menu>
+      <menu view="posts">com_blogfactory_submenu_posts</menu>
+      <menu view="reports">com_blogfactory_submenu_reports</menu>
+      <menu view="blogs">com_blogfactory_submenu_blogs</menu>
+      <menu view="users">com_blogfactory_submenu_users</menu>
+      <menu link="option=com_categories&amp;extension=com_blogfactory" view="categories">
+                com_blogfactory_submenu_categories
+            </menu>
+      <menu view="bookmarks">com_blogfactory_submenu_bookmarks</menu>
+      <menu view="notifications">com_blogfactory_submenu_notifications</menu>
+      <menu view="settings">com_blogfactory_submenu_settings</menu>
+      <menu view="about">com_blogfactory_submenu_about</menu>
+    </submenu>
+    <files folder="backend">
+      <folder>assets</folder>
+      <folder>controllers</folder>
+      <folder>helpers</folder>
+      <folder>models</folder>
+      <folder>sqls</folder>
+      <folder>tables</folder>
+      <folder>views</folder>
+      <filename>access.xml</filename>
+      <filename>blogfactory.php</filename>
+      <filename>controller.php</filename>
+      <filename>index.html</filename>
+    </files>
+    <languages folder="languages">
+      <language tag="en-GB">backend/en-GB.com_blogfactory.ini</language>
+      <language tag="en-GB">backend/en-GB.com_blogfactory.sys.ini</language>
+    </languages>
+  </administration>
+  <parameters>
+    <notifications>
+      <notification type="report.add.owner">
+        <token>receiver_username</token>
+        <token>report_type</token>
+        <token>report_text</token>
+        <token>report_date</token>
+      </notification>
+      <notification type="report.add.admins" hasGroups="true">
+        <token>receiver_username</token>
+        <token>report_type</token>
+        <token>report_text</token>
+        <token>report_date</token>
+      </notification>
+      <notification type="post.add.admins" hasGroups="true">
+        <token>receiver_username</token>
+        <token>post_link</token>
+        <token>post_title</token>
+        <token>post_date</token>
+        <token>blog_title</token>
+        <token>blog_link</token>
+      </notification>
+      <notification type="post.add.followers">
+        <token>receiver_username</token>
+        <token>post_link</token>
+        <token>post_title</token>
+        <token>post_date</token>
+        <token>blog_title</token>
+        <token>blog_link</token>
+      </notification>
+      <notification type="comment.add.owner">
+        <token>receiver_username</token>
+        <token>post_link</token>
+        <token>post_title</token>
+        <token>comment_date</token>
+        <token>comment_text</token>
+      </notification>
+      <notification type="comment.add.admins" hasGroups="true">
+        <token>receiver_username</token>
+        <token>post_link</token>
+        <token>post_title</token>
+        <token>comment_date</token>
+        <token>comment_text</token>
+      </notification>
+    </notifications>
+  </parameters>
+  <version>4.3.0</version>
+  <author>thePHPfactory</author>
+  <copyright>SKEPSIS Consult SRL</copyright>
+  <license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
+  <authorEmail>contact@thephpfactory.com</authorEmail>
+  <authorUrl>http://www.thephpfactory.com</authorUrl>
+  <url>http://www.thephpfactory.com</url>
+  <creationDate>October 2009</creationDate>
+</extension>

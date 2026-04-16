@@ -1,0 +1,32 @@
+//
+// Layouts
+// --------------------------------------------------
+
+
+// Container (centered, fixed-width layouts)
+.container {
+  .container-fixed();
+}
+
+// Fluid layouts (left aligned, with sidebar, min- & max-width content)
+.container-fluid {
+  padding-right: @JMfluidGridGutterWidth / 2;
+  padding-left: @JMfluidGridGutterWidth / 2;
+  .clearfix();
+  margin-left: auto;
+  margin-right: auto;
+  //.box-sizing(border-box);
+  // @media (min-width: 768px) {
+    // width: @JMfluidGridContainerSm;
+  // }
+  // @media (min-width: 980px) {
+    // width: @JMfluidGridContainerMd;
+  // }
+  max-width: @JMfluidGridContainerLg;
+}
+
+// Full window width section
+.full-width > .container-fluid {
+	max-width: 100%;
+	width: auto;
+}

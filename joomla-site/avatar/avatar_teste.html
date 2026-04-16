@@ -1,0 +1,49 @@
+<html>
+<head>
+</head>
+<body>
+<!--
+<script type="text/javascript" src="//vhss-d.oddcast.com/vhost_embed_functions_v2.php?acc=7253965&js=1"></script><script type="text/javascript">AC_VHost_Embed(7253965,300,400,'',1,0, 2668354, 0,1,0,'276a1f37db8f14d02b0432517f8cd27c',0);</script>
+-->
+
+   <div>
+	<FORM NAME="myForm" class="form">
+		<label for="voz">Voz</label>
+		<select name="voz">
+  	 	 <option value="1">1</option> 
+  	 	 <option selected value="2">2</option>
+  	 	 <option value="3">3</option>
+		</select>
+		<label for="engine">Engine</label>
+		<select name="engine">
+  	 	 <option value="1">1</option> 
+  	 	 <option value="2">2</option>
+  	 	 <option value="3">3</option>
+  	 	 <option selected value="4">4</option>
+		</select>
+		<input type="text" name="textToSay" size="20" class="form" value="Olá, tudo bem, como você vai?">
+		<INPUT TYPE="button" VALUE="Falar!" NAME="SayButton" onClick="javascript:sayIt()" class="form">
+	</form>
+	<p id="timeDisplay"></p>
+   </div>
+<script type="text/javascript" src="//vhss-d.oddcast.com/vhost_embed_functions_v2.php?acc=7253965&js=1"></script><script type="text/javascript">AC_VHost_Embed(7253965,300,400,'',1,1, 2668321, 0,1,0,'b53d8540cb9fb0fec822a4f15c522d52',0);</script>
+<!--
+<script language="JavaScript" type="text/javascript" src="js/avatar_teste.js">
+-->
+<script language="JavaScript" type="text/javascript" >
+var global_startTime = 0;
+
+function sayIt(){
+	window.global_startTime = performance.now();
+	sayText(myForm.textToSay.value,myForm.voz.value,6,myForm.engine.value);
+	console.log(myForm.textToSay.value,myForm.voz.value,6,myForm.engine.value);
+}
+
+function vh_audioStarted(){
+	if (window.global_startTime === 0) return;
+	var milliseconds = performance.now() - window.global_startTime;
+	document.getElementById("timeDisplay").innerHTML = Math.floor(milliseconds) + "ms";
+}
+</script>
+</body>
+</html>

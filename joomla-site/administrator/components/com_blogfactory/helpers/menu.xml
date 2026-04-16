@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menus>
+    <menu title="Blog Factory Menu" type="blogfactory" description="Blog Factory Menu" position="position-7">
+        <item view="posts" title="Posts"/>
+        <item view="blogs" title="Blogs"/>
+        <item view="dashboard" title="Dashboard"/>
+        <item view="managebookmarks" title="Manage Bookmarks"/>
+        <item view="managesubscriptions" title="Manage Subscriptions"/>
+        <item view="managecomments" title="Manage Comments"/>
+        <item view="managefollowers" title="Manage Followers"/>
+        <item view="manageposts" title="Manage Posts"/>
+        <item view="profile" title="Profile"/>
+    </menu>
+</menus>

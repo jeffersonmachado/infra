@@ -1,0 +1,43 @@
+<?php
+ defined( '_JEXEC' ) or die( 'Acesso restrito' );
+ ini_set('display_errors',0);
+
+ $modURL         = JURI::base().'modules/mod_e_mail_results';
+ $doc = JFactory::getDocument();
+
+ //JHtml::_('jquery.framework');
+ //JHtml::_('jquery.ui');
+//JHtml::_('jquery.ui',  array('core', 'widget'), true);
+//JHtml::_('script',$modURL . '/js/jquery.ui.button.js', false, true, false, false);
+
+
+?>
+<style type="text/css">
+ div.e_mail_results {
+        display: none;
+}
+</style>
+<div class="e_mail_results">
+ <div id="e_mail_results" title="Email">
+<fieldset>
+  <form id="e_mail_form" method="post" name="wb" action="http://www.results.com.br/webmail/index.php" target="_blank">
+<input type="hidden" name="_token" value="3d6a4f06fc18f5741db1cfb8b364d6cf">
+<input type="hidden" name="_task" value="login">
+<input type="hidden" name="_action" value="login">
+<input type="hidden" name="_timezone" id="rcmlogintz" value="_default_">
+<input type="hidden" name="_dstactive" id="rcmlogindst" value="_default_">
+<input type="hidden" name="_url" id="rcmloginurl" value="">
+   <label>Email</label>
+   <input type="text" name="_user" id="rcmloginuser"><br>
+   <label>Senha</label>
+   <input type="password" name="_pass" id="rcmloginpwd">
+</fieldset>
+  </form>
+ </div>
+
+ <button id="bt_e_mail_results"> <img src="<?php echo $modURL; ?>/images/Home_Results_70.png"/>E-mail</button>
+</div><!-- End demo -->
+<?php
+$url = $modURL . "/js/mod_e_mail_results.js";
+$doc->addScript($url, $type="text/javascript");
+?>

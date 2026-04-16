@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" version="1.6.0" method="upgrade">
+	<name>ActiveHelper_LiveHelp</name>
+	<author>ActiveHelper Inc</author>
+	<creationDate>October 2017</creationDate>
+	<copyright>Copyright 2010 - 2017 by ActiveHelper Inc. All rights reserved</copyright>
+	<license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
+	<authorEmail>support@activehelper.com</authorEmail>
+	<authorUrl>www.activehelper.com</authorUrl>
+	<version>5.0.0</version>
+	<description>A component for LiveHelp Live Chat Support.</description>
+	<!-- Runs on install/uninstall/update; New in 1.6 -->      
+     <install>
+    <sql>
+      <file charset="utf8" driver="mysql">install.mysql.sql</file>
+    </sql>
+  </install>
+  <uninstall>
+    <sql>
+      <file charset="utf8" driver="mysql">uninstall.mysql.sql</file>
+    </sql>
+  </uninstall> 
+   <!-- user part -->
+	<files folder="site">
+    </files>
+
+	<administration>
+		<!-- Administration Menu Section -->
+         <menu link="option=com_activehelper_livehelp&amp;view=reports">COM_ACTIVEHELPER_LIVEHELP</menu>      
+         <submenu>      
+          <menu link="option=com_activehelper_livehelp&amp;view=domains">COM_ACTIVEHELPER_LIVEHELP_MANAGE_DOMAIN</menu>
+          <menu link="option=com_activehelper_livehelp&amp;view=agents">COM_ACTIVEHELPER_LIVEHELP_MANAGE_AGENT</menu>
+         </submenu>  
+		<files folder="admin">
+		    <!-- Site Main File Copy Section -->            
+			<!-- controllers files section -->
+			<folder>controllers</folder>
+            <!-- models files section -->
+			<folder>models</folder>
+            <!-- views files section -->
+			<folder>views</folder>
+            <!-- tables files section -->
+			<folder>tables</folder>
+			<folder>language</folder>
+            <folder>images</folder>
+            <folder>lib</folder>   			
+            <!-- SQL files section -->			
+            <filename>activehelper_livehelp.php</filename>
+            <filename>install.mysql.sql</filename>
+            <filename>uninstall.mysql.sql</filename>      
+            <filename>controller.php</filename>       
+            <filename>license.txt</filename>                       
+		</files>
+		
+		<languages folder="languages/admin">
+             <language tag="en-GB">en-GB.com_activehelper_livehelp.ini</language>
+			 <language tag="en-GB">en-GB.com_activehelper_livehelp.sys.ini</language>
+             <language tag="es-ES">es-ES.com_activehelper_livehelp.ini</language>
+			 <language tag="es-ES">es-ES.com_activehelper_livehelp.sys.ini</language>
+             <language tag="pt-BR">pt-BR.com_activehelper_livehelp.ini</language>
+			 <language tag="pt-BR">pt-BR.com_activehelper_livehelp.sys.ini</language>
+			 <language tag="fr-FR">fr-FR.com_activehelper_livehelp.ini</language>
+			 <language tag="fr-FR">fr-FR.com_activehelper_livehelp.sys.ini</language>
+			 <language tag="ja-JP">ja-JP.com_activehelper_livehelp.ini</language>
+			 <language tag="ja-JP">ja-JP.com_activehelper_livehelp.sys.ini</language>
+		</languages>		
+	</administration>
+
+	 <updateservers>
+        <server type="extension" priority="1" name="ActiveHelper_LiveHelp"><![CDATA[http://www.activehelper.com/downloads/update/stable/joomla_com_activehelper_livehelp.xml]]></server>
+    </updateservers>
+
+	
+    <scriptfile>script.php</scriptfile>
+   
+</extension>

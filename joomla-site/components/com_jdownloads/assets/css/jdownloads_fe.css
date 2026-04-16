@@ -1,0 +1,1564 @@
+/**
+* @version 3.2 
+* @package jDownloads
+* @copyright (C) 2008 / 2016 www.jdownloads.com 
+* @license http://www.gnu.org/copyleft/gpl.html GNU/GPL
+* jdownloads-fe jD32 2016-08-31 
+* updated 04 Oct 2016 V46-12 - re-added older items
+*/
+
+.jd-item-page tr,
+.jd-item-page td {
+ border: 0px !important;
+}
+.jd-item-page table {
+ border-collapse: separate !important;
+}
+
+.jd_div {
+ margin:0;
+}
+
+.jdtable {
+ margin: 10px 0px;
+}
+.jd_body {
+ font-family:Arial, Helvetica, sans-serif;
+ color:#333333;
+ line-height:130%;
+ text-align: justify;
+ height:130%;
+ padding-left: 8px;
+ padding-right: 8px;
+}
+.jd_cat_title {
+ text-align: left;
+ font-weight: bolder;
+ border: 1px double #cccccc;
+ width: auto;
+ background: url(../../assets/images/button_bg.png) repeat-x;
+ padding: 5px 10px 5px 5px;
+ line-height: 20px;
+ margin: 10px;
+ font-size: 14px;
+}
+/* for layout header section*/
+.jd_top_navi select {
+ width: 100%;
+}
+.jd_top_navi form
+{
+ margin: 0px;
+}
+.jd_top_navi_item,
+.jd_top_navi_catbox {
+ padding:5px;
+ display:inline-block;
+ font-size: 13px;
+ min-width: 4em;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ float: left;
+}
+.jd_top_navi_catbox {
+ float: right;
+}
+.jd_top_navi {
+ display:inline-block;
+ padding: 10px 0px 0px 0px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ text-align: center;
+ font-size: 13px;
+ font-weight: normal;
+ width: 100%;
+ line-height: 13px;
+ margin: 0px;
+ vertical-align: bottom;
+ border-bottom: 1px solid #BBBBBB;
+}
+/* files subheader */
+.jd_files_subheader_title,
+.jd_cat_subheader_title {
+ float: left;
+ font-weight:bold;
+}
+.jd_files_subheader,
+.jd_cat_subheader,
+.jd_cats_subheader {
+ text-align: left; 
+ font-size: 12px;
+ font-style: normal;
+ width: 100%;
+ line-height: 20px;
+ vertical-align: middle;
+ background-color: #F5F5F5;
+ letter-spacing: 0px;
+ border-bottom: 1px solid #BBBBBB;
+ padding: 5px;
+ box-sizing: border-box;
+ margin: 0px;
+ display: inline-block;
+}
+.jd_cats_subheader {
+ border:none;
+ padding-bottom: 5px;
+}
+/* for layout footer */
+.jd_footer {
+ text-align: center;
+ padding: 3px 3px;
+ font: 12px;
+ font-weight: normal;
+ clear: both;
+ /* background-color: #FFFFFF; */
+}
+.jd_div_content {
+ padding-left:10px;
+ padding-right:10px;
+ padding-top: 2px;
+ vertical-align: top;
+}
+.jd_td_cat_files {
+ text-align: right;
+ padding-left:10px;
+ padding-right:5px;
+ padding-top: 0px;
+ vertical-align: middle;
+}
+/* search form used to give horizontal display */
+.jd_search_form_wrapper .checkbox,
+.jd_search_form_wrapper .radio {
+ padding:0px 20px;
+ display:inline-block;
+}
+.jd_search_form_wrapper label,
+.jd_search_form_wrapper .ordering {
+ display:inline-block;
+ margin-top:5px;
+ font-weight: bold;
+}
+.jd_search_form_wrapper .inputbox {
+ margin-top: 8px;
+ width:auto;
+}
+.jd_search_form_wrapper #search-searchword {
+ width:200px;
+}
+.jd_search_form_wrapper legend {
+ margin-bottom:0px;
+}
+/* search form common part */
+.jd_search_form {
+ text-align: left; 
+ font-size: 12px;
+ font-weight: normal;
+ width: 100%;
+ padding: 8px 8px 8px 8px;
+ line-height: 20px;
+ margin: 3px;
+ vertical-align: middle;
+ background-color: transparent; 
+ letter-spacing: 0px;
+}
+.jd_search_result_title{
+ text-align: center;
+ font-weight: normal;
+ padding: 5px 10px 5px 5px;
+ line-height: 20px;
+ margin: 100px;
+ width: 100%;
+ background: none;
+}
+.jd_search_results{
+ text-align: left;
+ font-weight: normal;
+ border: 1px double #cccccc;
+ background: url(../../assets/images/button_bg.png) repeat-x;
+ padding: 0px 10px 5px 5px;
+ line-height: 20px;
+ margin: 10px;
+ width: 100%;
+}
+
+jd_ul {
+ /* list-style:url(../../images/pfeil_liste.gif); */
+ margin:0;
+ padding:0;
+ margin-left:15px;
+}
+
+jd_ul jd_li {
+ font-weight:bold;
+}
+
+jd_h3 {
+ margin-bottom:10px;
+ color: #990000;
+}
+.jd_small {
+ color:#666666;
+}
+.jd_date {
+ color:#999999;
+}
+.jd_inputbox {
+ background-color:#FFFFFF;
+ border:1px solid #CCCCCC;
+ padding:2px;
+ color:#333333;
+}
+.jd_readon {
+ padding-left:5px;
+}
+.jd_img {
+ border:none;
+}
+.jd_button {
+ color: #333333;
+ font-family: Arial, Helvetica, sans-serif;
+ text-align: center;
+ font-size: 11px;
+ font-weight: bold;
+ border: 1px solid #cccccc;
+ width: auto;
+ background: url(../../assets/images/button_bg.png) repeat-x;
+ padding: 3px 5px 2px 5px;
+ line-height: 18px !important;
+ line-height: 16px;
+ height: 25px !important;
+ height: 24px;
+ margin: 1px;
+}
+.jd_back_button {
+ color: #333333;
+ font-family: Arial, Helvetica, sans-serif;
+ text-align: center;
+ font-size: 11px;
+ font-weight: bold;
+ border: 1px solid #cccccc;
+ border-radius: 8px;
+ width: 55px;
+ background: url(../../assets/images/button_bg.png) repeat-x;
+ padding: 0px 5px;
+ line-height: 18px !important;
+ line-height: 16px;
+ height: 19px !important;
+ margin: 1px;
+ float: left;
+ margin-top: 12px;
+}
+/* sort out calendar icon in upload form */
+.formelm .icon-calendar:before {
+ content: "" !important;
+}
+.formelm .btn {
+ width: 32px;
+ height: auto;
+ background-image: url(../../assets/images/calendar.png);
+ padding-top: 8px;
+}
+.formelm .btn:focus,
+.formelm .btn:active,
+.formelm .btn:hover {
+ background-position: 0px 0px;
+ background-color: #0000ff;
+ background-image: url(../../assets/images/calendar2.png);
+}
+/* ------------------------------------------------------- */
+.jd_pagenavbar {
+ margin-left: 10px;
+ float: left;
+}
+.jd_page_nav {
+ text-align:right;
+ float:right;
+}
+.jd_page_nav ul li {
+ display: inline-block !important;
+ list-style-type: none !important;
+ margin:0 !important;
+}
+.pagenav{
+ display: inline !important;
+ padding: 2px;
+}
+.pagenav ul li {
+ list-style-type: none !important;
+ display: block !important; 
+ overflow: hidden;
+ padding: 0;
+}
+.pagination-start{
+ display: inline; /* Shows each item side-by-side */
+ list-style-type: none; /* Gets rid of the bullet points */
+}
+.pagination-prev{
+ display: inline; /* Shows each item side-by-side */
+ list-style-type: none; /* Gets rid of the bullet points */
+}
+.pagination-next{
+ display: inline; /* Shows each item side-by-side */
+ list-style-type: none; /* Gets rid of the bullet points */
+}
+.pagination-end{
+ display: inline; /* Shows each item side-by-side */
+ list-style-type: none; /* Gets rid of the bullet points */
+}
+/* ------------------------------------------------------- */
+/* used in edit/create download page */
+#displayimages li {
+ float: left;
+ padding: 0;
+ margin: 0;
+ width: 107px;
+ position: relative;
+ overflow: hidden;
+ height: 127px;
+}
+#jd_license_text {
+ background:none repeat scroll 0 0 #FFFFEE;
+ border:1px solid #EEE;
+ margin-bottom:15px;
+ margin-top:15px;
+ margin-right:10px;
+ margin-left:10px;
+ height:200px;
+ overflow:auto;
+}
+.jd_fieldset_inner1 {
+ border:2px dotted #ddd !important;
+}
+.jd_fieldset_outer {
+ /* border: 2px solid #ddd !important; */
+ padding-bottom: 0px;
+ margin: 0px;
+ padding-top: 0px;
+}
+/* ------------------------------------------------------- */
+/* BEGIN Subcategories pagination */
+.pg-normal {
+ /*color: #303030;*/
+ font-weight: normal;
+ text-decoration: none;
+ cursor: pointer;
+}
+.pg-selected {
+ /*color:#303030;*/
+ font-weight: bold;
+ text-decoration: none;
+}
+.pageNavPosition {
+ text-align: right;
+ padding-bottom: 0px;
+}
+.jd_pagination_list li {
+ display: inline;
+ list-style-type: none;
+ padding-left: 5px;
+}
+/* END Subcategories pagination */
+/* ------------------------------------------------------- */
+/* BEGIN layout with pane-sliders */
+.pane-sliders .title {
+ margin: 0;
+ padding: 2px;
+ color: #666;
+ font-size: 12px;
+ cursor: pointer;
+}
+.pane-sliders .panel { border: 1px solid #ccc; margin-bottom: 3px;}
+.pane-sliders .panel { background: #f6f6f6; color: #666}
+.pane-sliders .content { background: #f6f6f6; }
+.pane-sliders .adminlist { border: 0 none; }
+.pane-sliders .adminlist td { border: 0 none; }
+.jpane-toggler span { background: transparent url(../../assets/images/jd_slider_arrow_green.png) 5px 50% no-repeat; padding-left: 20px;}
+.jpane-toggler-down span { background: transparent url(../../assets/images/jd_slider_arrow_down_green.png) 5px 50% no-repeat; padding-left: 20px;}
+.jpane-toggler-down { border-bottom: 1px solid #ccc; }
+/* END layout with pane-sliders */
+/* BEGIN layout with tabs */
+dl.tabs {
+ float: left;
+ margin: 10px 0 -1px 0 !important;
+ z-index: 50;
+}
+dl.tabs dt {
+ float: left;
+ padding: 4px 10px;
+ border-left: 1px solid #ccc;
+ border-right: 1px solid #ccc;
+ border-top: 1px solid #ccc;
+ margin-left: 3px;
+ background: #f0f0f0;
+ color: #666;
+}
+dl.tabs dt.open {
+ background: #F9F9F9;
+ border-bottom: 1px solid #F9F9F9;
+ z-index: 100;
+ color: #000;
+}
+div.current {
+ clear: both;
+ border: 1px solid #ccc;
+ padding: 10px 10px;
+}
+div.current dd {
+ padding: 0;
+ margin: 0;
+}
+/* END Layout with tabs
+/* ------------------------------------------------------- */
+ul.jdpiclist {
+ list-style-type: none !important;
+}
+/* ensure <li img items confined to jDownloads div */
+jd-item-page li img {
+ float: left;
+ margin: 10px;
+ border: 1px solid #fff;
+ -webkit-transition: box-shadow 0.5s ease;
+ -moz-transition: box-shadow 0.5s ease;
+ -o-transition: box-shadow 0.5s ease;
+ -ms-transition: box-shadow 0.5s ease;
+ transition: box-shadow 0.5s ease;
+}
+jd-item-page li img:hover {
+ -webkit-box-shadow: 0px 0px 7px rgba(255,255,255,0.9);
+ box-shadow: 0px 0px 7px rgba(255,255,255,0.9);
+}
+/* ------------------------------------------------------- */
+/* BEGIN styles for thumb list in downloads data */
+#thumbs {
+ padding: 0em 0;
+ margin: 0 auto;
+ font: small Verdana, sans-serif;
+}
+#thumbs h3 {
+ margin: 0;
+ border-bottom: 1px solid #666;
+}
+#thumbs #jdmain {
+ width: 100%;
+ margin: 0;
+ padding: 1em 0;
+ list-style: none;
+}
+#thumbs #jdmain li p {
+ margin: 0;
+}
+/* Positioning and initial formatting */
+#thumbs #jdmain {
+ padding-left: 0px;
+}
+#thumbs #jdmain li {
+ float: left;
+ width: auto; /* 'auto' or alternate the needed size in px */
+ margin: 0 12px 0 0;
+}
+#thumbs #jdmain li img {
+ display: block;
+ width: 100%;
+}
+/* END (styles for thumb list in downloads data) */
+/* for reCaptcha */
+.jd_recaptcha {
+ width: 300px;
+ margin-left: auto;
+ margin-right: auto;
+ text-align: center;
+ padding: 15px 0 0 0;
+ max-width:100vw; /* set max width as 100% of view port for small devices */
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing:border-box;
+}
+/* for password */
+.jd_password {
+ width: 210px;
+ margin-left: auto;
+ margin-right: auto;
+ text-align: center;
+ padding: 15px 20px 5px 20px;
+ background: #f5f5f5;
+ max-width: 95%;
+}
+.jd_password input[type=text]{
+ width:95%;
+}
+.jd_password p {
+ font-weight:bold;
+} 
+/* BEGIN Standard Files Layout */
+#jd .items {
+ margin: 0 0 20px;
+ overflow: hidden;
+ border-width: 1px;
+ border-bottom-style: solid;
+ border-color: #dddddd; 
+}
+#jd .items div.row { 
+ background: url(../../assets/images/item_light_bg.png) repeat-x scroll 0 0 rgba(0, 0, 0, 0);
+ padding: 15px 5px;
+}
+#jd .items div.teaser-item {
+ overflow: hidden;
+ padding: 0 10px;
+}
+#jd .items div.media-left {
+ float: left;
+ margin-right: 10px;
+}
+#jd .items div.media-right {
+ float: right;
+ margin-right: 0px;
+}
+#jd .items div.image-right {
+ float: left;
+ margin: 5px;
+ padding: 5px;
+ overflow: hidden;
+}
+#jd .items ul.pos-specification {
+ display: table;
+ width: 100%;
+ list-style: none outside none;
+ margin: 5px 0 0;
+ padding: 0;
+}
+#jd .items li.element {
+ display: table-cell;
+ table-layout: fixed;
+ width: 25%;
+ border-spacing: 5px;
+}
+#jd .items li.element-text p {
+ text-align: justify;
+ line-height: 1.4em;
+ padding: 0;
+}
+#jd .items li.element-text {
+ text-align: justify;
+ line-height: 1.4em;
+ padding: 0;
+}
+#jd .items div.pos-button {
+ margin: 3px 0 0;
+ overflow: hidden;
+}
+#jd .items li img {
+ float: none;
+ margin: 0px;
+}
+#jd .items img.list-img {
+ float: right;
+ margin-left: 10px;
+ margin-top: 5px;
+ margin-bottom: 4px;
+ vertical-align: top;
+ text-align: right;
+ border-width: 1px;
+ border-bottom-style: solid;
+ border-color: #dddddd; 
+ border-spacing: 3px; 
+}
+#jd .items h2.pos-title a {
+ text-decoration: none;
+}
+/* END Standard Files Layout */
+input.button_rename {
+ background-image: url(../../assets/images/rename.png) !important; 
+ background-color: transparent; 
+ background-repeat: no-repeat; 
+ background-position: 0px 0px; 
+ border: none; 
+ cursor: pointer; 
+ height: 18px;
+ width: 18px !important; 
+ /*padding-left: 18px; /* make text start to the right of the image */
+ vertical-align: middle; 
+}
+/* for correct jcomments integration */
+#jc {
+ display: table;
+ width:100%;
+ }
+/* fix if template uses position:relative; in its containing div */
+.jd-item-page {
+ position: relative;
+ z-index: 1;
+}
+.item-page {
+ position: relative;
+ z-index: 1;
+}
+/* ++++++++++++++ .tooltip-inner for v3.x series ++++++++++++++ */
+/* ++++++++++++++ .tip for v2.5 series ++++++++++++++ */
+.tooltip-inner, .tip{
+ /* optional styling omit for tempate defaults*/
+ border: solid 1px #ccc !important;
+ background: #ededed !important;
+ color:#000333 !important;
+ -webkit-border-radius: 10px !important;
+ -moz-border-radius: 10px !important;
+ border-radius: 10px !important;
+ /* +++ items below are essential */
+ /*width: auto; */
+ min-width: 100%;
+ /*position: absolute;*/
+ top: 3em;
+ z-index: 1040;
+}
+.tooltip.in, .tip-wrap{
+ /* required to overcome opacity with tempate defaults*/
+ opacity: 1 !important;
+ filter: alpha(opacity=100) !important;
+}
+.tip-title {
+ /* turn off arrow in 2-5 series as it is misleading on right hand side tooltips*/
+background-image:url('') !important;
+}
+/* create downloads input with formelm and formelm-area */
+.jd_fieldset_outer legend {
+ margin-bottom: 4px;
+ line-height: 22px;
+ font-size: 16px;
+ font-style: italic;
+ font-weight: bold;
+ color: #696969;
+ }
+.jd_fieldset_inner1 legend {
+ font-size: 12px;
+ font-style: normal;
+ text-decoration: underline;
+ }
+.jd-item-page .current {
+ padding: 0px;
+ }
+/* Upload form stuff */
+.formelm60 {
+ width: auto;
+ float:left;
+ }
+.formelm60 label,
+.formelm_tags label,
+.formelm label {
+ width: 11em;
+ float: left;
+ display: block !important;
+ }
+.formelm40 {
+ margin-left: 5px;
+ float:left;
+ }
+.formelm_tags,
+.formelm {
+ clear: both;
+ }
+.formelm60 select {
+ width: 180px;
+ }
+.formelm-area label {
+ width: 9em;
+ float: left;
+ }
+.formelm input, .formelm-area input {
+ clear: both;
+}
+.formelm select, .formelm-area select {
+ width: auto;
+}
+/* extra tooltip css for create/edit form */
+#jform_description-lbl,
+#jform_description_long-lbl,
+#jform_changelog-lbl {
+    display: inline-block;
+    margin-bottom: 5px;
+}
+#jform_preview_file_upload-lbl,
+#jform_file_upload-lbl {
+ display: inline-block;
+ width: 11em;
+ float: left;
+}
+.formelm30 small {
+ margin-left: 14em;
+}
+/* width overrides in tags field in upload form */
+.formelm_tags #jform_tags_chzn ul, 
+.formelm_tags #jform_tags_chzn input[style],
+.formelm_tags div[style] {
+ width: 219px !important;
+}
+.formelm_tags {
+ padding-bottom: 9px;
+} 
+/* required to fix the search form in beez */
+fieldset.only label:before {
+ background: none !important;
+ border: 0px !important;
+ box-shadow: none !important;
+}
+fieldset.only input[type="radio"],
+fieldset.only input[type="checkbox"] {
+ margin-right: 2px !important;
+}
+.phrases-box label:before {
+ background: none !important;
+ border: 0px !important;
+}
+/* for compacted download details layout */
+.jdtable td {
+ margin: 10px 0px;
+ padding: 0px !important;
+}
+/* Video stuff */
+/* for native HTML5 videos */
+.jd_video_container {
+ position: relative;
+ padding-bottom: 56.25%;
+ padding-top: 10px;
+ height: 0;
+ overflow: hidden;
+ float: left;
+}
+/* External videos such as YouTube and Vimeo also need */
+.jd_video_container iframe, 
+.jd_video_container object, 
+.jd_video_container embed {
+ position: absolute;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+}
+/* set minimum width */
+.jd_video_wrapper {
+ min-width: 155px;
+}
+/* END Video stuff */
+/*-- START of html5 Audio responsive styling -- */
+/*-- for audio mp3-id3-tag -- */
+.jd_mp3_id3tag_wrapper {
+ background-color: #FFD;
+ width: 100%;
+ clear: both;
+ float: left;
+ box-sizing: border-box;
+ padding-left: 2px;
+}
+.jd_mp3_id3tag_name,
+.jd_mp3_id3tag_value{
+ float: left;
+ min-height: 1.2em;
+ padding-bottom: 3px;
+ word-wrap: break-word; 
+}
+.jd_mp3_id3tag_name {
+ clear: both; 
+ width: 25%; 
+}
+.jd_mp3_id3tag_value {
+ width: 75%;
+ padding-left: 2px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+/*-- for native HTML5 audio -- */
+.jd_audio_container {
+ position: relative;
+ padding-top: 8px;
+ overflow: hidden;
+}
+.jd_audio_wrapper {
+ display: inline-block;
+ clear: both;
+ float: left;
+ min-width: 150px;
+ width: 100% !important;
+ padding: 5px;
+ min-height: 50px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+/*-- override any browser presetting of <audio -- */
+audio{
+ display: inline-block;
+ width: 100% !important;
+} 
+/*-- END of Audio styling -- */
+/* preview video or audio */
+.jd_preview {
+ font-size: 0.8em;
+ font-style: italic;
+ font-weight: bold;
+ padding-right: 0.6em;
+ clear:both;
+}
+/*  section for having scrolling as well as page navigation  */
+.jd_subcategories_scrolling_wrapper,
+.jd_subcats_scrolling_wrapper,
+.jd_categories_scrolling_wrapper,
+.jd_category_scrolling_wrapper,
+.jd_files_scrolling_wrapper {
+   overflow: auto;
+}
+.jd_subcategories_scrolling_wrapper,
+.jd_subcats_scrolling_wrapper {
+   max-height: 250px;
+}
+.jd_categories_scrolling_wrapper {
+   max-height: 150px;
+}
+.jd_category_scrolling_wrapper {
+   max-height: 250px;
+}
+.jd_files_scrolling_wrapper {
+   max-height: 400px;
+}
+/* clears */
+.jd_clear {
+ clear: both;
+}
+.jd_clear_left {
+ clear: left;
+}
+.jd_clear_right {
+ clear: right;
+}
+/* for layout subheader navigation */
+.jd_cat_subheader ul {
+ float: right;
+}
+/* layout sub header Categories */
+.jd_cat_end {
+ border-top: 3px solid #B5B5B5;
+ margin:0px;
+ position: relative;
+ top: -2px; 
+}
+/* line up stars and votes */
+.jd_rating .jwajaxvote-box {
+ padding:0px !important;
+ float: none;
+ font-size: small;
+ margin: 2px;
+}
+/* ensure lightbox pics stay in page */
+#lightbox {
+ max-width:95vw; /* set max width as 95% of view port */
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing:border-box; /* include padding etc inside the width */
+}
+.jd_tags {
+ float:left;
+}
+/* jd_words just used in Alternate files layout */
+.jd_words_wrapper {
+ width:100%;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+.jd_words_right,
+.jd_words_left {
+ vertical-align: top;
+ min-width: 12%;
+ display:inline-block;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+.jd_words_left {
+ float: left;
+ text-align: left;
+ margin-right: 2%;
+ padding-left: 5px;
+}
+.jd_words_right {
+ float: right;
+ text-align: right;
+ margin-right: 0px;
+}
+/* category description */
+.jd_cat_desc {
+ width:100%;
+ padding:5px;
+ float:left;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ display: inline-block;
+}
+.jd_inline{
+ display: inline-block;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+/* categories as in Categories Layout v3.2 */
+.jd_cats_title_text {
+ background-color: #F5F5F5;
+ padding: 6px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ border-bottom: 1px solid #b5b5b5;
+}
+.jd_categories_title_v46 ,
+.jd_categories_title {
+ padding:5px;
+ font-weight: bold;
+ float: left;
+ vertical-align: top;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+.jd_categories_title_v46 {
+ width: 100%;
+ float: none;
+}
+.jd_categories_inner_wrapper {
+ float: right;
+ padding-top: 10px;
+ font-weight: normal;
+}
+.jd_cats_sum_subcats,
+.jd_cats_sum_files {
+ float: right;
+ display:inline-block;
+ padding: 0px 5px;
+ box-sizing: border-box;
+ clear: right;
+}
+/*  sub categories paginated */
+.jd_subcats_title_text {
+ background-color: #F5F5F5;
+ padding: 6px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ border-bottom: 1px solid #b5b5b5;
+}
+/*  Following are deprecated */
+.jd_pagcats_sum_subcats,
+.jd_pagcats_sum_files {
+/* float: right;
+ text-align:right;
+ padding: 0px 5px;
+ box-sizing: border-box; */
+ position: absolute;
+ top: 50%;
+ right: 10px;
+ transform: translateY(-50%);
+}
+/* vertical align paginated */
+.jd_subcat_pagination_level3 {
+  height: 50px;
+  position: relative;
+}
+.jd_subcat_pagination_level4 {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  right: 10px;
+  transform: translateY(-50%);
+}
+/*  end of deprecated CSS */
+/* category items as in Category Layout v3.2 */
+.jd_cat_wrapper {
+ width:100%;
+ border-bottom: 1px solid #cccccc;
+ background-color: #F5F5F5;
+ display: inline-block;
+}
+/* jd_sum_files_cat and jd_sum_subcats as used in older 3.2 versions */
+.jd_sum_files_cat,
+.jd_sum_subcats {
+ float: right;
+ text-align:right;
+ padding: 0px 5px;
+ display: inline-block;
+ box-sizing: border-box;
+ /*position: absolute;
+ top: 50%;
+ right: 10px;
+ transform: translateY(-50%); */
+}
+
+.jd_cat_title2 {
+ font-weight: bold;
+ float: left;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+.jd_cat_description {
+ padding: 5px;
+ box-sizing: border-box;
+ display: inline-block;
+}
+/* vertical align category */
+.jd_cat_title_outer {
+  height: 60px;
+  position: relative;
+}
+.jd_cat_title_inner {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  right: 10px;
+  transform: translateY(-50%);
+}
+.jd_sum_files_cat_scrolling {
+    float: right;
+    text-align: right;
+    padding: 0px 5px;
+    box-sizing: border-box;
+    right: 10px;
+}
+/* ordering -sort  */
+.jd_sort_order {
+ text-align: right; 
+ float: right;
+}
+.jd_sort_order form {
+ margin:0px;
+}
+/* required for ordering for some new style templates css3 html5*/
+.jd-list-ordering a.hasTooltip,
+.jd-list-title a.hasTooltip,
+.jd-list-author a.hasTooltip,
+.jd-list-date a.hasTooltip,
+.jd-list-featured a.hasTooltip,
+.jd-list-hits a.hasTooltip {
+	display: inline-block !important;
+}
+/*  end ordering -sort */
+.jd_subcat_count {
+ text-align: left;
+ float: left;
+}
+/* layout sub header Categories */
+.jd_cat_main {
+ border-bottom: 1px solid #f5f5f5;
+ display: block;
+}
+/* 4 column categories use 4 times 25% so "box-sizing: border-box;" added to include padding and any border within the width*/
+.jd_cats_4col {
+ float: left;
+ width: 25%;
+ text-align:center;
+ word-wrap:break-word;
+ padding-right:3px;
+ -webkit-box-sizing:border-box;
+ -moz-box-sizing:border-box;
+ box-sizing:border-box;
+}
+.jd_2col_inner_wrapper_right,
+.jd_2col_inner_wrapper {
+ vertical-align: top;
+ border: 0px none;
+ overflow: hidden;
+ width:50%;
+ display: inline-block;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ padding-left:5px;
+ clear: both;
+}
+.jd_2col_inner_wrapper_right {
+ float:right;
+}
+.jd_cats_2col {
+ text-align:left;
+ word-wrap: break-word;
+ padding:0px 3px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ vertical-align: top;
+}
+.jd_cats_2col_left {
+ display: inline-block;
+ float: left;
+}
+.jd_cats_2col_wrapper,
+.jd_cats_4col_wrapper {
+ width: 100%;
+ padding-top: 5px;
+ border-bottom: 1px dashed #bbb;
+}
+.jd_cats_2col_wrapper {
+ display:inline-block;
+}
+.jd_cats_4col_inner_wrapper {
+ vertical-align: top;
+ border: 0px;
+ clear:both;
+}
+/* used in Standard Categories Layout for paginated Subcategories. */
+.jd_subcats_main {
+ width: 100%; 
+ word-wrap: break-word; 
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ border-bottom: 1px solid #b5b5b5;
+}
+.jd_subcat_pagination_inner_wrapper {
+ border-bottom: 1px solid #cccccc;
+ padding: 5px 0px;
+ display: inline-block;
+ text-align: left;
+ width: 100%;
+}
+/* ensure cleared after using */
+div.jd_download_title::after,
+div.jd_cat_main::after,
+div.jd_back_button::after,
+div.jd_top_navi::after{
+ clear: both;
+}
+/* ensure cleared before using */
+div.jd_footer::before {
+ clear: both;
+}
+/* download specific */
+.jd_url_download_right {
+ float: right;
+ vertical-align: middle;
+}
+.jd_download_title {
+ width: 100%;
+ padding: 3px 0px;
+ background-color: #F5F5F5;
+ clear: both;
+ display: inline-block;
+}
+.jd_download_url {
+ text-align: center;
+ margin-left: 10px;
+ min-width:75px;
+ min-height: 2px;
+}
+.jd_featured_pic,
+.jd_rating,
+.jd_rating_field {
+ font-weight: normal;
+ text-align: center;
+ float: right;
+ margin: 0px 5px;
+ font-size: small;
+}
+.jd_download_url_position,
+.jd_rating {
+ position: relative;
+ top: 5px;
+ float:right;
+}
+.jd_download_detail_pics_wrapper {
+ padding:5px;
+ margin: 8px 0px;
+}
+.jd_download_detail_pics {
+ display: inline-block;
+ vertical-align: middle;
+}
+.jd_download_detail_img {
+ border : 1px solid lightgray;
+ padding:4px;
+}
+.jd_report_link {
+ margin: 0px auto;
+ text-align: center;
+ height: 19px !important;
+}
+.jd_report_link a {
+ width: 13em;
+ font-size: 1em;
+ color: #08c;
+ font-family: Arial, Helvetica, sans-serif;
+ font-weight: bold;
+ border: 1px solid #cccccc;
+ border-radius: 8px;
+ background: url(../../assets/images/button_bg.png) repeat-x;
+ padding: 0px 5px;
+}
+.jd_rating_field {
+ display:inline-block;
+ float:none;
+ vertical-align:middle;
+}
+.jd_rating_field .jwajaxvote-star-rating {
+ margin-left: 5px;
+ float: left;
+}
+.jd_readmore {
+ text-align: center;
+ font-weight: 600;
+ font-size:11px;
+ border: 1px solid rgb(204, 204, 204);
+ border-radius: 8px;
+ width: 80px;
+ background: transparent url("../../assets/images/button_bg.png") repeat-x scroll 0% 0%;
+ margin: 3px auto;
+}
+/* Used in some Files layouts */
+.jd_files_title {
+ background-color:#EFEFEF;
+ border-bottom: 1px solid #bbb; 
+ margin-bottom: 5px; 
+ padding:6px 0px;
+ width: 100%;
+ display: block;
+}
+.jd_right form {
+ margin: 0px;
+}
+.jd_right b {
+ vertical-align: middle;
+ line-height: 30px;
+}
+.jd_files_body {
+ color: #333;
+ font-family: "Open Sans",sans-serif;
+ font-size: 1em;
+ line-height: 1.3em;
+ clear: both;
+}
+.jd_minipic_wrapper {
+ background:#F8F8F8;
+ padding:5px 0px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ display: block;
+ font-size: small;
+}
+.jd_files_oneline,
+.jd_files_minipic {
+ display: inline-block;
+ padding: 0px 2px;
+}
+.jd_files_oneline {
+ float:none;
+}
+.jd_header {
+ border-bottom: 1px solid #ccc;
+}
+.jd_title_left {
+ float: left;
+ padding-left: 5px;
+}
+.jd_title_right {
+ float: right;
+ display: inline-block;
+}
+/* checkbox in files */
+.jd_checkbox_wrapper {
+ display:inline-block;
+ float:right;
+}
+.jd_checkbox_file {
+ text-align: center;
+ display: inline-block;
+ font-weight: bold;
+ padding-left: 5px;
+ vertical-align:middle;
+}
+.jd_checkbox_title {
+ float:right;
+}
+/* used to align checkbox with text */
+.jd_right input[type="checkbox"],
+.jd_checkbox_file input[type="checkbox"] {
+ margin:0px;
+}
+.jd_files_checkbox {
+ margin: 0 10px;
+ float:none;
+ display:inline-block;
+ vertical-align:middle;
+}
+/* for {file_pic} {file_title} {release} {pic_is_new} {pic_is_hot} {pic_is_updated} */
+.jd_title_block {
+ vertical-align: middle;
+ float: left;
+ padding: 5px 0px
+}
+/* for Summary */
+.jd_summary_list li {
+ display:inline-block;
+}
+.jd_summary_list b {
+/* font-color: #ff0000; */
+}
+/* files display wrapper */
+.jd_content_wrapper {
+ padding:3px 0px;
+ width: 100%;
+ border-bottom: 2px solid #bbb;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ display: inline-block;
+ margin-bottom: 5px;
+}
+.jd_history_content_wrapper {
+ padding: 5px 5px 5px 5px;
+ width: 100%;
+ border-bottom: 1px solid #bbb;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ display: inline-block;
+}
+.jd_content_inner_wrapper {
+ display: inline-block;
+ vertical-align: top;
+}
+.jd_download_details_wrapper,
+.jd_download_wrapper {
+ border-bottom: 2px solid #bbb;
+ display:inline-block;
+ width: 100%;
+ margin: 0px 0px 5px 0px;
+}
+.jd_download_details_title {
+ padding-top:15px;
+ padding-bottom:10px;
+ vertical-align: top;
+ height: 38px;
+ font-weight: bold;
+ font-size:1.3em;
+}
+.jd_content_left {
+ padding:3px;
+ margin-bottom:6px;
+}
+/* content including description and images, possibly video/audio */
+.jd_content {
+ text-align:left;
+ float: left;
+ display: block;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ clear:both;
+}
+/* showing descriptions */
+.jd_description_wrapper {
+ padding: 3px;
+ width: 100%;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ display: inline-block;
+ clear: both;
+}
+.jd_download_description {
+ text-align:left;
+ margin: 4px;
+}
+/* fields used in multiple columns typically for showing information */
+/* jd_fields_wrapper_outer provides centering for inline blocks    */
+.jd_fields_wrapper_outer {
+  text-align:center;
+}
+.jd_fields_wrapper_compact,
+.jd_fields_wrapper {
+ background-color: #F5F5F5;
+ padding: 5px;
+ display: inline-block;
+ word-wrap: break-word;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ margin-bottom: 4px;
+ border: 2px solid #dfdfdf;
+ border-radius: 10px;
+}
+.jd_fields {
+ float: left;
+ display: block;
+ line-height: 12px;
+ font-size:small;
+}
+.jd_fields_caption,
+.jd_field_row_wide,
+.jd_field_block {
+ clear: both;
+ font-weight: bold;
+ position: relative;
+ top: 0;
+ width: 100%;
+ color: #777; 
+ padding-left: 5px;
+ padding-top: 5px;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box; 
+ text-align: center;
+ /* simulate border-collapse */
+ box-shadow: 
+ 1px 0 0 0 #b3b3b3, 
+ 0 0px 0 0 #b3b3b3, 
+ 1px 0px 0 0 #b3b3b3, /* Just to fix the corner */
+ 1px 0 0 0 #b3b3b3 inset, 
+ 0 0px 0 0 #b3b3b3 inset;
+}
+.jd_fields_caption_compact,
+.jd_fields_caption {
+ text-align: center;
+ background-color: #cecece;
+ /* simulate border-collapse */
+ box-shadow: 
+ 1px 0 0 0 #cecece, 
+ 0 0px 0 0 #cecece, 
+ 1px 0px 0 0 #cecece, /* Just to fix the corner */
+ 1px 0 0 0 #cecece inset, 
+ 0 0px 0 0 #cecece inset;
+}
+#listings .jd_field_row, .page-id-118 #listings .jd_field_row {
+ display: block;
+ padding: 2px 0;
+ width: auto !important;
+}
+.jd_field_row_compact,
+.jd_field_row {
+ width: 100%;
+ display: inline-block;
+ padding-top: 5px;
+ word-wrap: break-word;
+ overflow-wrap: break-word;
+ word-break: break-all;
+ text-align: left;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ border-bottom: 1px dashed #b3b3b3;
+ /* simulate border-collapse */
+ box-shadow: 
+ 1px 0 0 0 #b3b3b3, 
+ 0 0px 0 0 #b3b3b3, 
+ 1px 0px 0 0 #b3b3b3, /* Just to fix the corner */
+ 1px 0 0 0 #b3b3b3 inset, 
+ 0 0px 0 0 #b3b3b3 inset;
+}
+/* these _compact overide the widths*/
+.jd_fields_wrapper_compact,
+.jd_fields_caption_compact,
+.jd_field_row_compact {
+ width: auto;
+}
+.jd_field_title {
+ display: inline-block;
+ font-weight: bold;
+ line-height: 110%;
+ color: #777777;
+ padding-left:5px;
+ position: relative;
+ top: 0;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+}
+.jd_field_value_compact,
+.jd_field_value {
+ display: inline-block;
+ -webkit-box-sizing: border-box;
+ -moz-box-sizing: border-box;
+ box-sizing: border-box;
+ float: right;
+ min-width: 50%;
+ padding-right:5px;
+ padding-left:5px;
+}
+.jd_field_value_compact{
+ min-width: 5px;
+}
+/* screenshot pics */
+.jd_screenshot {
+ float: left; 
+ padding: 3px;
+}
+.jd_image-left {
+ float: left;
+ padding: 0 15px 5px 0;
+}
+.jd_image_right {
+ float: right;
+ margin: 5px;
+}
+/* used in Summary layout */
+.jd_summary_title {
+ text-align: left;
+ border: 3px double #cccccc;
+ margin: 10px;;
+ padding: 5px;
+ font-size: 10px;
+}
+.result-info {
+ margin-bottom: 10px;
+}
+.jd_left {
+ float: left;
+}
+.jd_right {
+ float: right;
+}
+/*  section for Content Plugin - title only  */
+.jd_content_plugin{
+ float:none;
+ clear:none;
+}
+.jd_content_file{
+ display:inline-block;
+}
+.jd_content_category,
+.jd_content_latest,
+.jd_content_updated,
+.jd_content_hottest {
+  display: block;
+}
+/* end content plugin */
+/* when showing only reg users can download 
+.jd_reg_only {
+ border-radius: 0.5em;
+ text-align: center;
+ max-width: 14em;
+ font: 0.9em Arial,Helvetica,sans-serif;
+}*/
+/* when showing featured in content then enclose in border 
+.jd_content.jd_featured {
+ border-radius: 0.5em;
+ border-style: solid;
+ border-width: 1px;
+ border-color: #9A9A9A;
+} */ 
+/* div:empty {
+ background-color:#FFFFDD;
+} */
+/* items for featured */
+.jd_featured {
+/*background: #feffe8 !important; /* Old browsers */
+/*background: -moz-linear-gradient(top, #feffe8 0%, #d6dbbf 100%) !important; /* FF3.6-15 */
+/*background: -webkit-linear-gradient(top, #feffe8 0%,#d6dbbf 100%) !important; /* Chrome10-25,Safari5.1-6 */
+/*background: linear-gradient(to bottom, #feffe8 0%,#d6dbbf 100%) !important; /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+/*filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#feffe8', endColorstr='#d6dbbf',GradientType=0 ) !important; /* IE6-9 */
+}
+.jd_featured_detail {
+/*background: #d6dbbf !important; /* Old browsers */
+/*background: -moz-linear-gradient(top, #d6dbbf 0%, #feffe8 100%) !important; /* FF3.6-15 */
+/*background: -webkit-linear-gradient(top, #d6dbbf 0%,#feffe8 100%) !important; /* Chrome10-25,Safari5.1-6 */
+/*background: linear-gradient(to bottom, #d6dbbf 0%,#feffe8 100%) !important; /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+/*filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#d6dbbf', endColorstr='#feffe8',GradientType=0 ) !important; /* IE6-9 */
+}

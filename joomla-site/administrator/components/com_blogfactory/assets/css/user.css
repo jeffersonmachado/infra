@@ -1,0 +1,6 @@
+#jform_name, #jform_url {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    width: 100%;
+    min-height: 28px;
+}

@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="alterar_senha_webmail.css">
+
+<title>Alterar senha do E-mail.</title>
+ 
+</head>
+<body>
+<div id="corpo">
+   <form id="senha_email" method="post">
+  <div class="form-group">
+
+   <label for="email">E-mail: </label>
+   <input class="form-control" id="email" name="email">
+  </div>
+  <div class="form-group">
+
+   <label for="senha">Senha Atual: </label>
+   <input type="password" class="form-control" id="senha" name="senha">
+  </div>
+  <div class="form-group">
+   <label for="senha_nova">Nova Senha: </label>
+   <input type="password" class="form-control" id="senha_nova" name="senha_nova">
+  </div>
+  <div class="form-group">
+   <label for="senha_nova2">Repetir Nova Senha: </label>
+   <input type="password" class="form-control" id="senha_nova2" name="senha_nova2">
+  </div>
+   <button class="btn btn-primary" type="submit">Alterar</button>
+</form>
+</div>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+<script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.validation/1.16.0/jquery.validate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.validation/1.16.0/additional-methods.min.js"></script>
+<script src="jquery.validate.pt-br.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<script>
+jQuery.validator.addMethod("password_strong", function(value, element) {
+  return this.optional(element) || /^.*(?=.{8,})(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%&]).*$/.test(value);
+}, "Por favor, informe a senha com 1 letra maiuscula, 1 minuscula, 1 caracter especial e 8 caracteres");
+
+jQuery.validator.setDefaults({
+  debug: true,
+  success: "valid"
+});
+jQuery.validator.setDefaults({
+    errorElement: 'span',
+    errorPlacement: function (error, element) {
+        error.addClass('invalid-feedback');
+        element.closest('.form-group').append(error);
+    },
+    highlight: function (element, errorClass, validClass) {
+        $(element).addClass('is-invalid');
+    },
+    unhighlight: function (element, errorClass, validClass) {
+        $(element).removeClass('is-invalid');
+    }
+});
+$( "#senha_email" ).validate({
+  rules: {
+    email: {
+      required: true,
+      email: true
+    },
+    senha: {
+      required: true,
+      remote: {
+        url: "check_senha_email.php",
+        type: "post",
+        data: {
+          username: function() {
+            return $( "#email" ).val();
+          },
+          new_password: function() {
+            return $( "#senha_nova" ).val();
+          },
+          password: function() {
+            return $( "#senha" ).val();
+          }
+        },
+      },
+    },
+    senha_nova: {
+      required: true,
+      password_strong: true,
+      minlength: 8
+    },
+    senha_nova2: {
+      required: true,
+      equalTo: "#senha_nova"
+    }
+  },
+  submitHandler: function (form) { 
+                  //$('#senha_email').popup('close');
+                  $.post("alterar_senha_webmail.php", $("#senha_email").serialize(),  function(response)
+                  {
+			$("#corpo").html(response);
+                  });
+  }
+});
+</script>
+</body>
+</html>

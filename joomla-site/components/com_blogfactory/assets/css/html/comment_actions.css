@@ -1,0 +1,35 @@
+.comment-actions {
+    visibility: hidden;
+    margin-top: 5px;
+}
+
+.comment-wrapper:hover .comment-actions {
+    visibility: visible;
+}
+
+.comment-actions span.spacer {
+    margin: 0 7px;
+}
+
+.comment-actions a,
+.comment-actions a:hover {
+    color: inherit;
+}
+
+.comment-wrapper.comment-pending,
+tr.comment-wrapper.comment-pending td {
+    background-color: #FCF8E3 !important;
+}
+
+.comment-wrapper.comment-reported,
+tr.comment-wrapper.comment-reported td {
+    background-color: #F2DEDE !important;
+}
+
+.comment-actions a.comment-delete {
+    color: #B94A48;
+}
+
+.comment-actions a.comment-approve {
+    color: #C09853;
+}

@@ -1,0 +1,70 @@
+.panel {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0);
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.panel-default {
+    border-color: #DDDDDD;
+}
+
+.panel-default > .panel-heading {
+    background-color: #F5F5F5;
+    border-color: #DDDDDD;
+    color: #333333;
+}
+
+.panel-heading {
+    border-bottom: 1px solid rgba(0, 0, 0, 0);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    padding: 10px 15px;
+}
+
+.panel-title {
+    color: inherit;
+    font-size: 16px;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+.panel-body {
+    padding: 15px;
+}
+
+.panel-title span.fa {
+    font-weight: bold;
+    font-size: 14px;
+    margin-right: 10px;
+    cursor: move;
+}
+
+.panel-body table .right {
+    text-align: right;
+}
+
+.panel-body table .center {
+    text-align: center;
+}
+
+.portlet-placeholder {
+    height: 50px;
+    background-color: #ffffdd;
+    border: 1px dashed #cccccc;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+#panel-statistics big {
+    font-weight: bold;
+}
+
+#panel-statistics td {
+    border: 0;
+}
+
+#panel-statistics table {
+    margin: 0;
+}

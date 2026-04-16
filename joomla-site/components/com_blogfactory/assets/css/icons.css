@@ -1,0 +1,172 @@
+[class^="factory-icon-"] {
+    display: inline-block;
+    height: 16px;
+    width: 16px;
+    background-repeat: no-repeat;
+    background-position: center center;
+    vertical-align: top;
+}
+
+.factory-icon-thumb-up {
+    background-image: url('../images/icons/thumb-up.png');
+}
+
+.factory-icon-thumb-down {
+    background-image: url('../images/icons/thumb.png');
+}
+
+.factory-icon-loader {
+    background-image: url('../images/icons/loader.gif');
+}
+
+.factory-icon-clock {
+    background-image: url('../images/icons/clock.png');
+}
+
+.factory-icon-document-text {
+    background-image: url('../images/icons/document-text.png');
+}
+
+.factory-icon-document-text-plus {
+    background-image: url('../images/icons/document-text-plus.png');
+}
+
+.factory-icon-dashboard-cog {
+    background-image: url('../images/icons/dashboard-cog.png');
+}
+
+.factory-icon-bookmark {
+    background-image: url('../images/icons/bookmark.png');
+}
+
+.factory-icon-feed {
+    background-image: url('../images/icons/feed.png');
+}
+
+.factory-icon-users {
+    background-image: url('../images/icons/users.png');
+}
+
+.factory-icon-images {
+    background-image: url('../images/icons/images.png');
+}
+
+.factory-icon-monitor {
+    background-image: url('../images/icons/monitor.png');
+}
+
+.factory-icon-monitor-window {
+    background-image: url('../images/icons/monitor-window.png');
+}
+
+.factory-icon-gear {
+    background-image: url('../images/icons/gear.png');
+}
+
+.factory-icon-chevron {
+    background-image: url('../images/icons/chevron.png');
+}
+
+.factory-icon-chevron-expand {
+    background-image: url('../images/icons/chevron-expand.png');
+}
+
+.factory-icon-balloon {
+    background-image: url('../images/icons/balloon.png');
+}
+
+.factory-icon-balloons {
+    background-image: url('../images/icons/balloons.png');
+}
+
+.factory-icon-balloon-small {
+    background-image: url('../images/icons/balloon-small.png');
+}
+
+.factory-icon-ui-check-box-mix {
+    background-image: url('../images/icons/ui-check-box-mix.png');
+}
+
+.factory-icon-order-desc {
+    background-image: url('../images/icons/control-270-small.png');
+}
+
+.factory-icon-order-asc {
+    background-image: url('../images/icons/control-090-small.png');
+}
+
+.factory-icon-funnel-minus {
+    background-image: url('../images/icons/funnel--minus.png');
+}
+
+.factory-icon-calendar-month {
+    background-image: url('../images/icons/calendar-month.png');
+}
+
+.factory-icon-dashboard {
+    background-image: url('../images/icons/dashboard.png');
+}
+
+.factory-icon-image-plus {
+    background-image: url('../images/icons/image--plus.png');
+}
+
+.factory-icon-folder-plus {
+    background-image: url('../images/icons/folder--plus.png');
+}
+
+.factory-icon-minus-circle {
+    background-image: url('../images/icons/minus-circle.png');
+}
+
+.factory-icon-drive-upload {
+    background-image: url('../images/icons/drive-upload.png');
+}
+
+.factory-icon-insert {
+    background-image: url('../images/icons/arrow-curve-000-left.png');
+}
+
+.factory-icon-cross {
+    background-image: url('../images/icons/cross.png');
+}
+
+.factory-icon-folder {
+    background-image: url('../images/icons/folder.png');
+}
+
+.factory-icon-folder-open {
+    background-image: url('../images/icons/folder-open.png');
+}
+
+.factory-icon-blue-folder {
+    background-image: url('../images/icons/blue-folder.png');
+}
+
+.factory-icon-toggle-small {
+    background-image: url('../images/icons/toggle-small.png');
+}
+
+.factory-icon-toggle-small-expand {
+    background-image: url('../images/icons/toggle-small-expand.png');
+}
+
+.factory-icon-tag {
+    background-image: url('../images/icons/tag.png');
+}
+
+.factory-icon-blog {
+    background-image: url('../images/icons/blog.png');
+}
+
+.factory-icon-mail {
+    background-image: url('../images/icons/mail.png');
+}
+
+.factory-icon-document-horizontal-text {
+    background-image: url('../images/icons/document-horizontal-text.png');
+}
+
+a:focus, a.active {
+    outline: none !important;
+}
