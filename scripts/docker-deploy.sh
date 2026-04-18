@@ -102,6 +102,7 @@ REMOTE_PORT="${DEPLOY_PORT:-22}"
 REMOTE_DIR="${DEPLOY_PATH:-/opt/results/infra}"
 DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-.env}"
 DEPLOY_ENV_BASENAME="$(basename "$DEPLOY_ENV_FILE")"
+REMOTE_ENV_FILE="$DEPLOY_ENV_BASENAME"
 DEPLOY_PROJECT_NAME="${DEPLOY_PROJECT_NAME:-infra-httpd}"
 DEPLOY_COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-docker-compose.yml}"
 USE_SSH_DIRECT="${DEPLOY_USE_SSH_DIRECT:-false}"
@@ -246,7 +247,7 @@ RSYNC_CMD="rsync -az --progress --delete --exclude .git/ --exclude node_modules/
 run_cmd "$RSYNC_CMD" "Sincronizando workspace para o host remoto"
 
 section "Aplicando Docker Compose"
-REMOTE_DEPLOY_CMD="set -e && mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && $( [ \"$DEPLOY_ENV_BASENAME\" = \".env\" ] && echo \"true\" || echo \"cp '$DEPLOY_ENV_BASENAME' .env\" ) && test -f '$DEPLOY_COMPOSE_FILE' && command -v docker >/dev/null && docker compose version >/dev/null && docker compose -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' config >/dev/null && docker compose -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' up -d --build && docker compose -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' ps"
+REMOTE_DEPLOY_CMD="set -e && mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && test -f '$DEPLOY_COMPOSE_FILE' && test -f '$REMOTE_ENV_FILE' && command -v docker >/dev/null && docker compose version >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' config >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' up -d --build && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' ps"
 run_ssh_cmd "$REMOTE_DEPLOY_CMD" "Executando docker compose remoto"
 
 info "✅ Deploy concluido para ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}"

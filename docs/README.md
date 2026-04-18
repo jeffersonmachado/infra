@@ -98,6 +98,20 @@ export DEPLOY_PATH=/opt/results/infra
 npm run deploy:remote:ssh:mail
 ```
 
+Comandos manuais no host remoto devem sempre usar o arquivo de ambiente especifico de cada stack.
+
+Exemplos:
+
+```bash
+# HTTP
+docker compose --env-file .env.remote-10.10.2.30-ip60 -f docker-compose.yml --project-name infra-httpd ps
+
+# mail
+docker compose --env-file .env.remote-10.10.2.30-mail -f docker-compose.mail.yml --project-name infra-mail ps
+```
+
+Nao use um `.env` compartilhado no host para alternar entre HTTP e mail. O deploy remoto agora preserva os arquivos `.env.remote-*` e executa cada `docker compose` com `--env-file`, evitando que o ultimo deploy sobrescreva o contexto operacional da outra stack.
+
 No corte final do mail, os binds esperados são:
 
 - `mx1` em `10.10.2.3`
