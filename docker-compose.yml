@@ -5,10 +5,17 @@ services:
     container_name: secure-httpd
     restart: unless-stopped
     depends_on:
+      internal-dns-a:
+        condition: service_started
+      internal-dns-b:
+        condition: service_started
       joomla:
         condition: service_started
       lsyncd:
         condition: service_started
+    dns:
+      - 172.28.53.53
+      - 172.28.53.54
     ports:
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:8080"
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTPS_PORT:-443}:8443"
@@ -27,6 +34,11 @@ services:
       PLAY_DEV_SERVER_NAME: ${PLAY_DEV_SERVER_NAME-}
       RIPABX_SERVER_NAME: ${RIPABX_SERVER_NAME-}
       RVPN_SERVER_NAME: ${RVPN_SERVER_NAME-}
+      MAIL_CERT_MDOMAINS: ${MAIL_CERT_MDOMAINS-}
+      MAIL_CERT_SERVER_NAME: ${MAIL_CERT_SERVER_NAME-}
+      MAIL_CERT_SERVER_ALIASES: ${MAIL_CERT_SERVER_ALIASES-}
+      MAIL_CERT_PRIMARY_ACME_UPSTREAM: ${MAIL_CERT_PRIMARY_ACME_UPSTREAM:-10.10.2.3:80}
+      MAIL_CERT_SECONDARY_ACME_UPSTREAM: ${MAIL_CERT_SECONDARY_ACME_UPSTREAM:-10.10.2.23:80}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ACME_CA_URL: ${ACME_CA_URL:-https://acme-v02.api.letsencrypt.org/directory}
       HTTPS_EXTERNAL_PORT: ${HTTPS_PORT:-443}
@@ -43,6 +55,9 @@ services:
       - reload-signal:/var/run/apache-runtime
     tmpfs:
       - /tmp
+    networks:
+      default:
+      dns-internal:
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -58,8 +73,15 @@ services:
     container_name: results-joomla
     restart: unless-stopped
     depends_on:
+      internal-dns-a:
+        condition: service_started
+      internal-dns-b:
+        condition: service_started
       joomla-lsyncd:
         condition: service_started
+    dns:
+      - 172.28.53.53
+      - 172.28.53.54
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
       JOOMLA_DB_HOST: ${JOOMLA_DB_HOST:-10.10.2.99}
@@ -72,6 +94,9 @@ services:
     tmpfs:
       - /var/www/html/results/cache:size=${JOOMLA_CACHE_TMPFS_SIZE:-256m}
       - /tmp
+    networks:
+      default:
+      dns-internal:
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -159,6 +184,34 @@ services:
       retries: 5
       start_period: 10s
 
+  internal-dns-a:
+    image: coredns/coredns:1.11.1
+    container_name: results-internal-dns-a
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - ./dns-internal/Corefile:/etc/coredns/Corefile:ro
+      - ./dns-internal/zones:/zones:ro
+    networks:
+      dns-internal:
+        ipv4_address: 172.28.53.53
+    security_opt:
+      - no-new-privileges:true
+
+  internal-dns-b:
+    image: coredns/coredns:1.11.1
+    container_name: results-internal-dns-b
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - ./dns-internal/Corefile:/etc/coredns/Corefile:ro
+      - ./dns-internal/zones:/zones:ro
+    networks:
+      dns-internal:
+        ipv4_address: 172.28.53.54
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   site-data:
   md-data:
@@ -166,3 +219,10 @@ volumes:
   reload-signal:
   joomla-site-data:
   joomla-logs:
+
+networks:
+  dns-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.53.0/24
