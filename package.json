@@ -8,6 +8,8 @@
     "deploy:remote:ssh:httpd:dry-run": "./scripts/docker-deploy.sh --dry-run",
     "deploy:remote:ssh:mail": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh",
     "deploy:remote:ssh:mail:dry-run": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh --dry-run",
+    "sync:maildata:legacy:precheck": "./scripts/sync-maildata-from-legacy.sh precheck",
+    "sync:maildata:legacy": "./scripts/sync-maildata-from-legacy.sh sync",
     "test:mail:services": "./scripts/test-mail-services.sh --host ${TARGET_HOST:-127.0.0.1}",
     "test:mail:services:legacy": "./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password \"$LDAP_BIND_PASSWORD\" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password \"$MAIL_MYSQL_PASSWORD\""
   }

@@ -98,6 +98,33 @@ export DEPLOY_PATH=/opt/results/infra
 npm run deploy:remote:ssh:mail
 ```
 
+Sincronizacao completa do spool legado (`/gv`) para a stack nova:
+
+```bash
+cd /opt/results/infra
+export DEPLOY_HOST=10.10.2.30
+export DEPLOY_USER=root
+export DEPLOY_PATH=/opt/results/infra
+export DEPLOY_SSH_PASSWORD='***'
+export LEGACY_HOST=10.10.2.2
+export LEGACY_USER=root
+export LEGACY_SSH_PASSWORD='***'
+
+# valida conectividade, espaco e acesso ao spool legado
+npm run sync:maildata:legacy:precheck
+
+# copia toda a arvore /gv/ do legado para /var/mail/vhosts/ no host novo
+npm run sync:maildata:legacy
+```
+
+Notas do sync legado:
+
+- a origem padrao e `/gv/` no host legado `10.10.2.2`
+- o destino padrao e `/var/mail/vhosts/` no host novo
+- o sync usa relay local por SSH: le `/gv/` do legado e extrai em `/var/mail/vhosts/` no host novo
+- se `pv` estiver instalado localmente, o stream exibe progresso
+- use `./scripts/sync-maildata-from-legacy.sh sync --dry-run` para simular antes
+
 Comandos manuais no host remoto devem sempre usar o arquivo de ambiente especifico de cada stack.
 
 Exemplos:

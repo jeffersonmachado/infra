@@ -78,6 +78,31 @@ Na prática, o antispam por IA fica no container `rspamd`, sem introduzir um ser
 4. decidir se aliases e contas passarão a nascer no MySQL atual, no LDAP novo, ou em ambos
 5. mover os IPs `10.10.2.3` e `10.10.2.23` para o host novo no momento do corte
 
+## Sync completo do legado
+
+O repositorio agora inclui o script [scripts/sync-maildata-from-legacy.sh](/opt/results/infra/scripts/sync-maildata-from-legacy.sh) para copiar toda a arvore `/gv/` do legado para `/var/mail/vhosts/` no host novo.
+
+Fluxo previsto:
+
+1. executar `precheck` para validar acesso SSH ao legado, espaco no host novo e disponibilidade do compose de mail
+2. executar `sync` para puxar a arvore inteira via `rsync`
+3. repetir o `sync` quantas vezes for necessario antes do corte final
+
+Comandos:
+
+```bash
+cd /opt/results/infra
+export DEPLOY_HOST=10.10.2.30
+export DEPLOY_USER=root
+export DEPLOY_SSH_PASSWORD='***'
+export LEGACY_HOST=10.10.2.2
+export LEGACY_USER=root
+export LEGACY_SSH_PASSWORD='***'
+
+./scripts/sync-maildata-from-legacy.sh precheck
+./scripts/sync-maildata-from-legacy.sh sync
+```
+
 ## Situação atual de certificados no host novo
 
 Os certificados do mail passaram a ser derivados do certificado valido que o Apache do edge ja mantem via `mod_md`.
