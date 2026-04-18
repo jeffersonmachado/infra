@@ -1,0 +1,33 @@
+$TTL 300
+@   IN SOA ns1.results.intranet. infra.results.intranet. (
+        2026041801
+        300
+        120
+        604800
+        300
+)
+
+@               IN NS    ns1.results.intranet.
+@               IN NS    ns2.results.intranet.
+
+ns1             IN A     10.10.2.1
+ns2             IN A     10.10.2.20
+
+srvldap0        IN A     10.10.2.10
+srvldap1        IN A     10.10.2.11
+srvldap2        IN A     10.10.2.7
+srvldap3        IN A     10.10.2.7
+ripabx          IN A     10.10.2.240
+srvmail0        IN A     10.10.2.3
+srvhttp         IN A     10.10.2.60
+srvmysql        IN A     10.10.2.99
+srvhttp0        IN A     10.10.2.55
+srvhttp1        IN A     10.10.2.65
+rbi             IN A     10.10.2.22
+rdelivery       IN A     10.10.2.22
+mocambique      IN A     10.10.2.10
+alemanha        IN A     10.10.2.11
+gana            IN A     10.10.2.55
+suecia          IN A     10.10.2.65
+srvvoz          IN A     10.10.2.240
+zambia          IN A     10.10.2.3

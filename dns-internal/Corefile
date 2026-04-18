@@ -1,0 +1,19 @@
+results.com.br:53 {
+    file /zones/db.results.com.br
+    errors
+    cache 300
+    reload 10s
+}
+
+results.intranet:53 {
+    file /zones/db.results.intranet
+    errors
+    cache 300
+    reload 10s
+}
+
+.:53 {
+    forward . 1.1.1.1 8.8.8.8
+    errors
+    cache 300
+}

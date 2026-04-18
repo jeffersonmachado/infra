@@ -1,0 +1,10 @@
+services:
+  internal-dns-a:
+    ports:
+      - "10.10.2.1:53:53/tcp"
+      - "10.10.2.1:53:53/udp"
+
+  internal-dns-b:
+    ports:
+      - "10.10.2.20:53:53/tcp"
+      - "10.10.2.20:53:53/udp"
