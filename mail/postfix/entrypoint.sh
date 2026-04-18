@@ -21,6 +21,7 @@ export MAIL_HOSTNAME MAIL_DOMAIN MAIL_RELAY_NETWORKS MAIL_MESSAGE_SIZE_LIMIT \
 
 envsubst < /templates/main.cf.template > /etc/postfix/main.cf
 envsubst < /templates/master.cf.template > /etc/postfix/master.cf
+envsubst < /templates/mysql_virtual_mailbox_domains.cf.template > /etc/postfix/mysql_virtual_mailbox_domains.cf
 envsubst < /templates/mysql_virtual_mailbox_maps.cf.template > /etc/postfix/mysql_virtual_mailbox_maps.cf
 envsubst < /templates/mysql_virtual_alias_maps.cf.template > /etc/postfix/mysql_virtual_alias_maps.cf
 envsubst < /templates/mysql_transport_maps.cf.template > /etc/postfix/mysql_transport_maps.cf
