@@ -2,6 +2,9 @@
 set -eu
 
 mkdir -p /etc/dovecot /etc/dovecot/conf.d /var/mail/vhosts /certs /var/lib/dovecot
+mkdir -p "/var/mail/vhosts/${MAIL_DOMAIN}"
+chown "${MAIL_UID}:${MAIL_GID}" /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN}"
+chmod 0770 /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN}"
 
 CERT_VERSION_FILE="${MAIL_CERT_VERSION_FILE:-/certs/.cert-version}"
 

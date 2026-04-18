@@ -1,7 +1,13 @@
 #!/bin/sh
 set -eu
 
+MAIL_UID="${MAIL_UID:-1004}"
+MAIL_GID="${MAIL_GID:-1004}"
+
 mkdir -p /etc/postfix /var/spool/postfix /var/mail/vhosts /certs
+mkdir -p "/var/mail/vhosts/${MAIL_DOMAIN:-results.com.br}"
+chown "$MAIL_UID:$MAIL_GID" /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN:-results.com.br}"
+chmod 0770 /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN:-results.com.br}"
 
 CERT_VERSION_FILE="${MAIL_CERT_VERSION_FILE:-/certs/.cert-version}"
 
