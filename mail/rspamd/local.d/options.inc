@@ -1,0 +1,1 @@
+check_all_filters = true;

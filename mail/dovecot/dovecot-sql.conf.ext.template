@@ -1,0 +1,5 @@
+driver = mysql
+connect = host=${MAIL_MYSQL_HOST} port=${MAIL_MYSQL_PORT} dbname=${MAIL_MYSQL_DATABASE} user=${MAIL_MYSQL_USER} password=${MAIL_MYSQL_PASSWORD}
+default_pass_scheme = CRYPT
+password_query = SELECT username AS user, password FROM ${MAIL_MAILBOX_TABLE} WHERE active='1' AND (username='%u' OR username=CONCAT('%n', '@${MAIL_DOMAIN}')) ORDER BY username='%u' DESC LIMIT 1
+user_query = SELECT ${MAIL_UID} AS uid, ${MAIL_GID} AS gid, CONCAT('${MAIL_STORAGE_BASE}/', maildir) AS home, CONCAT('maildir:', '${MAIL_STORAGE_BASE}/', maildir) AS mail, quota AS quota_rule FROM ${MAIL_MAILBOX_TABLE} WHERE active='1' AND (username='%u' OR username=CONCAT('%n', '@${MAIL_DOMAIN}')) ORDER BY username='%u' DESC LIMIT 1

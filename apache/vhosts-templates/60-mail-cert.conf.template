@@ -1,13 +1,8 @@
 <VirtualHost *:8080>
     ServerName ${MAIL_CERT_SERVER_NAME}
     ServerAlias ${MAIL_CERT_SERVER_ALIASES}
+
     RewriteEngine On
-    RewriteCond %{REQUEST_URI} ^/\.well-known/acme-challenge/
-    RewriteCond %{HTTP_HOST} =mx2.results.com.br [NC]
-    RewriteRule ^/(.*)$ http://${MAIL_CERT_SECONDARY_ACME_UPSTREAM}/$1 [P,L]
-    RewriteCond %{REQUEST_URI} ^/\.well-known/acme-challenge/
-    RewriteRule ^/(.*)$ http://${MAIL_CERT_PRIMARY_ACME_UPSTREAM}/$1 [P,L]
-    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
     RewriteRule ^ https://${RESULTS_SERVER_NAME}${HTTPS_REDIRECT_SUFFIX}/webmail/ [R=302,L]
 
     DocumentRoot "/usr/local/apache2/htdocs"
@@ -30,12 +25,8 @@
 
     SSLEngine on
     Protocols h2 http/1.1
+
     RewriteEngine On
-    RewriteCond %{REQUEST_URI} ^/\.well-known/acme-challenge/
-    RewriteCond %{HTTP_HOST} =mx2.results.com.br [NC]
-    RewriteRule ^/(.*)$ http://${MAIL_CERT_SECONDARY_ACME_UPSTREAM}/$1 [P,L]
-    RewriteCond %{REQUEST_URI} ^/\.well-known/acme-challenge/
-    RewriteRule ^/(.*)$ http://${MAIL_CERT_PRIMARY_ACME_UPSTREAM}/$1 [P,L]
     RewriteRule ^ https://${RESULTS_SERVER_NAME}${HTTPS_REDIRECT_SUFFIX}/webmail/ [R=302,L]
 
     DocumentRoot "/usr/local/apache2/htdocs"

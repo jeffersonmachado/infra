@@ -1,0 +1,7 @@
+dn: ou=people,dc=results,dc=com,dc=br
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=results,dc=com,dc=br
+objectClass: organizationalUnit
+ou: groups

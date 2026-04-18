@@ -1,0 +1,5 @@
+user = ${MAIL_MYSQL_USER}
+password = ${MAIL_MYSQL_PASSWORD}
+hosts = ${MAIL_MYSQL_HOST}
+dbname = ${MAIL_MYSQL_DATABASE}
+query = SELECT goto FROM ${MAIL_ALIAS_TABLE} WHERE address='%s' AND active='1'

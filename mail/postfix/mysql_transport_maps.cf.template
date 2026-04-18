@@ -1,0 +1,5 @@
+user = ${MAIL_MYSQL_USER}
+password = ${MAIL_MYSQL_PASSWORD}
+hosts = ${MAIL_MYSQL_HOST}
+dbname = ${MAIL_MYSQL_DATABASE}
+query = SELECT transport FROM ${MAIL_DOMAIN_TABLE} WHERE domain='%s' AND active='1'

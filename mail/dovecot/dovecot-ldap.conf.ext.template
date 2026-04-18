@@ -1,0 +1,10 @@
+hosts = ${LDAP_SERVER_HOSTS}
+dn = ${LDAP_BIND_DN}
+dnpass = ${LDAP_BIND_PASSWORD}
+base = ${LDAP_USERS_BASE_DN}
+ldap_version = 3
+auth_bind = yes
+auth_bind_userdn = uid=%n,${LDAP_USERS_BASE_DN}
+pass_filter = (&(objectClass=inetOrgPerson)(|(uid=%n)(mail=%u)(mail=%n@${MAIL_DOMAIN})))
+user_filter = (&(objectClass=inetOrgPerson)(|(uid=%n)(mail=%u)(mail=%n@${MAIL_DOMAIN})))
+user_attrs = =home=${MAIL_STORAGE_BASE}/${MAIL_DOMAIN}/%n,=mail=maildir:${MAIL_STORAGE_BASE}/${MAIL_DOMAIN}/%n/Maildir,=uid=${MAIL_UID},=gid=${MAIL_GID}

@@ -1,0 +1,8 @@
+server_host = ${LDAP_SERVER_HOSTS}
+search_base = ${LDAP_USERS_BASE_DN}
+bind = yes
+bind_dn = ${LDAP_BIND_DN}
+bind_pw = ${LDAP_BIND_PASSWORD}
+version = 3
+query_filter = (&(objectClass=inetOrgPerson)(mail=%s))
+result_attribute = mail

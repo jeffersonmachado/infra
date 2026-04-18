@@ -1,0 +1,53 @@
+disable_plaintext_auth = yes
+mail_privileged_group = mail
+mail_location = maildir:${MAIL_STORAGE_BASE}/%d/%n/Maildir
+auth_mechanisms = plain login
+first_valid_uid = ${MAIL_UID}
+first_valid_gid = ${MAIL_GID}
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+passdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
+}
+userdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+service lmtp {
+  inet_listener lmtp {
+    address = dovecot
+    port = 24
+  }
+}
+service auth {
+  inet_listener {
+    address = dovecot
+    port = 12345
+  }
+}
+protocols = imap pop3 lmtp sieve
+ssl = required
+ssl_cert = <${MAIL_TLS_CERT_FILE}
+ssl_key = <${MAIL_TLS_KEY_FILE}
+protocol imap {
+  mail_plugins = quota imap_quota
+}
+protocol pop3 {
+  pop3_uidl_format = %08Xu%08Xv
+}
+plugin {
+  sieve = file:~/sieve;active=~/.dovecot.sieve
+}
+namespace inbox {
+  inbox = yes
+  mailbox Spam {
+    auto = subscribe
+    special_use = \Junk
+  }
+  mailbox Virus {
+    auto = subscribe
+  }
+}
