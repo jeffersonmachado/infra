@@ -8,7 +8,7 @@ SSH_PASSWORD="${SSH_PASSWORD:-${DEPLOY_SSH_PASSWORD:-}}"
 RSPAMD_LOG_WINDOW="${RSPAMD_LOG_WINDOW:-24h}"
 RSPAMD_LOG_TAIL="${RSPAMD_LOG_TAIL:-200}"
 
-SSH_OPTS="-p ${REMOTE_PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30"
+SSH_OPTS="-p ${REMOTE_PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 -o LogLevel=ERROR"
 
 if [ -z "${SSHPASS:-}" ] && [ -n "$SSH_PASSWORD" ]; then
   export SSHPASS="$SSH_PASSWORD"
@@ -29,8 +29,8 @@ remote() {
 }
 
 echo "=== RSPAMD CAMPAIGN COMPOSITES ==="
-remote "docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-rspamd 2>&1 | grep -E 'LOCAL_AUTH_SPAM_CAMPAIGN(_FALLBACK)?' || true"
+remote "logs=\$(docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-rspamd 2>&1 | grep -E 'LOCAL_AUTH_SPAM_CAMPAIGN(_FALLBACK)?' || true); if [ -n \"\$logs\" ]; then printf '%s\n' \"\$logs\"; else echo 'nenhum disparo recente das composites locais'; fi"
 
 echo
 echo "=== POSTFIX REJECTIONS ==="
-remote "docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-postfix 2>&1 | grep -Ei 'milter-reject|reject:|blocked using LOCAL_AUTH_SPAM_CAMPAIGN|LOCAL_AUTH_SPAM_CAMPAIGN' || true"
+remote "logs=\$(docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-postfix 2>&1 | grep -Ei 'milter-reject|reject:|blocked using LOCAL_AUTH_SPAM_CAMPAIGN|LOCAL_AUTH_SPAM_CAMPAIGN' || true); if [ -n \"\$logs\" ]; then printf '%s\n' \"\$logs\"; else echo 'nenhuma rejeicao recente relacionada a campanhas'; fi"
