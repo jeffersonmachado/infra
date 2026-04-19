@@ -81,6 +81,7 @@ Notas operacionais:
 - as credenciais MySQL da stack de mail seguem o mesmo padrão do banco `results`
 - a senha de bind LDAP foi confirmada no servidor legado, mas deve ser preenchida apenas no arquivo de ambiente remoto
 - o antispam por IA usa o módulo `neural` nativo do `Rspamd`, com aprendizado persistido em `Redis`
+- campanhas recorrentes que escapem ao score heurístico podem ser bloqueadas localmente pelo `Rspamd` em [mail/rspamd/local.d/composites.conf](/opt/results/infra/mail/rspamd/local.d/composites.conf), combinando símbolos que já apareceram no log real da campanha para forçar rejeição nas próximas ocorrências; a composite principal cobre o fingerprint exato e a fallback cobre variações próximas com `PHP mailer`, `FORGED_SENDER`, `FROM_NEQ_ENVFROM`, autenticação parcial SPF ou DKIM e `DMARC_NA`
 - o Postfix aplica limites básicos por cliente para reduzir abuso e rajadas de conexões
 - o Postfix também pode aplicar `postscreen` com DNSBL no SMTP público do `mx1`/`mx2`
 
