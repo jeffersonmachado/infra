@@ -29,7 +29,7 @@ remote() {
 }
 
 echo "=== FAIL2BAN ==="
-remote "fail2ban-client status && echo --- && fail2ban-client status results-postfix-auth"
+remote "fail2ban-client status | grep -E 'Number of jail|Jail list' && echo --- && fail2ban-client status results-postfix-auth | grep -E 'Status for the jail|Currently failed|Total failed|Currently banned|Total banned|Banned IP list'"
 
 echo
 echo "=== FIREWALL ==="
