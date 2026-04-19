@@ -9,12 +9,13 @@ if [ -d /var/www/html/results/webmail ]; then
 	chown -R www-data:www-data /var/www/html/results/webmail/logs /var/www/html/results/webmail/temp
 
 	if [ -f /var/www/html/results/webmail/config/config.inc.php ]; then
-		sed -i 's#\$config\['\''default_host'\''\] = .*#\$config['\''default_host'\''] = '\''ssl://mx1.results.com.br'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
-		sed -i 's#\$config\['\''smtp_server'\''\] = .*#\$config['\''smtp_server'\''] = '\''tls://mx1.results.com.br'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
-		sed -i 's#\$config\['\''smtp_user'\''\] = .*#\$config['\''smtp_user'\''] = '\''%u'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
-		grep -Fq "\$config['smtp_port']" /var/www/html/results/webmail/config/config.inc.php || \
-			printf "\n\$config['smtp_port'] = 587;\n" >> /var/www/html/results/webmail/config/config.inc.php
-		grep -Fq "\$config['imap_conn_options']" /var/www/html/results/webmail/config/config.inc.php || cat <<'EOF' >> /var/www/html/results/webmail/config/config.inc.php
+		if [ -w /var/www/html/results/webmail/config/config.inc.php ]; then
+			sed -i 's#\$config\['\''default_host'\''\] = .*#\$config['\''default_host'\''] = '\''ssl://mx1.results.com.br'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
+			sed -i 's#\$config\['\''smtp_server'\''\] = .*#\$config['\''smtp_server'\''] = '\''tls://mx1.results.com.br'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
+			sed -i 's#\$config\['\''smtp_user'\''\] = .*#\$config['\''smtp_user'\''] = '\''%u'\'';#' /var/www/html/results/webmail/config/config.inc.php || true
+			grep -Fq "\$config['smtp_port']" /var/www/html/results/webmail/config/config.inc.php || \
+				printf "\n\$config['smtp_port'] = 587;\n" >> /var/www/html/results/webmail/config/config.inc.php
+			grep -Fq "\$config['imap_conn_options']" /var/www/html/results/webmail/config/config.inc.php || cat <<'EOF' >> /var/www/html/results/webmail/config/config.inc.php
 
 $config['imap_conn_options'] = [
 	'ssl' => [
@@ -32,6 +33,7 @@ $config['smtp_conn_options'] = [
 	],
 ];
 EOF
+		fi
 	fi
 fi
 

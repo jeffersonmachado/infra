@@ -247,7 +247,7 @@ RSYNC_CMD="rsync -az --progress --delete --exclude .git/ --exclude node_modules/
 run_cmd "$RSYNC_CMD" "Sincronizando workspace para o host remoto"
 
 section "Aplicando Docker Compose"
-REMOTE_DEPLOY_CMD="set -e && mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && test -f '$DEPLOY_COMPOSE_FILE' && test -f '$REMOTE_ENV_FILE' && command -v docker >/dev/null && docker compose version >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' config >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' up -d --build && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' ps"
+REMOTE_DEPLOY_CMD="set -e && mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && test -f '$DEPLOY_COMPOSE_FILE' && test -f '$REMOTE_ENV_FILE' && command -v docker >/dev/null && docker compose version >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' config >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' up -d --build && if [ '$DEPLOY_PROJECT_NAME' = 'infra-mail' ] && command -v rc-service >/dev/null 2>&1; then rc-service fail2ban restart >/dev/null 2>&1 || rc-service fail2ban start >/dev/null 2>&1 || true; fi && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' ps"
 run_ssh_cmd "$REMOTE_DEPLOY_CMD" "Executando docker compose remoto"
 
 info "✅ Deploy concluido para ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}"

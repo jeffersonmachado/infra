@@ -91,6 +91,7 @@ services:
     volumes:
       - joomla-site-data:/var/www/html/results
       - joomla-logs:/var/www/html/results/logs
+      - ./joomla-site/webmail/config/config.inc.php:/var/www/html/results/webmail/config/config.inc.php:ro
     tmpfs:
       - /var/www/html/results/cache:size=${JOOMLA_CACHE_TMPFS_SIZE:-256m}
       - /tmp
@@ -100,7 +101,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header='Host: www.results.com.br' http://127.0.0.1/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -169,7 +170,7 @@ services:
       DEST_DIR: /target
       LSYNC_DELAY: ${JOOMLA_LSYNC_DELAY:-5}
       LSYNC_DELETE: ${JOOMLA_LSYNC_DELETE:-true}
-      LSYNC_EXCLUDES: ${JOOMLA_LSYNC_EXCLUDES:-configuration.php}
+      LSYNC_EXCLUDES: ${JOOMLA_LSYNC_EXCLUDES:-configuration.php,webmail/***}
     volumes:
       - ${JOOMLA_SOURCE_PATH:-./joomla-site}:/source:ro
       - joomla-site-data:/target

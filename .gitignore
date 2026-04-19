@@ -1,5 +1,7 @@
 .env
 .env.*
 !.env.example
+!.env.host-security.example
 
 joomla-site/configuration.php
+joomla-site/webmail/config/config.inc.php

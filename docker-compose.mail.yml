@@ -44,6 +44,15 @@ services:
       LDAP_GROUPS_BASE_DN: ${LDAP_GROUPS_BASE_DN:-ou=groups,dc=results,dc=com,dc=br}
       RSPAMD_MILTER_HOST: ${RSPAMD_MILTER_HOST:-rspamd}
       RSPAMD_MILTER_PORT: ${RSPAMD_MILTER_PORT:-11332}
+      MAIL_ANVIL_RATE_TIME_UNIT: ${MAIL_ANVIL_RATE_TIME_UNIT:-60s}
+      MAIL_CLIENT_CONNECTION_COUNT_LIMIT: ${MAIL_CLIENT_CONNECTION_COUNT_LIMIT:-30}
+      MAIL_CLIENT_CONNECTION_RATE_LIMIT: ${MAIL_CLIENT_CONNECTION_RATE_LIMIT:-60}
+      MAIL_CLIENT_MESSAGE_RATE_LIMIT: ${MAIL_CLIENT_MESSAGE_RATE_LIMIT:-100}
+      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-10}
+      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-20}
+      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
+      MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
+      MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
     volumes:
       - maildata:/var/mail/vhosts
       - mail-certs:/certs:ro
@@ -98,6 +107,15 @@ services:
       LDAP_GROUPS_BASE_DN: ${LDAP_GROUPS_BASE_DN:-ou=groups,dc=results,dc=com,dc=br}
       RSPAMD_MILTER_HOST: ${RSPAMD_MILTER_HOST:-rspamd}
       RSPAMD_MILTER_PORT: ${RSPAMD_MILTER_PORT:-11332}
+      MAIL_ANVIL_RATE_TIME_UNIT: ${MAIL_ANVIL_RATE_TIME_UNIT:-60s}
+      MAIL_CLIENT_CONNECTION_COUNT_LIMIT: ${MAIL_CLIENT_CONNECTION_COUNT_LIMIT:-30}
+      MAIL_CLIENT_CONNECTION_RATE_LIMIT: ${MAIL_CLIENT_CONNECTION_RATE_LIMIT:-60}
+      MAIL_CLIENT_MESSAGE_RATE_LIMIT: ${MAIL_CLIENT_MESSAGE_RATE_LIMIT:-100}
+      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-10}
+      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-20}
+      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
+      MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
+      MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
     volumes:
       - maildata:/var/mail/vhosts
       - mail-certs:/certs:ro
@@ -158,6 +176,8 @@ services:
     container_name: results-mail-rspamd
     restart: unless-stopped
     depends_on:
+      clamav:
+        condition: service_started
       redis:
         condition: service_started
     environment:
@@ -168,6 +188,15 @@ services:
       - ./mail/rspamd/override.d:/etc/rspamd/override.d:ro
     tmpfs:
       - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  clamav:
+    image: clamav/clamav:latest
+    container_name: results-mail-clamav
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
     security_opt:
       - no-new-privileges:true
 
@@ -253,5 +282,6 @@ volumes:
   mail-state-mx2:
   dovecot-state:
   rspamd-data:
+  clamav-db:
   ldap-data:
   ldap-config:

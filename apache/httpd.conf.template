@@ -54,6 +54,10 @@ AddType application/x-compress .Z
 AddType application/x-gzip .gz .tgz
 
 RequestReadTimeout header=20-40,MinRate=500 body=20,MinRate=500
+LimitRequestLine 4094
+LimitRequestFields 40
+LimitRequestFieldSize 16384
+MaxRanges 8
 
 MDRenewMode auto
 MDCAChallenges http-01

@@ -11,9 +11,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /entrypoint.sh
+COPY rsyslog.conf /etc/rsyslog.conf
 COPY main.cf.template /templates/main.cf.template
 COPY master.cf.template /templates/master.cf.template
 COPY mysql_virtual_mailbox_maps.cf.template /templates/mysql_virtual_mailbox_maps.cf.template
+COPY mysql_virtual_mailbox_domains.cf.template /templates/mysql_virtual_mailbox_domains.cf.template
 COPY mysql_virtual_alias_maps.cf.template /templates/mysql_virtual_alias_maps.cf.template
 COPY mysql_transport_maps.cf.template /templates/mysql_transport_maps.cf.template
 COPY ldap_virtual_alias_maps.cf.template /templates/ldap_virtual_alias_maps.cf.template

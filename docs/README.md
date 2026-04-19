@@ -62,6 +62,7 @@ Desenho atual da stack nova:
 - `postfix-mx2`: segunda instância SMTP para `mx2.results.com.br`
 - `dovecot`: IMAP, POP3, LMTP e Sieve
 - `rspamd` + `redis`: antispam moderno com classificador Bayes e rede neural
+- `clamav`: antivírus de anexos integrado ao fluxo do `Rspamd`
 - `ldap`: suporte adicional de autenticação em container separado
 
 Compatibilidade com o legado:
@@ -80,6 +81,17 @@ Notas operacionais:
 - as credenciais MySQL da stack de mail seguem o mesmo padrão do banco `results`
 - a senha de bind LDAP foi confirmada no servidor legado, mas deve ser preenchida apenas no arquivo de ambiente remoto
 - o antispam por IA usa o módulo `neural` nativo do `Rspamd`, com aprendizado persistido em `Redis`
+- o Postfix aplica limites básicos por cliente para reduzir abuso e rajadas de conexões
+- o Postfix também pode aplicar `postscreen` com DNSBL no SMTP público do `mx1`/`mx2`
+
+Proteção de host (fora dos containers):
+
+- o script [scripts/harden-remote-host.sh](/opt/results/infra/scripts/harden-remote-host.sh) instala `fail2ban` no host Alpine remoto
+- o script cria um jail para `sshd` e outro para falhas SASL do Postfix a partir dos logs JSON do Docker
+- o mesmo script cria regras idempotentes na chain `RESULTS-RATE-LIMIT`, ligada em `INPUT` e `DOCKER-USER`, para limitar rajadas por IP em `80/443` e `25/465/587`
+- como este host usa `docker-proxy` para portas publicadas, o gancho em `INPUT` e necessario para que o rate limit atue de fato sobre `80/443` e `25/465/587`
+- os limites padrao atuais do host sao `120` conexoes novas/minuto por IP em `80/443` e `25` conexoes novas/minuto por IP em `25/465/587`, com override por `HTTP_LIMIT_PER_MINUTE` e `SMTP_LIMIT_PER_MINUTE`
+- para ajuste sem editar script, use um arquivo de ambiente como [/.env.host-security.example](/opt/results/infra/.env.host-security.example) e, neste host, o operacional [/.env.remote-10.10.2.30-host-security](/opt/results/infra/.env.remote-10.10.2.30-host-security)
 
 Documento de mapeamento do legado:
 
@@ -98,6 +110,48 @@ export DEPLOY_PATH=/opt/results/infra
 npm run deploy:remote:ssh:mail
 ```
 
+No deploy da stack de mail, o script reinicia o `fail2ban` no host remoto depois do `docker compose up -d --build`. Isso evita que o jail `results-postfix-auth` continue preso ao JSON log do container antigo depois de um recreate do `postfix`.
+
+Verificacao operacional no host `10.10.2.30`:
+
+```bash
+cd /opt/results/infra
+export SSHPASS='***'
+npm run host:security:status:remote
+```
+
+O script usado por esse comando e [scripts/check-remote-host-security.sh](/opt/results/infra/scripts/check-remote-host-security.sh).
+
+Para reaplicar o hardening com o arquivo operacional deste host:
+
+```bash
+cd /opt/results/infra
+export SSHPASS='***'
+npm run host:harden:remote
+```
+
+Por padrao, esse comando remoto carrega [/.env.remote-10.10.2.30-host-security](/opt/results/infra/.env.remote-10.10.2.30-host-security). Se precisar apontar outro arquivo, sobrescreva `HOST_SECURITY_ENV_FILE`.
+
+```bash
+# fail2ban
+ssh root@10.10.2.30 'fail2ban-client status && echo --- && fail2ban-client status results-postfix-auth'
+
+# regras e contadores do rate limit
+ssh root@10.10.2.30 'iptables -L INPUT -n -v | head -n 20 && echo --- && iptables -L RESULTS-RATE-LIMIT -n -v'
+
+# ultimas falhas SASL visiveis para o jail do Postfix
+ssh root@10.10.2.30 'docker logs --tail 80 results-mail-postfix 2>&1 | grep "SASL PLAIN authentication failed" | tail -n 20'
+
+# regravar firewall/fail2ban do host, se necessario
+ssh root@10.10.2.30 'cd /opt/results/infra && ./scripts/harden-remote-host.sh apply'
+```
+
+Leitura rapida esperada:
+
+- `fail2ban-client status results-postfix-auth` deve mostrar contadores em `Currently failed` ou `Total failed` quando houver abuso SMTP e listar IP banido em `Banned IP list` quando o limiar for atingido
+- `iptables -L RESULTS-RATE-LIMIT -n -v` deve acumular pacotes em `DROP` para `25,465,587` e `80,443` durante burst externo acima do limiar
+- como o host usa `docker-proxy`, os contadores relevantes para portas publicadas aparecem primeiro em `INPUT`, nao apenas em `DOCKER-USER`
+
 Sincronizacao completa do spool legado (`/gv`) para a stack nova:
 
 ```bash
@@ -113,16 +167,17 @@ export LEGACY_SSH_PASSWORD='***'
 # valida conectividade, espaco e acesso ao spool legado
 npm run sync:maildata:legacy:precheck
 
-# copia toda a arvore /gv/ do legado para /var/mail/vhosts/ no host novo
+# copia toda a arvore /gv/ do legado para o volume Docker maildata no host novo
 npm run sync:maildata:legacy
 ```
 
 Notas do sync legado:
 
 - a origem padrao e `/gv/` no host legado `10.10.2.2`
-- o destino padrao e `/var/mail/vhosts/` no host novo
-- o sync usa relay local por SSH: le `/gv/` do legado e extrai em `/var/mail/vhosts/` no host novo
-- se `pv` estiver instalado localmente, o stream exibe progresso
+- o destino padrao e o mountpoint real do volume Docker `infra-mail_maildata` no host novo
+- o sync resolve esse mountpoint via `docker volume inspect`, mas aceita `TARGET_MAIL_ROOT` para override manual
+- o sync usa `rsync` com staging local por mailbox em `/tmp/results-mail-sync-staging`
+- se a conexao cair, execute o mesmo comando novamente para retomar a partir do que ja foi baixado/enviado
 - use `./scripts/sync-maildata-from-legacy.sh sync --dry-run` para simular antes
 
 Comandos manuais no host remoto devem sempre usar o arquivo de ambiente especifico de cada stack.
@@ -476,6 +531,8 @@ npm run deploy:remote:ssh:httpd:dry-run
 ```
 
 O script efetivo usado pelo `npm` é [scripts/docker-deploy.sh](/opt/results/infra/scripts/docker-deploy.sh).
+
+Quando `DEPLOY_PROJECT_NAME=infra-mail`, esse script tambem reinicia o `fail2ban` no host remoto ao final do deploy para que os jails que leem `/var/lib/docker/containers/*/*-json.log` acompanhem o ID atual dos containers recriados.
 
 O script remoto também aceita `DEPLOY_ENV_FILE=.env.example`; nesse caso ele copia esse arquivo para `.env` no host remoto antes de executar o `docker compose`.
 

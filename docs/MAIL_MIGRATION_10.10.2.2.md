@@ -80,12 +80,12 @@ Na prática, o antispam por IA fica no container `rspamd`, sem introduzir um ser
 
 ## Sync completo do legado
 
-O repositorio agora inclui o script [scripts/sync-maildata-from-legacy.sh](/opt/results/infra/scripts/sync-maildata-from-legacy.sh) para copiar toda a arvore `/gv/` do legado para `/var/mail/vhosts/` no host novo.
+O repositorio agora inclui o script [scripts/sync-maildata-from-legacy.sh](/opt/results/infra/scripts/sync-maildata-from-legacy.sh) para copiar toda a arvore `/gv/` do legado para o mountpoint real do volume Docker `infra-mail_maildata` no host novo.
 
 Fluxo previsto:
 
 1. executar `precheck` para validar acesso SSH ao legado, espaco no host novo e disponibilidade do compose de mail
-2. executar `sync` para puxar a arvore inteira via `rsync`
+2. executar `sync` para puxar a arvore inteira via `rsync`, usando staging local por mailbox
 3. repetir o `sync` quantas vezes for necessario antes do corte final
 
 Comandos:

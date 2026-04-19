@@ -19,5 +19,6 @@ www             IN A     10.10.2.60
 mx1             IN A     10.10.2.3
 mx2             IN A     10.10.2.23
 imap            IN A     10.10.2.3
+smtp            IN A     10.10.2.3
 srvmail0        IN A     10.10.2.3
 srvmail1        IN A     10.10.2.23
