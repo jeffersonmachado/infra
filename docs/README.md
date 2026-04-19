@@ -123,6 +123,16 @@ npm run host:security:status:remote
 
 O script usado por esse comando e [scripts/check-remote-host-security.sh](/opt/results/infra/scripts/check-remote-host-security.sh).
 
+Para verificar disparos das composites locais do `Rspamd` e rejeicoes correlatas no `Postfix`:
+
+```bash
+cd /opt/results/infra
+export SSHPASS='***'
+npm run mail:campaigns:status:remote
+```
+
+O script usado por esse comando e [scripts/check-remote-mail-campaigns.sh](/opt/results/infra/scripts/check-remote-mail-campaigns.sh). Ele busca por `LOCAL_AUTH_SPAM_CAMPAIGN` e `LOCAL_AUTH_SPAM_CAMPAIGN_FALLBACK` nos logs do `results-mail-rspamd` e por rejeicoes correlatas no `results-mail-postfix`. Se precisar ampliar a janela, sobrescreva `RSPAMD_LOG_WINDOW` e `RSPAMD_LOG_TAIL`.
+
 Para reaplicar o hardening com o arquivo operacional deste host:
 
 ```bash
