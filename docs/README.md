@@ -123,6 +123,11 @@ npm run host:security:status:remote
 
 O script usado por esse comando e [scripts/check-remote-host-security.sh](/opt/results/infra/scripts/check-remote-host-security.sh).
 
+Esse healthcheck unico agora tambem inclui:
+
+- disparos de `LOCAL_AUTH_SPAM_CAMPAIGN` e `LOCAL_AUTH_SPAM_CAMPAIGN_FALLBACK` nos logs do `results-mail-rspamd`
+- rejeicoes correlatas nos logs do `results-mail-postfix`
+
 Para verificar disparos das composites locais do `Rspamd` e rejeicoes correlatas no `Postfix`:
 
 ```bash
