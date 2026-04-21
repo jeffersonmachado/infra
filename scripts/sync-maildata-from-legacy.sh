@@ -50,6 +50,7 @@ Variaveis suportadas:
   MAIL_GID                 GID virtual do maildir novo (padrao: 1004)
     TARGET_MAIL_ROOT         Mountpoint real do spool no host novo; se omitido, resolve via docker volume inspect
     LOCAL_STAGE_ROOT         Diretorio local temporario para staging do rsync (padrao: /tmp/results-mail-sync-staging)
+    START_FROM_MAILBOX       Retoma o sync a partir de domain/mailbox especifico da lista ordenada
 
 Notas:
     - o sync copia toda a arvore /gv do legado para o mountpoint real do volume maildata no host novo
@@ -107,6 +108,7 @@ MAIL_UID="${MAIL_UID:-1004}"
 MAIL_GID="${MAIL_GID:-1004}"
 TARGET_MAIL_ROOT="${TARGET_MAIL_ROOT:-}"
 LOCAL_STAGE_ROOT="${LOCAL_STAGE_ROOT:-/tmp/results-mail-sync-staging}"
+START_FROM_MAILBOX="${START_FROM_MAILBOX:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -200,8 +202,22 @@ case "$ACTION" in
 
     mapfile -t MAILBOX_PATHS <<< "$MAILBOX_LIST"
 
+    resume_started=true
+    if [ -n "$START_FROM_MAILBOX" ]; then
+        info "Retomando a partir de $START_FROM_MAILBOX"
+        resume_started=false
+    fi
+
     for mailbox_path in "${MAILBOX_PATHS[@]}"; do
         [ -n "$mailbox_path" ] || continue
+
+        if [ "$resume_started" = "false" ]; then
+            if [ "$mailbox_path" = "$START_FROM_MAILBOX" ]; then
+                resume_started=true
+            else
+                continue
+            fi
+        fi
 
         domain="${mailbox_path%%/*}"
         mailbox="${mailbox_path#*/}"
@@ -211,6 +227,10 @@ case "$ACTION" in
 
         info "Sincronizando $mailbox_path"
 
+        if [ -d "$local_stage_dir" ] && find "$local_stage_dir" -mindepth 1 -print -quit >/dev/null 2>&1; then
+            info "Reutilizando staging existente de $mailbox_path"
+        fi
+
         run_cmd "Preparar staging de $mailbox_path" "mkdir -p '$local_stage_dir'"
         run_cmd "Baixar $mailbox_path para staging local" "export SSHPASS='$LEGACY_PASSWORD' && rsync -a --delete --partial --append-verify -e \"sshpass -e ssh $LEGACY_SSH_OPTS\" '${LEGACY_USER}@${LEGACY_HOST}:${LEGACY_PATH%/}/$mailbox_path/' '$local_stage_dir/'"
         run_cmd "Preparar destino remoto de $mailbox_path" "$REMOTE_BASE_CMD \"mkdir -p '$remote_domain_dir' '$remote_mailbox_dir' && chown '$MAIL_UID:$MAIL_GID' '$remote_domain_dir' '$remote_mailbox_dir' && chmod 0770 '$remote_domain_dir' '$remote_mailbox_dir'\""
@@ -218,6 +238,11 @@ case "$ACTION" in
         run_cmd "Ajustar ownership de $mailbox_path no host novo" "$REMOTE_BASE_CMD \"chown -R '$MAIL_UID:$MAIL_GID' '$remote_mailbox_dir'\""
         run_cmd "Limpar staging de $mailbox_path" "rm -rf '$local_stage_dir'"
     done
+
+    if [ -n "$START_FROM_MAILBOX" ] && [ "$resume_started" = "false" ]; then
+        error "Mailbox inicial nao encontrada na lista ordenada: $START_FROM_MAILBOX"
+        exit 1
+    fi
 
     run_cmd "Listar dominios sincronizados no host novo" "$REMOTE_BASE_CMD \"ls -ld '$TARGET_MAIL_ROOT' '$TARGET_MAIL_ROOT'/* 2>/dev/null || true\""
         ;;
