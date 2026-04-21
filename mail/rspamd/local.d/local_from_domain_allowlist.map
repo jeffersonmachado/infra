@@ -1,0 +1,4 @@
+# Exact From domains that should not be marked as spam by local scoring.
+# One domain per line.
+
+# example.com

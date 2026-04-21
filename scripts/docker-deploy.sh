@@ -63,6 +63,70 @@ run_ssh_cmd() {
     return $exit_code
 }
 
+validate_remote_webmail_config() {
+    local validate_container="${1:-true}"
+
+    if [ "$DEPLOY_PROJECT_NAME" != "infra-httpd" ]; then
+        return 0
+    fi
+
+    local local_config="$ROOT_DIR/joomla-site/webmail/config/config.inc.php"
+    if [ ! -r "$local_config" ]; then
+        warn "Config do Roundcube nao encontrado localmente; validacao de webmail ignorada"
+        return 0
+    fi
+
+    local local_md5
+    local_md5=$(md5sum "$local_config" | awk '{print $1}')
+    capture_ssh_cmd "md5sum '$REMOTE_DIR/joomla-site/webmail/config/config.inc.php' | awk '{print \$1}'" "Validando checksum remoto do config do Roundcube"
+    if [ "$DRY_RUN" != "true" ] && [ "$CAPTURED_OUTPUT" != "$local_md5" ]; then
+        error "Checksum remoto do config do Roundcube diverge do repositorio"
+        echo "Local:  $local_md5"
+        echo "Remoto: $CAPTURED_OUTPUT"
+        exit 1
+    fi
+
+    if [ "$validate_container" != "true" ]; then
+        info "✅ Config do Roundcube validado no host remoto"
+        return 0
+    fi
+
+    capture_ssh_cmd "docker exec results-joomla md5sum /var/www/html/results/webmail/config/config.inc.php | awk '{print \$1}'" "Validando checksum montado no container Joomla"
+    if [ "$DRY_RUN" != "true" ] && [ "$CAPTURED_OUTPUT" != "$local_md5" ]; then
+        error "Checksum do config do Roundcube dentro do container diverge do repositorio"
+        echo "Local:     $local_md5"
+        echo "Container: $CAPTURED_OUTPUT"
+        exit 1
+    fi
+
+    info "✅ Config do Roundcube validado no host e no container"
+}
+
+run_remote_webmail_safeguards() {
+    if [ "$DEPLOY_PROJECT_NAME" != "infra-httpd" ]; then
+        return 0
+    fi
+
+    local webmail_mail_env_file="${WEBMAIL_MAIL_ENV_FILE:-.env.remote-${REMOTE_HOST}-mail}"
+
+    run_ssh_cmd "cd '$REMOTE_DIR' && sh ./scripts/normalize-roundcube-special-folders.sh" "Normalizando pastas especiais do Roundcube/Dovecot"
+    run_ssh_cmd "cd '$REMOTE_DIR' && sh ./scripts/test-webmail-login.sh" "Executando smoke test da pagina de login do webmail"
+    if [ "$DRY_RUN" != "true" ]; then
+        capture_ssh_cmd "test -r '$REMOTE_DIR/$webmail_mail_env_file' && echo ok || true" "Verificando arquivo de ambiente do mail para teste temporario"
+        if [ "$CAPTURED_OUTPUT" = "ok" ]; then
+            run_ssh_cmd "cd '$REMOTE_DIR' && WEBMAIL_MAIL_ENV_FILE='$webmail_mail_env_file' sh ./scripts/test-webmail-temporary-auth.sh" "Executando validacao temporaria SQL e LDAP do webmail"
+        else
+            warn "Arquivo de ambiente do mail nao encontrado para validacao temporaria: $webmail_mail_env_file"
+        fi
+    fi
+
+    if [ -n "${WEBMAIL_TEST_USER:-}" ] && [ -n "${WEBMAIL_TEST_PASSWORD:-}" ]; then
+        run_ssh_cmd "cd '$REMOTE_DIR' && WEBMAIL_USER='${WEBMAIL_TEST_USER}' WEBMAIL_PASSWORD='${WEBMAIL_TEST_PASSWORD}' sh ./scripts/test-webmail-login.sh" "Executando smoke test autenticado do webmail"
+    else
+        warn "WEBMAIL_TEST_USER/WEBMAIL_TEST_PASSWORD nao definidos; smoke test autenticado foi ignorado"
+    fi
+}
+
 capture_ssh_cmd() {
     local remote_cmd="$1"
     local description="$2"
@@ -246,8 +310,13 @@ section "Sincronizando Arquivos"
 RSYNC_CMD="rsync -az --progress --delete --exclude .git/ --exclude node_modules/ --exclude .env --exclude .env.local -e '$RSYNC_SSH_TRANSPORT' '$ROOT_DIR/' '${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/'"
 run_cmd "$RSYNC_CMD" "Sincronizando workspace para o host remoto"
 
+validate_remote_webmail_config false
+
 section "Aplicando Docker Compose"
 REMOTE_DEPLOY_CMD="set -e && mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && test -f '$DEPLOY_COMPOSE_FILE' && test -f '$REMOTE_ENV_FILE' && command -v docker >/dev/null && docker compose version >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' config >/dev/null && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' up -d --build && if [ '$DEPLOY_PROJECT_NAME' = 'infra-mail' ] && command -v rc-service >/dev/null 2>&1; then rc-service fail2ban restart >/dev/null 2>&1 || rc-service fail2ban start >/dev/null 2>&1 || true; fi && docker compose --env-file '$REMOTE_ENV_FILE' -f '$DEPLOY_COMPOSE_FILE' --project-name '$DEPLOY_PROJECT_NAME' ps"
 run_ssh_cmd "$REMOTE_DEPLOY_CMD" "Executando docker compose remoto"
+
+validate_remote_webmail_config
+run_remote_webmail_safeguards
 
 info "✅ Deploy concluido para ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}"

@@ -38,8 +38,12 @@ protocol imap {
 protocol pop3 {
   pop3_uidl_format = %08Xu%08Xv
 }
+protocol lmtp {
+  mail_plugins = sieve
+}
 plugin {
   sieve = file:~/sieve;active=~/.dovecot.sieve
+  sieve_after = /etc/dovecot/sieve/global-after.sieve
 }
 namespace inbox {
   inbox = yes

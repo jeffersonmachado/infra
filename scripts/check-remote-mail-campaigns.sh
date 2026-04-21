@@ -29,7 +29,7 @@ remote() {
 }
 
 echo "=== RSPAMD CAMPAIGN COMPOSITES ==="
-remote "logs=\$(docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-rspamd 2>&1 | grep -E 'LOCAL_AUTH_SPAM_CAMPAIGN(_FALLBACK)?' || true); if [ -n \"\$logs\" ]; then printf '%s\n' \"\$logs\"; else echo 'nenhum disparo recente das composites locais'; fi"
+remote "logs=\$(docker logs --since '${RSPAMD_LOG_WINDOW}' --tail '${RSPAMD_LOG_TAIL}' results-mail-rspamd 2>&1 | grep 'LOCAL_AUTH_SPAM_CAMPAIGN' || true); if [ -n \"\$logs\" ]; then printf '%s\n' \"\$logs\"; else echo 'nenhum disparo recente das composites locais'; fi"
 
 echo
 echo "=== POSTFIX REJECTIONS ==="

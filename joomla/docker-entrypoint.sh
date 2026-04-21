@@ -8,6 +8,23 @@ if [ -d /var/www/html/results/webmail ]; then
 	mkdir -p /var/www/html/results/webmail/logs /var/www/html/results/webmail/temp
 	chown -R www-data:www-data /var/www/html/results/webmail/logs /var/www/html/results/webmail/temp
 
+	cat <<'EOF' > /var/www/html/results/webmail/config/managesieve-default.sieve
+# Exemplo de filtro por remetente no Roundcube/ManageSieve.
+#
+# Este tipo de regra funciona para organizacao geral da caixa, mas nao
+# sobrepoe o desvio global de mensagens marcadas com X-Spam: Yes no
+# sieve_after do Dovecot.
+#
+# require ["fileinto"];
+#
+# if address :is "from" "remetente@exemplo.com" {
+#   fileinto "INBOX";
+#   stop;
+# }
+EOF
+	chown www-data:www-data /var/www/html/results/webmail/config/managesieve-default.sieve
+	chmod 0644 /var/www/html/results/webmail/config/managesieve-default.sieve
+
 	if [ -f /var/www/html/results/webmail/config/config.inc.php ]; then
 		if [ -w /var/www/html/results/webmail/config/config.inc.php ]; then
 			sed -i 's#\$config\['\''default_host'\''\] = .*#\$config['\''default_host'\''] = '\''ssl://mx1.results.com.br'\'';#' /var/www/html/results/webmail/config/config.inc.php || true

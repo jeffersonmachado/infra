@@ -81,7 +81,13 @@ Notas operacionais:
 - as credenciais MySQL da stack de mail seguem o mesmo padrão do banco `results`
 - a senha de bind LDAP foi confirmada no servidor legado, mas deve ser preenchida apenas no arquivo de ambiente remoto
 - o antispam por IA usa o módulo `neural` nativo do `Rspamd`, com aprendizado persistido em `Redis`
-- campanhas recorrentes que escapem ao score heurístico podem ser bloqueadas localmente pelo `Rspamd` em [mail/rspamd/local.d/composites.conf](/opt/results/infra/mail/rspamd/local.d/composites.conf), combinando símbolos que já apareceram no log real da campanha para forçar rejeição nas próximas ocorrências; a composite principal cobre o fingerprint exato e a fallback cobre variações próximas com `PHP mailer`, `FORGED_SENDER`, `FROM_NEQ_ENVFROM`, autenticação parcial SPF ou DKIM e `DMARC_NA`
+- mensagens classificadas pelo `Rspamd` com ação `add header` agora são entregues pelo LMTP com headers padrão (`X-Spam`/`X-Spam-Status`) e passam por um Sieve global `sieve_after` do `Dovecot` que faz `fileinto "Spam"`; nos testes desta stack, filtros pessoais do Roundcube/ManageSieve nao conseguiram sobrepor esse desvio global, mesmo com `stop`
+- o Roundcube agora expõe o plugin `managesieve` conectado a `imap.results.com.br:4190`, com um script inicial de exemplo em [joomla-site/webmail/config/managesieve-default.sieve](/opt/results/infra/joomla-site/webmail/config/managesieve-default.sieve); ele serve para filtros pessoais de organizacao, mas nao para whitelists que precisem vencer o `sieve_after` global de Spam
+- whitelists que precisem vencer a marcacao global devem ser mantidas no `Rspamd`, em [mail/rspamd/local.d/local_from_allowlist.map](/opt/results/infra/mail/rspamd/local.d/local_from_allowlist.map) para remetentes exatos e [mail/rspamd/local.d/local_from_domain_allowlist.map](/opt/results/infra/mail/rspamd/local.d/local_from_domain_allowlist.map) para dominios; esses mapas sao aplicados por [mail/rspamd/local.d/multimap.conf](/opt/results/infra/mail/rspamd/local.d/multimap.conf) com score `-20.0`, preservando ainda outras verificacoes como antivirus
+- a allowlist inicial desta stack inclui `pesquisa@bradescosegurospesquisa.com.br`, para evitar que a campanha legitima do Bradesco/Medallia seja empurrada para `Spam` pelo endurecimento local
+- campanhas recorrentes que escapem ao score heurístico podem ser bloqueadas localmente pelo `Rspamd` em [mail/rspamd/local.d/composites.conf](/opt/results/infra/mail/rspamd/local.d/composites.conf), combinando símbolos que já apareceram no log real da campanha para forçar rejeição nas próximas ocorrências; além da composite principal e da fallback com `PHP mailer`, `FORGED_SENDER`, `FROM_NEQ_ENVFROM`, autenticação parcial SPF ou DKIM e `DMARC_NA`, há cobertura específica para remetentes em `RBL_SEM` com `RCVD_COUNT_ZERO`, para campanhas com `DBL_SPAM`, envelope VERP divergente e preheader invisível, e para blasts autenticados com `Reply-To` fora do domínio de origem, `List-Unsubscribe` e cabeçalhos de ESP como `X-AntiAbuse`, `X-Authenticated-Sender` e `X-Get-Message-Sender-Via`; quando os dois últimos não forem reconhecidos pelo parser, a fallback `LOCAL_AUTH_SPAM_CAMPAIGN_REPLYTO_TRACKING_FALLBACK` mantém a rejeição com base nos demais sinais estáveis da campanha
+- para uma postura mais agressiva sem rejeitar no SMTP, a composite `LOCAL_AUTH_MARKETING_AGGRESSIVE` soma `8.0` pontos em campanhas autenticadas com `List-Unsubscribe`, envelope VERP divergente do `From`, histórico de entrega anterior (`PREVIOUSLY_DELIVERED`) e autenticação SPF ou DKIM; na prática, esse perfil passa a cair em `add header` e ser movido para `Spam` pelo Sieve global, com risco maior de falso positivo em newsletters legítimas
+- quando o webmail legado gravou preferencias de pastas especiais como `INBOX.Sent`, `INBOX.Spam`, `INBOX.Trash` e `INBOX.Drafts`, normalize essas preferencias e as subscriptions IMAP com [scripts/normalize-roundcube-special-folders.sh](/opt/results/infra/scripts/normalize-roundcube-special-folders.sh); na stack atual do Dovecot, as mailboxes corretas sao `Sent`, `Spam`, `Trash` e `Drafts`
 - o Postfix aplica limites básicos por cliente para reduzir abuso e rajadas de conexões
 - o Postfix também pode aplicar `postscreen` com DNSBL no SMTP público do `mx1`/`mx2`
 
@@ -125,7 +131,7 @@ O script usado por esse comando e [scripts/check-remote-host-security.sh](/opt/r
 
 Esse healthcheck unico agora tambem inclui:
 
-- disparos de `LOCAL_AUTH_SPAM_CAMPAIGN` e `LOCAL_AUTH_SPAM_CAMPAIGN_FALLBACK` nos logs do `results-mail-rspamd`
+- disparos de composites locais com prefixo `LOCAL_AUTH_SPAM_CAMPAIGN` nos logs do `results-mail-rspamd`
 - rejeicoes correlatas nos logs do `results-mail-postfix`
 
 Para verificar disparos das composites locais do `Rspamd` e rejeicoes correlatas no `Postfix`:
@@ -136,7 +142,7 @@ export SSHPASS='***'
 npm run mail:campaigns:status:remote
 ```
 
-O script usado por esse comando e [scripts/check-remote-mail-campaigns.sh](/opt/results/infra/scripts/check-remote-mail-campaigns.sh). Ele busca por `LOCAL_AUTH_SPAM_CAMPAIGN` e `LOCAL_AUTH_SPAM_CAMPAIGN_FALLBACK` nos logs do `results-mail-rspamd` e por rejeicoes correlatas no `results-mail-postfix`. Se precisar ampliar a janela, sobrescreva `RSPAMD_LOG_WINDOW` e `RSPAMD_LOG_TAIL`.
+O script usado por esse comando e [scripts/check-remote-mail-campaigns.sh](/opt/results/infra/scripts/check-remote-mail-campaigns.sh). Ele busca por qualquer composite local com prefixo `LOCAL_AUTH_SPAM_CAMPAIGN` nos logs do `results-mail-rspamd` e por rejeicoes correlatas no `results-mail-postfix`. Se precisar ampliar a janela, sobrescreva `RSPAMD_LOG_WINDOW` e `RSPAMD_LOG_TAIL`.
 
 Para reaplicar o hardening com o arquivo operacional deste host:
 
@@ -549,6 +555,28 @@ npm run deploy:remote:ssh:httpd:dry-run
 O script efetivo usado pelo `npm` é [scripts/docker-deploy.sh](/opt/results/infra/scripts/docker-deploy.sh).
 
 Quando `DEPLOY_PROJECT_NAME=infra-mail`, esse script tambem reinicia o `fail2ban` no host remoto ao final do deploy para que os jails que leem `/var/lib/docker/containers/*/*-json.log` acompanhem o ID atual dos containers recriados.
+
+Quando `DEPLOY_PROJECT_NAME=infra-httpd`, esse script tambem endurece o fluxo de webmail:
+
+- valida o checksum de [joomla-site/webmail/config/config.inc.php](/opt/results/infra/joomla-site/webmail/config/config.inc.php) no host remoto antes do `docker compose`
+- valida o mesmo checksum no bind mount dentro do container `results-joomla` depois do recreate
+- executa [scripts/normalize-roundcube-special-folders.sh](/opt/results/infra/scripts/normalize-roundcube-special-folders.sh) para alinhar preferencias do Roundcube e subscriptions do Dovecot com `Sent`/`Spam`/`Trash`/`Drafts`
+- executa [scripts/test-webmail-login.sh](/opt/results/infra/scripts/test-webmail-login.sh) para validar o runtime IMAP/TLS efetivo do Roundcube dentro do container `results-joomla`, confirmar cookie/token da pagina de login e, se `WEBMAIL_TEST_USER` e `WEBMAIL_TEST_PASSWORD` estiverem definidos no ambiente de deploy, tambem executar login autenticado
+- se o arquivo de ambiente da stack de mail estiver disponivel no host remoto, executa [scripts/test-webmail-temporary-auth.sh](/opt/results/infra/scripts/test-webmail-temporary-auth.sh), que cria um login temporario no MySQL e outro no LDAP real, cria o Maildir de ambos, valida o login SQL via Roundcube, valida o login LDAP via `doveadm auth test` com `localpart` e email completo, e remove tudo no `cleanup`
+
+Para executar essa validacao manualmente no host remoto, depois de sincronizar o repositório:
+
+```bash
+cd /opt/results/infra
+WEBMAIL_MAIL_ENV_FILE=.env.remote-10.10.2.30-mail sh ./scripts/test-webmail-temporary-auth.sh
+```
+
+Para um smoke test mais rapido, sem criar usuarios temporarios:
+
+```bash
+cd /opt/results/infra
+sh ./scripts/test-webmail-login.sh
+```
 
 O script remoto também aceita `DEPLOY_ENV_FILE=.env.example`; nesse caso ele copia esse arquivo para `.env` no host remoto antes de executar o `docker compose`.
 

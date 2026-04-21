@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /etc/dovecot /etc/dovecot/conf.d /var/mail/vhosts /certs /var/lib/dovecot
+mkdir -p /etc/dovecot /etc/dovecot/conf.d /etc/dovecot/sieve /var/mail/vhosts /certs /var/lib/dovecot
 mkdir -p "/var/mail/vhosts/${MAIL_DOMAIN}"
 chown "${MAIL_UID}:${MAIL_GID}" /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN}"
 chmod 0770 /var/mail/vhosts "/var/mail/vhosts/${MAIL_DOMAIN}"
@@ -18,6 +18,7 @@ export MAIL_HOSTNAME MAIL_DOMAIN MAIL_UID MAIL_GID MAIL_STORAGE_BASE \
 envsubst < /templates/dovecot.conf.template > /etc/dovecot/dovecot.conf
 envsubst < /templates/dovecot-sql.conf.ext.template > /etc/dovecot/dovecot-sql.conf.ext
 envsubst < /templates/dovecot-ldap.conf.ext.template > /etc/dovecot/dovecot-ldap.conf.ext
+cp /templates/global-after.sieve /etc/dovecot/sieve/global-after.sieve
 
 wait_for_certificates() {
   while [ ! -s "$MAIL_TLS_CERT_FILE" ] || [ ! -s "$MAIL_TLS_KEY_FILE" ]; do
@@ -43,6 +44,8 @@ watch_certificate_updates() {
 }
 
 wait_for_certificates
+
+sievec /etc/dovecot/sieve/global-after.sieve >/dev/null 2>&1 || true
 
 dovecot -F &
 dovecot_pid=$!

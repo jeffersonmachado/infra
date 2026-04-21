@@ -1,0 +1,4 @@
+# Exact From addresses that should not be marked as spam by local scoring.
+# One address per line.
+
+pesquisa@bradescosegurospesquisa.com.br

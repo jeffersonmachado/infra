@@ -8,6 +8,7 @@ COPY entrypoint.sh /entrypoint.sh
 COPY dovecot.conf.template /templates/dovecot.conf.template
 COPY dovecot-sql.conf.ext.template /templates/dovecot-sql.conf.ext.template
 COPY dovecot-ldap.conf.ext.template /templates/dovecot-ldap.conf.ext.template
+COPY global-after.sieve /templates/global-after.sieve
 
 RUN chmod +x /entrypoint.sh
 
