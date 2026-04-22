@@ -1,0 +1,6 @@
+# Envelope sender domains that should be pushed to Spam by local scoring.
+# One domain per line.
+
+emailmkt.planoeplano.com.br
+temosopcaoplano.com.br
+viamaispromo.com.br
