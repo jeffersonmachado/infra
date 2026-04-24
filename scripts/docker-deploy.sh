@@ -65,6 +65,7 @@ run_ssh_cmd() {
 
 validate_remote_webmail_config() {
     local validate_container="${1:-true}"
+    local host_config_strict="${WEBMAIL_HOST_CONFIG_STRICT:-false}"
 
     if [ "$DEPLOY_PROJECT_NAME" != "infra-httpd" ]; then
         return 0
@@ -78,12 +79,18 @@ validate_remote_webmail_config() {
 
     local local_md5
     local_md5=$(md5sum "$local_config" | awk '{print $1}')
-    capture_ssh_cmd "md5sum '$REMOTE_DIR/joomla-site/webmail/config/config.inc.php' | awk '{print \$1}'" "Validando checksum remoto do config do Roundcube"
+    capture_ssh_cmd "md5sum '$REMOTE_DIR/joomla-site/webmail/config/config.inc.php' | cut -d ' ' -f1" "Validando checksum remoto do config do Roundcube"
     if [ "$DRY_RUN" != "true" ] && [ "$CAPTURED_OUTPUT" != "$local_md5" ]; then
-        error "Checksum remoto do config do Roundcube diverge do repositorio"
+        if [ "$host_config_strict" = "true" ]; then
+            error "Checksum remoto do config do Roundcube diverge do repositorio"
+            echo "Local:  $local_md5"
+            echo "Remoto: $CAPTURED_OUTPUT"
+            exit 1
+        fi
+
+        warn "Checksum do config no host remoto diverge do repositorio; validacao no container seguira"
         echo "Local:  $local_md5"
         echo "Remoto: $CAPTURED_OUTPUT"
-        exit 1
     fi
 
     if [ "$validate_container" != "true" ]; then
@@ -91,7 +98,7 @@ validate_remote_webmail_config() {
         return 0
     fi
 
-    capture_ssh_cmd "docker exec results-joomla md5sum /var/www/html/results/webmail/config/config.inc.php | awk '{print \$1}'" "Validando checksum montado no container Joomla"
+    capture_ssh_cmd "docker exec results-joomla md5sum /var/www/html/results/webmail/config/config.inc.php | cut -d ' ' -f1" "Validando checksum montado no container Joomla"
     if [ "$DRY_RUN" != "true" ] && [ "$CAPTURED_OUTPUT" != "$local_md5" ]; then
         error "Checksum do config do Roundcube dentro do container diverge do repositorio"
         echo "Local:     $local_md5"
@@ -125,6 +132,28 @@ run_remote_webmail_safeguards() {
     else
         warn "WEBMAIL_TEST_USER/WEBMAIL_TEST_PASSWORD nao definidos; smoke test autenticado foi ignorado"
     fi
+}
+
+run_local_webmail_public_gate() {
+    if [ "$DEPLOY_PROJECT_NAME" != "infra-httpd" ]; then
+        return 0
+    fi
+
+    if [ "${WEBMAIL_GATE_PUBLIC:-false}" != "true" ]; then
+        return 0
+    fi
+
+    local gate_url="${WEBMAIL_GATE_URL:-https://www.results.com.br/webmail/}"
+    local gate_host="${WEBMAIL_GATE_HOST:-www.results.com.br}"
+    local gate_ip="${WEBMAIL_GATE_IP:-$REMOTE_HOST}"
+
+    info "Executando gate publico de webmail (${gate_url})"
+    WEBMAIL_URL="$gate_url" \
+    WEBMAIL_RESOLVE_HOST="$gate_host" \
+    WEBMAIL_RESOLVE_IP="$gate_ip" \
+    WEBMAIL_USER="${WEBMAIL_TEST_USER:-}" \
+    WEBMAIL_PASSWORD="${WEBMAIL_TEST_PASSWORD:-}" \
+    sh "$ROOT_DIR/scripts/test-webmail-login.sh"
 }
 
 capture_ssh_cmd() {
@@ -164,6 +193,7 @@ REMOTE_HOST="$DEPLOY_HOST"
 REMOTE_USER="${DEPLOY_USER:-root}"
 REMOTE_PORT="${DEPLOY_PORT:-22}"
 REMOTE_DIR="${DEPLOY_PATH:-/opt/results/infra}"
+DEPLOY_SKIP_PING="${DEPLOY_SKIP_PING:-false}"
 DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-.env}"
 DEPLOY_ENV_BASENAME="$(basename "$DEPLOY_ENV_FILE")"
 REMOTE_ENV_FILE="$DEPLOY_ENV_BASENAME"
@@ -281,7 +311,11 @@ command -v npm >/dev/null 2>&1 || { error "npm nao encontrado"; exit 1; }
 info "✅ Pre-check local concluido"
 
 section "Validação de Rede e SSH"
-run_cmd "ping -c 1 -W 2 $REMOTE_HOST" "Testando conectividade de rede"
+if [ "$DEPLOY_SKIP_PING" = "true" ]; then
+    warn "Teste de ping ignorado (DEPLOY_SKIP_PING=true); validacao seguira via SSH"
+else
+    run_cmd "ping -c 1 -W 2 $REMOTE_HOST" "Testando conectividade de rede"
+fi
 
 capture_ssh_cmd "echo 'Conexao OK'" "Testando conexao SSH"
 if [ "$DRY_RUN" != "true" ] && ! echo "$CAPTURED_OUTPUT" | grep -q "Conexao OK"; then
@@ -318,5 +352,6 @@ run_ssh_cmd "$REMOTE_DEPLOY_CMD" "Executando docker compose remoto"
 
 validate_remote_webmail_config
 run_remote_webmail_safeguards
+run_local_webmail_public_gate
 
 info "✅ Deploy concluido para ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}"

@@ -6,6 +6,8 @@
   "scripts": {
     "deploy:remote:ssh:httpd": "./scripts/docker-deploy.sh",
     "deploy:remote:ssh:httpd:dry-run": "./scripts/docker-deploy.sh --dry-run",
+    "deploy:remote:ssh:httpd:webmail-gate": "WEBMAIL_GATE_PUBLIC=true ./scripts/docker-deploy.sh",
+    "deploy:remote:ssh:httpd:webmail-gate:dry-run": "WEBMAIL_GATE_PUBLIC=true ./scripts/docker-deploy.sh --dry-run",
     "deploy:remote:ssh:mail": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh",
     "deploy:remote:ssh:mail:dry-run": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh --dry-run",
     "webmail:normalize:special-folders": "sh ./scripts/normalize-roundcube-special-folders.sh",

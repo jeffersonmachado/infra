@@ -214,6 +214,21 @@ if ! grep -qi '^set-cookie: roundcube_sessid=' "$login_headers"; then
   exit 1
 fi
 
+cookie_line=$(grep -i '^set-cookie: roundcube_sessid=' "$login_headers" | head -n 1 || true)
+cookie_path=$(printf '%s\n' "$cookie_line" | sed -n 's/.*[Pp]ath=\([^;]*\).*/\1/p')
+if [ -n "$cookie_path" ]; then
+  case "$cookie_path" in
+    /|/webmail|/webmail/)
+      ;;
+    *)
+      error "path de cookie invalido para roundcube_sessid: '$cookie_path'"
+      exit 1
+      ;;
+  esac
+else
+  warn 'atributo Path do roundcube_sessid ausente; verificacao de escopo de cookie nao conclusiva'
+fi
+
 if ! grep -q 'name="_token"' "$login_page"; then
   error "token de login nao encontrado em $WEBMAIL_URL"
   exit 1

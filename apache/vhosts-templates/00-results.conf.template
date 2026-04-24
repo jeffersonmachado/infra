@@ -98,6 +98,13 @@
     ProxyPass        "/valid"  "http://${UPSTREAM_HOST_22}:3010"
     ProxyPassReverse "/valid"  "http://${UPSTREAM_HOST_22}:3010"
 
+    # Keep Roundcube session cookie path scoped to /webmail/.
+    ProxyPass        "/webmail/"  "http://joomla/webmail/" nocanon
+    ProxyPassReverse "/webmail/"  "http://joomla/webmail/"
+    <Location "/webmail/">
+        ProxyPassReverseCookiePath "/" "/webmail/"
+    </Location>
+
 ${RESULTS_ROOT_PROXY_BLOCK}
 
     Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
