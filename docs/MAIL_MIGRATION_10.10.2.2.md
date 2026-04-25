@@ -103,6 +103,24 @@ export LEGACY_SSH_PASSWORD='***'
 ./scripts/sync-maildata-from-legacy.sh sync
 ```
 
+Se o operador estiver logado diretamente no servidor legado, tambem e possivel empurrar o spool sem staging local intermediario:
+
+```bash
+cd /opt/results/infra
+export DEPLOY_HOST=10.10.2.30
+export DEPLOY_USER=root
+export DEPLOY_SSH_PASSWORD='***'
+
+./scripts/sync-maildata-to-new-host.sh precheck
+./scripts/sync-maildata-to-new-host.sh sync
+```
+
+Esse modo envia cada mailbox diretamente de `/gv/` para o mountpoint real do volume `infra-mail_maildata` no host novo. Para retomar no trecho afetado do fim da lista ordenada:
+
+```bash
+START_FROM_MAILBOX='results.com.br/paloma' ./scripts/sync-maildata-to-new-host.sh sync
+```
+
 ## Situação atual de certificados no host novo
 
 Os certificados do mail passaram a ser derivados do certificado valido que o Apache do edge ja mantem via `mod_md`.

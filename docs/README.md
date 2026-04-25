@@ -203,6 +203,24 @@ Notas do sync legado:
 - se a conexao cair, execute o mesmo comando novamente para retomar a partir do que ja foi baixado/enviado
 - use `./scripts/sync-maildata-from-legacy.sh sync --dry-run` para simular antes
 
+Se preferir executar o sync diretamente no servidor legado, use o script `scripts/sync-maildata-to-new-host.sh`:
+
+```bash
+cd /opt/results/infra
+export DEPLOY_HOST=10.10.2.30
+export DEPLOY_USER=root
+export DEPLOY_SSH_PASSWORD='***'
+
+# validar acesso ao volume do host novo
+./scripts/sync-maildata-to-new-host.sh precheck
+
+# enviar a arvore /gv diretamente do legado para o host novo
+./scripts/sync-maildata-to-new-host.sh sync
+
+# retomar de um ponto especifico, se necessario
+START_FROM_MAILBOX='results.com.br/paloma' ./scripts/sync-maildata-to-new-host.sh sync
+```
+
 Comandos manuais no host remoto devem sempre usar o arquivo de ambiente especifico de cada stack.
 
 Exemplos:
