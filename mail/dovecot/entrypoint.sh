@@ -19,6 +19,11 @@ envsubst < /templates/dovecot.conf.template > /etc/dovecot/dovecot.conf
 envsubst < /templates/dovecot-sql.conf.ext.template > /etc/dovecot/dovecot-sql.conf.ext
 envsubst < /templates/dovecot-ldap.conf.ext.template > /etc/dovecot/dovecot-ldap.conf.ext
 cp /templates/global-after.sieve /etc/dovecot/sieve/global-after.sieve
+cp /templates/report-spam.sieve /etc/dovecot/sieve/report-spam.sieve
+cp /templates/report-ham.sieve /etc/dovecot/sieve/report-ham.sieve
+cp /templates/rspamc-learn-spam.sh /etc/dovecot/sieve/rspamc-learn-spam.sh
+cp /templates/rspamc-learn-ham.sh /etc/dovecot/sieve/rspamc-learn-ham.sh
+chmod +x /etc/dovecot/sieve/rspamc-learn-spam.sh /etc/dovecot/sieve/rspamc-learn-ham.sh
 
 wait_for_certificates() {
   while [ ! -s "$MAIL_TLS_CERT_FILE" ] || [ ! -s "$MAIL_TLS_KEY_FILE" ]; do
@@ -46,6 +51,8 @@ watch_certificate_updates() {
 wait_for_certificates
 
 sievec /etc/dovecot/sieve/global-after.sieve >/dev/null 2>&1 || true
+sievec /etc/dovecot/sieve/report-spam.sieve >/dev/null 2>&1 || true
+sievec /etc/dovecot/sieve/report-ham.sieve >/dev/null 2>&1 || true
 
 dovecot -F &
 dovecot_pid=$!

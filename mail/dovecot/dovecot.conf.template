@@ -33,7 +33,7 @@ ssl = required
 ssl_cert = <${MAIL_TLS_CERT_FILE}
 ssl_key = <${MAIL_TLS_KEY_FILE}
 protocol imap {
-  mail_plugins = quota imap_quota
+  mail_plugins = quota imap_quota imap_sieve
 }
 protocol pop3 {
   pop3_uidl_format = %08Xu%08Xv
@@ -44,6 +44,30 @@ protocol lmtp {
 plugin {
   sieve = file:~/sieve;active=~/.dovecot.sieve
   sieve_after = /etc/dovecot/sieve/global-after.sieve
+  sieve_plugins = sieve_imapsieve sieve_extprograms
+  sieve_global_extensions = +vnd.dovecot.pipe +vnd.dovecot.environment
+  sieve_pipe_bin_dir = /etc/dovecot/sieve
+
+  # Learn spam when users move messages to Spam.
+  imapsieve_mailbox1_name = Spam
+  imapsieve_mailbox1_causes = COPY
+  imapsieve_mailbox1_before = file:/etc/dovecot/sieve/report-spam.sieve
+
+  # Learn ham when users move messages back from Spam to INBOX.
+  imapsieve_mailbox2_name = INBOX
+  imapsieve_mailbox2_from = Spam
+  imapsieve_mailbox2_causes = COPY
+  imapsieve_mailbox2_before = file:/etc/dovecot/sieve/report-ham.sieve
+
+  # Some clients use Junk instead of Spam; train both directions too.
+  imapsieve_mailbox3_name = Junk
+  imapsieve_mailbox3_causes = COPY
+  imapsieve_mailbox3_before = file:/etc/dovecot/sieve/report-spam.sieve
+
+  imapsieve_mailbox4_name = INBOX
+  imapsieve_mailbox4_from = Junk
+  imapsieve_mailbox4_causes = COPY
+  imapsieve_mailbox4_before = file:/etc/dovecot/sieve/report-ham.sieve
 }
 namespace inbox {
   inbox = yes

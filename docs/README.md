@@ -590,6 +590,33 @@ cd /opt/results/infra
 WEBMAIL_MAIL_ENV_FILE=.env.remote-10.10.2.30-mail sh ./scripts/test-webmail-temporary-auth.sh
 ```
 
+Para provisionar um usuario SMTP/IMAP SQL dedicado a aplicacoes, como o RAP:
+
+```bash
+cd /opt/results/infra
+SMTP_APP_PASSWORD='troque-esta-senha' \
+	sh ./scripts/provision-smtp-user.sh \
+	--env-file .env.remote-10.10.2.30-mail \
+	--username rap@results.com.br \
+	--name 'RAP SMTP'
+```
+
+Notas desse fluxo:
+
+- o script usa o mesmo backend SQL ja lido por `Postfix` e `Dovecot`
+- se o usuario nao existir, ele grava a linha em `mailbox`, cria a arvore `Maildir` e tenta validar `doveadm auth test`
+- se o usuario ja existir, o script falha explicitamente para evitar sobrescrever uma conta operacional por engano
+- para remover depois: `sh ./scripts/provision-smtp-user.sh --delete --env-file .env.remote-10.10.2.30-mail --username rap@results.com.br`
+- para apagar tambem o Maildir no host: adicione `--purge-maildir`
+
+Configuracao esperada no RAP:
+
+- host SMTP: `mx1.results.com.br`
+- porta: `587`
+- seguranca: `STARTTLS`
+- usuario: email completo provisionado no script
+- senha: a mesma informada em `SMTP_APP_PASSWORD`
+
 Para um smoke test mais rapido, sem criar usuarios temporarios:
 
 ```bash
