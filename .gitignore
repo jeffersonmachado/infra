@@ -2,6 +2,8 @@
 .env.*
 !.env.example
 !.env.host-security.example
+!.env.mail.example
+!.env.observe.example
 
 joomla-site/configuration.php
 joomla-site/webmail/config/config.inc.php

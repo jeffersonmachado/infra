@@ -36,6 +36,8 @@
     "observe:smoke": "sh ./scripts/observe/smoke-observe-stack.sh",
     "observe:smoke:icinga": "sh ./scripts/observe/smoke-icinga.sh",
     "observe:discover": "sh ./scripts/observe/discover-hosts.sh",
+    "observe:deploy": "sh ./scripts/observe/deploy.sh",
+    "observe:deploy:remote": "sh ./scripts/observe/deploy.sh --host ${DEPLOY_HOST:-10.10.2.30}",
     "observe:security": "sh ./scripts/observe/check-docker-safety.sh",
     "observe:release-check": "npm run observe:validate && npm run observe:security"
   }
