@@ -44,9 +44,12 @@ redis.on('error', (e) => log('error', 'Redis error', { err: e.message }));
 
 // ─── Heartbeat state ──────────────────────────────────────────────────────────
 let lastProcessedAt = null;
-let processedCount = 0;
-let errorCount = 0;
-let running = false;
+let processedCount  = 0;
+let errorCount      = 0;
+let running         = false;
+
+// ─── Contadores de remediação (expostos em /metrics) ─────────────────────────
+const rem = { auto: 0, pending: 0, approved: 0, rejected: 0, success: 0, failed: 0 };
 
 // ─── AI helper ────────────────────────────────────────────────────────────────
 async function callAI(incident, context) {
@@ -242,6 +245,7 @@ async function scheduleOrExecuteRemediation(incidentId, severity, rem) {
   );
 
   if (!autoOk) {
+    rem.pending++;
     log('info', 'Remediation pending approval', {
       incident_id: incidentId, action,
       score: confidence_score,
@@ -252,9 +256,11 @@ async function scheduleOrExecuteRemediation(incidentId, severity, rem) {
     return;
   }
 
+  rem.auto++;
   log('info', 'Auto-executing remediation', { incident_id: incidentId, action, score: confidence_score });
   const result = await remediation.executeAction(action, params);
   const finalStatus = result.success ? 'executed' : 'failed';
+  result.success ? rem.success++ : rem.failed++;
 
   await db.query(
     `UPDATE observe_remediations
@@ -279,8 +285,10 @@ async function dispatchApprovedRemediation(raw) {
   try { task = JSON.parse(raw); } catch { return; }
   const { remediation_id, action, params, incident_id } = task;
 
+  rem.approved++;
   log('info', 'Executing approved remediation', { remediation_id, action });
   const result = await remediation.executeAction(action, params || {});
+  result.success ? rem.success++ : rem.failed++;
   const finalStatus = result.success ? 'executed' : 'failed';
 
   await db.query(
@@ -348,6 +356,13 @@ app.get('/metrics', (_req, res) => {
     `# HELP r_observe_worker_errors_total Total processing errors`,
     `# TYPE r_observe_worker_errors_total counter`,
     `r_observe_worker_errors_total ${errorCount}`,
+    `# HELP r_observe_remediations_total Total remediations by outcome`,
+    `# TYPE r_observe_remediations_total counter`,
+    `r_observe_remediations_total{outcome="auto_executed"} ${rem.auto}`,
+    `r_observe_remediations_total{outcome="pending_approval"} ${rem.pending}`,
+    `r_observe_remediations_total{outcome="approved_by_human"} ${rem.approved}`,
+    `r_observe_remediations_total{outcome="execution_success"} ${rem.success}`,
+    `r_observe_remediations_total{outcome="execution_failed"}  ${rem.failed}`,
   ].join('\n') + '\n');
 });
 

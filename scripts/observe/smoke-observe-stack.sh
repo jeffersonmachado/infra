@@ -189,41 +189,97 @@ if [ -n "$INCIDENT_ID" ]; then
   fi
 fi
 
-# ─── Step 9: Solicitar remediação ────────────────────────────────────────────
-step 9 "Solicitar remediação (pending_approval)"
+# ─── Step 9: IA criou remediação automática ──────────────────────────────────
+step 9 "Verificar remediação criada pela IA (pending_approval ou auto-executada)"
 
+REMEDIATION_ID=""
 if [ -n "$INCIDENT_ID" ]; then
-  REMEDIATION_PAYLOAD="{
-    \"incident_id\": \"${INCIDENT_ID}\",
-    \"action\": \"restart_container\",
-    \"reason\": \"[SMOKE TEST] Container parado detectado pelo agente\"
-  }"
-  REM_RESP=$(smoke_curl "${BASE}/remediation/request" -X POST -d "$REMEDIATION_PAYLOAD" 2>/dev/null || echo "ERRO")
-  if echo "$REM_RESP" | grep -q '"status":"pending_approval"'; then
-    pass "Remediação criada com status pending_approval"
+  # Aguarda até 10s para a remediação aparecer
+  for i in $(seq 1 5); do
+    PENDING=$(smoke_curl "${BASE}/remediation/pending" 2>/dev/null || echo "{}")
+    REMEDIATION_ID=$(echo "$PENDING" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for r in data.get('remediations', []):
+        if r.get('incident_id') == '${INCIDENT_ID}':
+            print(r['id'])
+            break
+except: pass
+" 2>/dev/null || echo "")
+    [ -n "$REMEDIATION_ID" ] && break
+    sleep 2
+  done
+
+  if [ -n "$REMEDIATION_ID" ]; then
+    REM_ACTION=$(echo "$PENDING" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+for r in data.get('remediations',[]):
+    if r.get('id')=='${REMEDIATION_ID}':
+        print(r.get('action','?'), '| score:', r.get('confidence_score','?'))
+" 2>/dev/null || echo "")
+    pass "Remediação pendente criada pela IA: ${REM_ACTION}"
   else
-    fail "Remediação falhou: $REM_RESP"
+    # Pode ter sido auto-executada se score >= threshold
+    INC_DETAIL2=$(smoke_curl "${BASE}/incidents/${INCIDENT_ID}" 2>/dev/null || echo "{}")
+    HAS_REMEDIATION=$(echo "$INC_DETAIL2" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+events=[e for e in data.get('timeline',[]) if 'remediation' in e.get('event_type','')]
+print(len(events))
+" 2>/dev/null || echo "0")
+    if [ "$HAS_REMEDIATION" -gt 0 ]; then
+      pass "Remediação auto-executada (score acima do threshold)"
+    else
+      warn "Nenhuma remediação encontrada (IA pode estar em modo mock sem provider ou AI_ENABLED=false)"
+    fi
   fi
 fi
 
-# ─── Step 10: Validação final ─────────────────────────────────────────────────
-step 10 "Validação final do fluxo"
+# ─── Step 10: Aprovar e executar remediação pendente ─────────────────────────
+step 10 "Aprovar remediação via API e verificar execução"
 
-if [ -n "$INCIDENT_ID" ]; then
-  pass "Fluxo end-to-end concluído: agente → evento → incidente → timeline → remediação"
+if [ -n "$REMEDIATION_ID" ]; then
+  APPROVE_RESP=$(smoke_curl "${BASE}/remediation/${REMEDIATION_ID}/approve" \
+    -X POST -d '{"approved_by":"smoke-test"}' 2>/dev/null || echo "ERRO")
+  if echo "$APPROVE_RESP" | grep -q '"approved"'; then
+    pass "Remediação aprovada e enfileirada para execução"
+  else
+    fail "Aprovação falhou: $APPROVE_RESP"
+  fi
+
+  # Aguarda até 10s para o worker executar
+  for i in $(seq 1 5); do
+    sleep 2
+    PENDING2=$(smoke_curl "${BASE}/remediation/pending" 2>/dev/null || echo "{}")
+    STILL_PENDING=$(echo "$PENDING2" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+found=[r for r in data.get('remediations',[]) if r.get('id')=='${REMEDIATION_ID}']
+print(len(found))
+" 2>/dev/null || echo "1")
+    [ "$STILL_PENDING" -eq 0 ] && break
+  done
+
+  if [ "$STILL_PENDING" -eq 0 ]; then
+    pass "Remediação saiu de pending (executada ou falhou — verificar logs)"
+  else
+    warn "Remediação ainda pendente após 10s (worker pode não ter docker.sock ou container não existe)"
+  fi
 else
-  fail "Fluxo incompleto: incidente não foi criado"
+  warn "Step 10 pulado — nenhuma remediação pendente para aprovar"
 fi
 
 # ─── Resultado ────────────────────────────────────────────────────────────────
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo -e "${GREEN}✔ Smoke test passou: ${FAILURES} falhas.${NC}"
+  echo -e "${GREEN}✔ Smoke test passou — ${FAILURES} falhas.${NC}"
   exit 0
 else
   echo -e "${RED}✘ Smoke test com ${FAILURES} falha(s).${NC}"
   echo ""
-  echo "Dicas de diagnóstico:"
+  echo "Diagnóstico:"
   echo "  docker logs r-observe-api"
   echo "  docker logs r-observe-worker"
   echo "  docker logs r-observe-ai"

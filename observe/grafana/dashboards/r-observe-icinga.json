@@ -206,6 +206,103 @@
     },
 
     { "collapsed": false, "gridPos": {"h":1,"w":24,"x":0,"y":22},
+      "id": 103, "title": "Remediações", "type": "row" },
+
+    {
+      "id": 30,
+      "title": "Auto-executadas",
+      "type": "stat",
+      "gridPos": {"h":4,"w":4,"x":0,"y":23},
+      "options": {"reduceOptions":{"calcs":["lastNotNull"]},"colorMode":"background"},
+      "fieldConfig": {
+        "defaults": {"color":{"mode":"thresholds"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]}}
+      },
+      "targets": [{"datasource":{"type":"prometheus","uid":"${datasource}"},
+        "expr":"r_observe_remediations_total{outcome=\"auto_executed\"} or vector(0)",
+        "legendFormat":"Auto"}]
+    },
+
+    {
+      "id": 31,
+      "title": "Pendentes de aprovação (total)",
+      "type": "stat",
+      "gridPos": {"h":4,"w":4,"x":4,"y":23},
+      "options": {"reduceOptions":{"calcs":["lastNotNull"]},"colorMode":"background"},
+      "fieldConfig": {
+        "defaults": {"color":{"mode":"thresholds"},
+          "thresholds":{"mode":"absolute","steps":[
+            {"color":"green","value":null},{"color":"orange","value":1},{"color":"red","value":5}]}}
+      },
+      "targets": [{"datasource":{"type":"prometheus","uid":"${datasource}"},
+        "expr":"r_observe_remediations_total{outcome=\"pending_approval\"} or vector(0)",
+        "legendFormat":"Pendentes"}]
+    },
+
+    {
+      "id": 32,
+      "title": "Aprovadas por humano",
+      "type": "stat",
+      "gridPos": {"h":4,"w":4,"x":8,"y":23},
+      "options": {"reduceOptions":{"calcs":["lastNotNull"]},"colorMode":"background"},
+      "fieldConfig": {
+        "defaults": {"color":{"mode":"thresholds"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"blue","value":null}]}}
+      },
+      "targets": [{"datasource":{"type":"prometheus","uid":"${datasource}"},
+        "expr":"r_observe_remediations_total{outcome=\"approved_by_human\"} or vector(0)",
+        "legendFormat":"Aprovadas"}]
+    },
+
+    {
+      "id": 33,
+      "title": "Sucesso vs. Falha (execuções)",
+      "type": "stat",
+      "gridPos": {"h":4,"w":6,"x":12,"y":23},
+      "options": {"reduceOptions":{"calcs":["lastNotNull"]},"colorMode":"background","orientation":"horizontal"},
+      "fieldConfig": {
+        "defaults": {"color":{"mode":"thresholds"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]}},
+        "overrides": [
+          {"matcher":{"id":"byName","options":"Falhas"},
+           "properties":[{"id":"thresholds","value":{"mode":"absolute","steps":[
+             {"color":"green","value":null},{"color":"red","value":1}]}}]}
+        ]
+      },
+      "targets": [
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"r_observe_remediations_total{outcome=\"execution_success\"} or vector(0)",
+          "legendFormat":"Sucessos"},
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"r_observe_remediations_total{outcome=\"execution_failed\"} or vector(0)",
+          "legendFormat":"Falhas"}
+      ]
+    },
+
+    {
+      "id": 34,
+      "title": "Taxa de remediações (auto vs. pendente vs. executada)",
+      "type": "timeseries",
+      "gridPos": {"h":8,"w":24,"x":0,"y":27},
+      "options": {"tooltip":{"mode":"multi"}},
+      "fieldConfig": {"defaults":{"unit":"short","custom":{"lineWidth":2}}},
+      "targets": [
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"rate(r_observe_remediations_total{outcome=\"auto_executed\"}[5m])",
+          "legendFormat":"Auto-exec/s"},
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"rate(r_observe_remediations_total{outcome=\"pending_approval\"}[5m])",
+          "legendFormat":"Pendente/s"},
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"rate(r_observe_remediations_total{outcome=\"execution_success\"}[5m])",
+          "legendFormat":"Sucesso/s"},
+        {"datasource":{"type":"prometheus","uid":"${datasource}"},
+          "expr":"rate(r_observe_remediations_total{outcome=\"execution_failed\"}[5m])",
+          "legendFormat":"Falha/s"}
+      ]
+    },
+
+    { "collapsed": false, "gridPos": {"h":1,"w":24,"x":0,"y":35},
       "id": 102, "title": "Alertas Prometheus", "type": "row" },
 
     {
