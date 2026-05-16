@@ -10,6 +10,8 @@
     "deploy:remote:ssh:httpd:webmail-gate:dry-run": "WEBMAIL_GATE_PUBLIC=true ./scripts/docker-deploy.sh --dry-run",
     "deploy:remote:ssh:mail": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh",
     "deploy:remote:ssh:mail:dry-run": "DEPLOY_COMPOSE_FILE=docker-compose.mail.yml DEPLOY_PROJECT_NAME=infra-mail ./scripts/docker-deploy.sh --dry-run",
+    "mail:user:create": "sh ./scripts/provision-smtp-user.sh --create",
+    "mail:user:delete": "sh ./scripts/provision-smtp-user.sh --delete",
     "webmail:normalize:special-folders": "sh ./scripts/normalize-roundcube-special-folders.sh",
     "webmail:test:login": "sh ./scripts/test-webmail-login.sh",
     "webmail:test:temporary-auth": "sh ./scripts/test-webmail-temporary-auth.sh",
@@ -19,6 +21,22 @@
     "sync:maildata:legacy:precheck": "./scripts/sync-maildata-from-legacy.sh precheck",
     "sync:maildata:legacy": "./scripts/sync-maildata-from-legacy.sh sync",
     "test:mail:services": "./scripts/test-mail-services.sh --host ${TARGET_HOST:-127.0.0.1}",
-    "test:mail:services:legacy": "./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password \"$LDAP_BIND_PASSWORD\" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password \"$MAIL_MYSQL_PASSWORD\""
+    "test:mail:services:legacy": "./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password \"$LDAP_BIND_PASSWORD\" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password \"$MAIL_MYSQL_PASSWORD\"",
+
+    "observe:up": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-monitoring --profile observe-proxy up -d",
+    "observe:up:core": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core up -d",
+    "observe:up:full": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-agent --profile observe-monitoring --profile observe-icinga --profile observe-proxy up -d",
+    "observe:down": "docker compose -f docker-compose.observe.yml --env-file .env.observe down",
+    "observe:down:volumes": "docker compose -f docker-compose.observe.yml --env-file .env.observe down -v",
+    "observe:build": "docker compose -f docker-compose.observe.yml --env-file .env.observe build",
+    "observe:logs": "docker compose -f docker-compose.observe.yml --env-file .env.observe logs -f --tail=100",
+    "observe:ps": "docker compose -f docker-compose.observe.yml --env-file .env.observe ps",
+    "observe:health": "sh ./scripts/observe/healthcheck.sh",
+    "observe:validate": "sh ./scripts/observe/validate-compose.sh",
+    "observe:smoke": "sh ./scripts/observe/smoke-observe-stack.sh",
+    "observe:smoke:icinga": "sh ./scripts/observe/smoke-icinga.sh",
+    "observe:discover": "sh ./scripts/observe/discover-hosts.sh",
+    "observe:security": "sh ./scripts/observe/check-docker-safety.sh",
+    "observe:release-check": "npm run observe:validate && npm run observe:security"
   }
 }
