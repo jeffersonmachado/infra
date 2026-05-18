@@ -7,3 +7,13 @@
 
 joomla-site/configuration.php
 joomla-site/webmail/config/config.inc.php
+
+# Dependências Node.js
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
+
+# Artefatos de testes
+test-results/
+tests/playwright-report/

@@ -1,0 +1,11 @@
+services:
+  edge-sni:
+    image: haproxy:2.9-alpine
+    container_name: edge-sni
+    restart: unless-stopped
+    ports:
+      - "${EDGE_SNI_BIND_IP:-10.10.2.60}:443:443/tcp"
+    volumes:
+      - ./edge-sni/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    security_opt:
+      - no-new-privileges:true

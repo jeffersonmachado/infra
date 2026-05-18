@@ -1,0 +1,49 @@
+# ─── R-VPN Stack ──────────────────────────────────────────────────────────────
+# Produto: R-VPN / SoftEther VPN Server
+#
+# Uso:
+#   docker compose --project-name vpn -f docker-compose.vpn.yml --env-file .env.vpn up -d
+#
+# Portas expostas no host:
+#   443/tcp   → SoftEther VPN over HTTPS/SSL-VPN
+#   5555/tcp  → SoftEther VPN client protocol
+#   992/tcp   → SSL-VPN alternativo
+#   1194/tcp  → OpenVPN
+#   500/udp, 4500/udp, 1701/udp → L2TP/IPsec (opcional)
+#
+# Esta stack espelha a estrutura em produção em /root/vpn/docker-compose.yml.
+# O container deve permanecer como "rvpn" e o volume como "vpn_softetherdata"
+# para não trocar a identidade/configuração do SoftEther em uma recriação.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ─── SOFTETHER VPN SERVER ─────────────────────────────────────────────────
+  softether-vpn-server:
+    image: softethervpn/vpnserver:stable
+    container_name: rvpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "${VPN_BIND_IP:-0.0.0.0}:443:443/tcp"
+      - "${VPN_BIND_IP:-0.0.0.0}:5555:5555/tcp"
+      - "${VPN_BIND_IP:-0.0.0.0}:992:992/tcp"
+      - "${VPN_BIND_IP:-0.0.0.0}:1194:1194/udp"
+      - "${VPN_BIND_IP:-0.0.0.0}:500:500/udp"
+      - "${VPN_BIND_IP:-0.0.0.0}:4500:4500/udp"
+      - "${VPN_BIND_IP:-0.0.0.0}:1701:1701/udp"
+    volumes:
+      - softetherdata:/mnt
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    security_opt:
+      - no-new-privileges:false
+
+volumes:
+  softetherdata:
+    external: true
+    name: vpn_softetherdata
