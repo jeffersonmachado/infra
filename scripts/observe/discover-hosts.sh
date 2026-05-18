@@ -35,8 +35,20 @@ DRY_RUN=false
 LIST_ONLY=false
 REMOVE_HOST=""
 
-# Portas verificadas no port scan
+# Portas de serviço verificadas no port scan
 SCAN_PORTS="22,25,80,143,443,465,587,993,995,8080,11334"
+
+# Portas de exportadores Prometheus (verificadas separadamente; /metrics validado)
+EXPORTER_PORTS="9100,9104,9108,9115,9117,9121,9187,9256,9419,9090,9091"
+# Mapeamento porta → job Prometheus
+#  9100 node_exporter        9104 mysqld_exporter    9108 generic /metrics
+#  9115 blackbox_exporter    9117 apache_exporter    9121 redis_exporter
+#  9187 postgres_exporter    9256 process_exporter   9419 rabbitmq_exporter
+#  9090 prometheus           9091 pushgateway
+
+# Diretório de saída para File SD do Prometheus
+SD_OUTPUT_DIR="${REPO_ROOT}/observe/prometheus/sd"
+SD_OUTPUT_FILE="${SD_OUTPUT_DIR}/discovered.json"
 
 # ── Cores ──────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -53,8 +65,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --subnet)   SUBNET="$2";        shift 2 ;;
     --mode)     MODE="$2";          shift 2 ;;
-    --token)    R_OBSERVE_TOKEN="$2"; shift 2 ;;
-    --url)      R_OBSERVE_URL="$2";  shift 2 ;;
+    --token)    R_OBSERVE_TOKEN="$2";    shift 2 ;;
+    --url)      R_OBSERVE_URL="$2";     shift 2 ;;
+    --sd-dir)   SD_OUTPUT_DIR="$2"; SD_OUTPUT_FILE="${SD_OUTPUT_DIR}/discovered.json"; shift 2 ;;
     --container) ICINGA_CONTAINER="$2"; shift 2 ;;
     --output)   OUTPUT_FILE="$2";   shift 2 ;;
     --dry-run)  DRY_RUN=true;       shift   ;;
@@ -400,6 +413,113 @@ print(json.dumps({
   esac
 }
 
+# ── Scan de exporters Prometheus e geração de File SD ────────────────────────
+
+# Mapeamento porta → job Prometheus para geração do SD
+EXPORTER_JOB_MAP=(
+  "9100:node-exporter"
+  "9104:mysqld-exporter"
+  "9108:generic-metrics"
+  "9115:blackbox-exporter"
+  "9117:apache-exporter"
+  "9121:redis-exporter"
+  "9187:postgres-exporter"
+  "9256:process-exporter"
+  "9419:rabbitmq-exporter"
+  "9090:prometheus"
+  "9091:pushgateway"
+)
+
+# Verifica se um endpoint realmente serve métricas Prometheus
+is_metrics_endpoint() {
+  local ip="$1" port="$2"
+  local resp
+  resp=$(curl -sf --max-time 3 "http://${ip}:${port}/metrics" 2>/dev/null | head -3)
+  echo "${resp}" | grep -qE "^#\s*(HELP|TYPE)" && return 0
+  return 1
+}
+
+# Faz scan das portas de exporters num host e retorna as abertas com job
+scan_exporters() {
+  local ip="$1"
+  local -a found=()
+
+  for mapping in "${EXPORTER_JOB_MAP[@]}"; do
+    local port="${mapping%%:*}"
+    local job="${mapping##*:}"
+
+    # Verifica se a porta está aberta (TCP) — rápido
+    if timeout 1 bash -c ">/dev/tcp/${ip}/${port}" 2>/dev/null; then
+      # Valida que realmente serve /metrics
+      if is_metrics_endpoint "${ip}" "${port}"; then
+        found+=("${port}:${job}")
+        log "  [exporter] ${ip}:${port} → ${job}"
+      fi
+    fi
+  done
+
+  echo "${found[@]:-}"
+}
+
+# Gera o arquivo JSON de File SD para o Prometheus
+generate_prometheus_sd() {
+  local -n _hosts_data_ref=$1  # mapa ip → "name:display_name:porta1:..."
+  local -n _exporters_ref=$2   # mapa ip → "porta:job porta:job ..."
+
+  mkdir -p "${SD_OUTPUT_DIR}"
+
+  local ts
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  python3 - "${SD_OUTPUT_FILE}" "${ts}" <<PYEOF
+import json, sys, os
+
+output_file = sys.argv[1]
+timestamp   = sys.argv[2]
+
+# Lê dados de hosts e exporters das variáveis de ambiente (passadas pelo bash)
+import os
+hosts_raw     = os.environ.get('SD_HOSTS_DATA', '')
+exporters_raw = os.environ.get('SD_EXPORTERS_DATA', '')
+
+groups = []
+
+# Processa exporters por host
+exporter_map = {}
+for line in exporters_raw.splitlines():
+    line = line.strip()
+    if not line: continue
+    parts = line.split('|', 1)
+    if len(parts) == 2:
+        ip, targets = parts[0], parts[1]
+        for tgt in targets.split():
+            port, job = tgt.split(':', 1)
+            exporter_map.setdefault(ip, []).append((port, job))
+
+for ip, entries in exporter_map.items():
+    host_label = ip.replace('.', '-')
+    for port, job in entries:
+        groups.append({
+            "targets": [f"{ip}:{port}"],
+            "labels": {
+                "job":        job,
+                "host":       host_label,
+                "host_ip":    ip,
+                "discovered": "true",
+                "source":     "r-observe-scan",
+            }
+        })
+
+# Adiciona comentário de geração
+result = {"_generated": timestamp, "_count": len(groups), "groups": groups}
+
+with open(output_file, 'w') as f:
+    json.dump(groups, f, indent=2)
+
+print(f"[sd] {len(groups)} target(s) → {output_file}")
+PYEOF
+}
+
 # ── Geração de arquivo hosts.conf ──────────────────────────────────────────────
 
 gen_host_conf_entry() {
@@ -528,6 +648,9 @@ main() {
   declare -A HOSTS_DATA=()
 
   # Port scan e construção das vars por host
+  # Para o modo prometheus-sd, também scaneamos portas de exporters
+  declare -A EXPORTERS_DATA=()   # ip → "porta:job porta:job ..."
+
   for ip in "${!LIVE_HOSTS[@]}"; do
     log "Analisando ${ip}..."
 
@@ -537,23 +660,29 @@ main() {
     local display_name="${rdns:-${ip}}"
     local name
     if [[ -n "${rdns}" ]]; then
-      # Normaliza hostname para uso como ID do Icinga2 (sem pontos no final do FQDN)
       name="${rdns%%.*}"
-      # Garante unicidade se o short name for genérico
       [[ "${name}" =~ ^(localhost|mail|www|smtp)$ ]] && name=$(ip_to_hostname "${ip}")
     else
       name=$(ip_to_hostname "${ip}")
     fi
 
-    # Port scan
+    # Port scan de serviços (Icinga)
     mapfile -t open_ports < <(scan_ports "${ip}")
     local ports_str
     ports_str=$(IFS=':'; echo "${open_ports[*]:-}")
-
     HOSTS_DATA["${ip}"]="${name}:${display_name}:${ports_str}"
 
     local svc_list="${open_ports[*]:-nenhuma}"
-    log "  ${ip} (${display_name}) — portas: ${svc_list}"
+    log "  ${ip} (${display_name}) — serviços: ${svc_list}"
+
+    # Scan de exporters Prometheus (apenas nos modos que precisam)
+    if [[ "${MODE}" == "prometheus-sd" ]] || [[ "${MODE}" == "all" ]]; then
+      local exp_targets
+      exp_targets=$(scan_exporters "${ip}")
+      if [[ -n "${exp_targets}" ]]; then
+        EXPORTERS_DATA["${ip}"]="${exp_targets}"
+      fi
+    fi
   done
 
   echo ""
@@ -595,8 +724,42 @@ main() {
     file)
       generate_hosts_file HOSTS_DATA
       ;;
+    prometheus-sd)
+      log "Gerando File SD para Prometheus em ${SD_OUTPUT_FILE}..."
+      echo ""
+      # Prepara variáveis de ambiente para o script Python
+      local exporters_env=""
+      for ip in "${!EXPORTERS_DATA[@]}"; do
+        exporters_env+="${ip}|${EXPORTERS_DATA[$ip]}"$'\n'
+      done
+      SD_EXPORTERS_DATA="${exporters_env}" SD_HOSTS_DATA="" \
+        generate_prometheus_sd HOSTS_DATA EXPORTERS_DATA
+      echo ""
+      ok "File SD gerado: ${SD_OUTPUT_FILE}"
+      log "Targets encontrados: $(python3 -c "import json; d=json.load(open('${SD_OUTPUT_FILE}')); print(len(d))" 2>/dev/null || echo '?')"
+      log "Recarregue o Prometheus: curl -X POST http://localhost:9090/-/reload"
+      ;;
+    all)
+      # Registra hosts no Icinga (modo api) E gera File SD para Prometheus
+      [[ -z "${ICINGA_API_PASSWORD}" ]] && die "ICINGA_API_PASSWORD não definido."
+      log "Modo 'all': registrando no Icinga2 E gerando SD Prometheus..."
+      echo ""
+      for ip in "${!HOSTS_DATA[@]}"; do
+        IFS=':' read -ra parts <<< "${HOSTS_DATA[$ip]}"
+        local name="${parts[0]}"; local display_name="${parts[1]}"
+        local ports=("${parts[@]:2}")
+        register_host_api "${ip}" "${name}" "${display_name}" "${ports[@]:-}"
+      done
+      local exporters_env=""
+      for ip in "${!EXPORTERS_DATA[@]}"; do
+        exporters_env+="${ip}|${EXPORTERS_DATA[$ip]}"$'\n'
+      done
+      SD_EXPORTERS_DATA="${exporters_env}" SD_HOSTS_DATA="" \
+        generate_prometheus_sd HOSTS_DATA EXPORTERS_DATA
+      ok "Concluído: hosts no Icinga2 + SD em ${SD_OUTPUT_FILE}"
+      ;;
     *)
-      die "Modo inválido: '${MODE}'. Use 'api', 'r-observe' ou 'file'."
+      die "Modo inválido: '${MODE}'. Use: api, r-observe, file, prometheus-sd, all"
       ;;
   esac
 }

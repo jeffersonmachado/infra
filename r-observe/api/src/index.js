@@ -388,6 +388,93 @@ app.post(`${BASE}/remediation/:id/reject`, requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Prometheus HTTP SD — /observe/api/sd/targets ────────────────────────────
+// Retorna targets no formato Prometheus HTTP Service Discovery (RFC).
+// O Prometheus consulta este endpoint a cada 30s (configurado em prometheus.yml).
+const EXPORTER_PORTS = [
+  { port: 9100, job: 'node-exporter' },
+  { port: 9104, job: 'mysqld-exporter' },
+  { port: 9108, job: 'generic-metrics' },
+  { port: 9115, job: 'blackbox-exporter' },
+  { port: 9117, job: 'apache-exporter' },
+  { port: 9121, job: 'redis-exporter' },
+  { port: 9187, job: 'postgres-exporter' },
+  { port: 9256, job: 'process-exporter' },
+  { port: 9419, job: 'rabbitmq-exporter' },
+  { port: 9090, job: 'prometheus' },
+  { port: 9091, job: 'pushgateway' },
+];
+
+async function probeMetricsEndpoint(address, port) {
+  try {
+    const resp = await fetch(`http://${address}:${port}/metrics`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!resp.ok) return false;
+    const text = await resp.text();
+    return /^#\s*(HELP|TYPE)/m.test(text);
+  } catch {
+    return false;
+  }
+}
+
+app.get(`${BASE}/sd/targets`, async (_req, res) => {
+  try {
+    const hosts = await db.query(
+      `SELECT name, address, metadata FROM observe_hosts
+       WHERE address IS NOT NULL ORDER BY updated_at DESC LIMIT 500`
+    );
+
+    const groups = [];
+
+    // Serviços Docker internos conhecidos (targets estáticos enriquecidos)
+    const staticServices = [
+      { target: 'observe-api:3000',          job: 'r-observe-api',   path: '/observe/api/metrics' },
+      { target: 'observe-worker:3000',        job: 'r-observe-worker',path: '/metrics' },
+      { target: 'observe-ai:3000',            job: 'r-observe-ai',    path: '/metrics' },
+      { target: 'observe-agent:3000',         job: 'r-observe-agent', path: '/metrics' },
+      { target: 'observe-otel-collector:8888',job: 'otel-collector',  path: '/metrics' },
+    ];
+    for (const s of staticServices) {
+      groups.push({
+        targets: [s.target],
+        labels: { job: s.job, __metrics_path__: s.path, source: 'r-observe-static' },
+      });
+    }
+
+    // Hosts descobertos — testa portas de exporters em paralelo
+    const probePromises = [];
+    for (const host of hosts.rows) {
+      if (!host.address) continue;
+      for (const { port, job } of EXPORTER_PORTS) {
+        probePromises.push(
+          probeMetricsEndpoint(host.address, port).then(ok => ok ? {
+            target: `${host.address}:${port}`,
+            labels: {
+              job,
+              host:       host.name,
+              host_ip:    host.address,
+              discovered: 'true',
+              source:     'r-observe-db',
+            },
+          } : null)
+        );
+      }
+    }
+
+    const results = await Promise.all(probePromises);
+    for (const r of results) {
+      if (r) groups.push({ targets: [r.target], labels: r.labels });
+    }
+
+    // Prometheus HTTP SD exige array de { targets, labels }
+    res.set('Content-Type', 'application/json');
+    res.json(groups);
+  } catch (e) {
+    res.status(500).json([]);
+  }
+});
+
 // ─── AI Feedback ─────────────────────────────────────────────────────────────
 app.post(`${BASE}/ai/feedback`, requireAuth, async (req, res) => {
   const { incident_id, rating, comment } = req.body;

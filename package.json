@@ -43,6 +43,8 @@
     "observe:migrate:status": "node -e \"const {runMigrations}=require('./r-observe/api/src/migrate');\" 2>/dev/null || echo 'use: npm run observe:migrate'",
     "observe:discover": "bash ./scripts/observe/discover-hosts.sh",
     "observe:discover:r-observe": "bash ./scripts/observe/discover-hosts.sh --mode r-observe",
+    "observe:discover:sd": "bash ./scripts/observe/discover-hosts.sh --mode prometheus-sd",
+    "observe:discover:all": "bash ./scripts/observe/discover-hosts.sh --mode all",
     "observe:hosts:list": "bash ./scripts/observe/discover-hosts.sh --list",
     "observe:token:show": "bash ./scripts/observe/token.sh show",
     "observe:token:copy": "bash ./scripts/observe/token.sh copy",

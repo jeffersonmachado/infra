@@ -53,3 +53,35 @@ scrape_configs:
       - targets: ['observe-otel-collector:8888']
         labels:
           service: 'otel-collector'
+
+  # ── HTTP SD: targets dinâmicos via R-Observe API ─────────────────────────────
+  # A API expõe /observe/api/sd/targets com hosts/serviços conhecidos no DB.
+  # Atualiza a cada 30s sem restart do Prometheus.
+  - job_name: 'discovered-http-sd'
+    http_sd_configs:
+      - url: 'http://observe-api:3000/observe/api/sd/targets'
+        refresh_interval: 30s
+    relabel_configs:
+      # Mantém apenas targets com porta de exporter reconhecida
+      - source_labels: [__address__]
+        regex: '.+:(9100|9104|9108|9115|9117|9121|9187|9256|9419|9090|9091)'
+        action: keep
+      - source_labels: [job]
+        target_label: job
+
+  # ── File SD: targets descobertos pelo discover-hosts.sh --mode prometheus-sd ──
+  # Gerado em observe/prometheus/sd/discovered.json pelo script de descoberta.
+  # Atualiza a cada 60s — basta re-executar o script sem restart.
+  - job_name: 'discovered-file-sd'
+    file_sd_configs:
+      - files: ['/etc/prometheus/sd/*.json']
+        refresh_interval: 60s
+    relabel_configs:
+      - source_labels: [discovered]
+        regex: 'true'
+        action: keep
+      # Preserva job e host dos labels do SD JSON
+      - source_labels: [job]
+        target_label: job
+      - source_labels: [host]
+        target_label: host

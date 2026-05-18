@@ -446,6 +446,7 @@ services:
       - observe-prometheus-data:/prometheus
       - ./observe/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observe/prometheus/rules:/etc/prometheus/rules:ro
+      - ./observe/prometheus/sd:/etc/prometheus/sd:ro
     tmpfs:
       - /tmp
     networks:
