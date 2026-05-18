@@ -222,10 +222,14 @@ services:
       INTERNAL_TOKEN: ${OBSERVE_INTERNAL_TOKEN:?OBSERVE_INTERNAL_TOKEN obrigatório}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     tmpfs:
       - /tmp
     networks:
       - observe-internal
+      - observe-egress
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health | grep -q '\"status\":\"ok\"' || exit 1"]
       interval: 30s
@@ -331,6 +335,7 @@ services:
       icinga-redis:
         condition: service_healthy
     environment:
+      ICINGADB_DATABASE_TYPE: pgsql
       ICINGADB_DATABASE_HOST: observe-postgres
       ICINGADB_DATABASE_PORT: 5432
       ICINGADB_DATABASE_DATABASE: ${ICINGADB_DB_NAME:-icingadb}
@@ -341,13 +346,14 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - observe-icingadb-data:/var/lib/icingadb
+      - ./observe/icingadb/config.yml:/etc/icingadb/config.yml:ro
     tmpfs:
       - /tmp
     networks:
       - observe-monitoring
       - observe-internal
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -x icingadb >/dev/null && bash -c '>/dev/tcp/icinga-redis/6379' 2>/dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep icingadb >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -373,8 +379,27 @@ services:
       ICINGAWEB_ADMIN_PASS: ${ICINGAWEB_ADMIN_PASS:?ICINGAWEB_ADMIN_PASS obrigatório - defina em .env.observe}
       TZ: ${TZ:-America/Sao_Paulo}
 
+      # ── Config global: base URL (evita redirects quebrados via proxy) ────────
+      icingaweb.config.global.base_url: /icinga/
+
+      # ── Resource: banco de usuários do IcingaWeb2 (observedb) ───────────────
+      icingaweb.resources.icingaweb2.type: db
+      icingaweb.resources.icingaweb2.db: pgsql
+      icingaweb.resources.icingaweb2.host: observe-postgres
+      icingaweb.resources.icingaweb2.port: "5432"
+      icingaweb.resources.icingaweb2.dbname: ${OBSERVE_DB_NAME:-observedb}
+      icingaweb.resources.icingaweb2.username: ${OBSERVE_DB_USER:-observe}
+      icingaweb.resources.icingaweb2.password: ${OBSERVE_DB_PASSWORD:?OBSERVE_DB_PASSWORD obrigatório}
+
+      # ── Autenticação: backend db usando resource icingaweb2 ──────────────────
+      icingaweb.authentication.icingaweb2.backend: db
+      icingaweb.authentication.icingaweb2.resource: icingaweb2
+
+      # ── Roles ────────────────────────────────────────────────────────────────
+      icingaweb.roles.Administrators.users: ${ICINGAWEB_ADMIN_USER:-admin}
+      icingaweb.roles.Administrators.permissions: "*"
+
       # ── Resource PostgreSQL (icingadb) ──────────────────────────────────────
-      # Gera /data/etc/icingaweb2/resources.ini seção [icingadb]
       icingaweb.resources.icingadb.type: db
       icingaweb.resources.icingadb.db: pgsql
       icingaweb.resources.icingadb.host: observe-postgres
@@ -384,13 +409,11 @@ services:
       icingaweb.resources.icingadb.password: ${ICINGADB_DB_PASSWORD:?ICINGADB_DB_PASSWORD obrigatório}
 
       # ── Módulo IcingaDB: Redis ───────────────────────────────────────────────
-      # Gera /data/etc/icingaweb2/modules/icingadb/config.ini seção [redis]
       icingaweb.modules.icingadb.config.redis.host: icinga-redis
       icingaweb.modules.icingadb.config.redis.port: "6379"
 
-      # ── Módulo IcingaDB: banco de dados ─────────────────────────────────────
-      # Gera /data/etc/icingaweb2/modules/icingadb/database.ini seção [icingadb]
-      icingaweb.modules.icingadb.database.icingadb.resource: icingadb
+      # ── Módulo IcingaDB: resource do banco (lido de config.ini [icingadb]) ───
+      icingaweb.modules.icingadb.config.icingadb.resource: icingadb
     volumes:
       - observe-icingaweb2-data:/data
     tmpfs:
@@ -400,7 +423,7 @@ services:
       - observe-internal
       - observe-public
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/icingaweb2/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8080/authentication/login >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -575,4 +598,7 @@ networks:
   # Rede do agente: agent + exporters futuros
   observe-agent:
     driver: bridge
-    internal: true
+
+  # Rede de egresso: bridge com acesso externo para o serviço de IA chamar APIs remotas
+  observe-egress:
+    driver: bridge

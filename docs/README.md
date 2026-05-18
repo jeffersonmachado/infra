@@ -484,7 +484,7 @@ iface eth0 inet static
 
 ### rvpn: bind explícito em 10.10.2.30
 
-Hoje o `rvpn` vem de `/root/vpn/docker-compose.yml` e publica `443` em `0.0.0.0`, o que bloqueia todos os IPs do host. O correto é mudar para bind explícito em `10.10.2.30`:
+O `rvpn` vem de `/root/vpn/docker-compose.yml` e deve permanecer preso ao IP dedicado `10.10.2.30`, sem publicar `443` em todos os IPs do host:
 
 ```yaml
 ports:
@@ -497,30 +497,61 @@ ports:
 	- "10.10.2.30:1701:1701/udp"
 ```
 
-### Edge HTTP/HTTPS: bind explícito em 10.10.2.60
+Na stack versionada em `docker-compose.vpn.yml`, suba sempre com `--project-name vpn` para manter a mesma identidade Compose do container atual:
 
-A stack deste repositório já aceita bind por IP via `EDGE_BIND_IP`.
+```bash
+docker compose --project-name vpn -f docker-compose.vpn.yml --env-file .env.vpn up -d
+```
 
-Para o corte final em `10.10.2.60`, use o arquivo `.env.remote-10.10.2.30-ip60`:
+O bind continua controlado por:
+
+```env
+VPN_BIND_IP=10.10.2.30
+```
+
+Essa stack usa o volume externo `vpn_softetherdata`, que é o volume já anexado ao container `rvpn` em produção. Não troque por um volume gerado pelo nome do projeto Compose, como `infra_softetherdata`, ou o SoftEther subirá sem a configuração atual.
+
+Com esse desenho, `rvpn.results.com.br:443` pode chegar ao SoftEther via HAProxy/SNI quando a borda pública entra por `10.10.2.60:443`, e o acesso administrativo/cliente em `5555` continua direto no container `rvpn`. Não habilite `RVPN_SERVER_NAME=rvpn.results.com.br` na stack Apache, porque isso faz o Apache responder HTTPS nesse hostname e quebra o cliente SoftEther na porta 443.
+
+### Edge SNI: HAProxy em 10.10.2.60:443
+
+Quando o IP público encaminha `443/tcp` para o host Apache (`10.10.2.60`), use o HAProxy em container como roteador TCP/SNI:
+
+```bash
+docker compose -f docker-compose.edge-sni.yml --project-name edge-sni up -d
+```
+
+O HAProxy publica:
+
+- `10.10.2.60:443 -> edge-sni:443`
+
+E encaminha por SNI:
+
+- `rvpn.results.com.br -> 10.10.2.30:443` (SoftEther direto)
+- demais hostnames -> `10.10.2.60:18443` (Apache HTTPS)
+
+### Edge HTTP/HTTPS: Apache atrás do HAProxy
+
+A stack Apache aceita bind por IP via `EDGE_BIND_IP`. Com HAProxy na frente da `443`, deixe o Apache em uma porta HTTPS interna do host:
 
 ```env
 EDGE_BIND_IP=10.10.2.60
 HTTP_PORT=80
-HTTPS_PORT=443
+HTTPS_PORT=18443
 ```
 
 Com isso, o Apache publicará:
 
 - `10.10.2.60:80 -> 8080`
-- `10.10.2.60:443 -> 8443`
+- `10.10.2.60:18443 -> 8443`
 
 ### Ordem segura de execução
 
 1. adicionar `10.10.2.60` no host `10.10.2.30` sem reiniciar a rede;
 2. alterar o `rvpn` para bind em `10.10.2.30` e recriar apenas esse stack;
-3. subir esta stack com `.env.remote-10.10.2.30-ip60`;
-4. validar com `curl --resolve dominio:443:10.10.2.60 ...`;
-5. só então ajustar DNS público.
+3. subir o Apache com `EDGE_BIND_IP=10.10.2.60` e `HTTPS_PORT=18443`;
+4. subir `docker-compose.edge-sni.yml`;
+5. validar `www.results.com.br:443` no Apache via HAProxy e `rvpn.results.com.br:443` no SoftEther via HAProxy.
 
 ## Subida
 

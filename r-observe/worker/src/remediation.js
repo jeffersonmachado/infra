@@ -2,15 +2,13 @@
 
 const { execFile } = require('child_process');
 const { promisify } = require('util');
+const icinga = require('./icinga');
 
 const execFileAsync = promisify(execFile);
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const AUTO_THRESHOLD      = parseFloat(process.env.REMEDIATION_AUTO_THRESHOLD      || '0.85');
-const MAX_AUTO_SEVERITY   = (process.env.REMEDIATION_MAX_AUTO_SEVERITY             || 'warning').toLowerCase();
-const ICINGA_API_URL      = process.env.ICINGA_API_URL      || 'https://observe-icinga2:5665';
-const ICINGA_API_USER     = process.env.ICINGA_API_USER     || 'icingaweb2';
-const ICINGA_API_PASSWORD = process.env.ICINGA_API_PASSWORD || '';
+const AUTO_THRESHOLD    = parseFloat(process.env.REMEDIATION_AUTO_THRESHOLD    || '0.85');
+const MAX_AUTO_SEVERITY = (process.env.REMEDIATION_MAX_AUTO_SEVERITY           || 'warning').toLowerCase();
 
 // Containers permitidos para operações Docker (vazio = nenhum container liberado)
 // Ex: REMEDIATION_ALLOWED_CONTAINERS=r-observe-worker,r-observe-api
@@ -55,23 +53,22 @@ const CATALOG = {
     params:      ['host', 'service?'],
     async execute({ host, service }) {
       if (!host) throw new Error('"host" é obrigatório para icinga:reschedule');
-      const filter = service
-        ? `host.name==%22${encodeURIComponent(host)}%22%26%26service.name==%22${encodeURIComponent(service)}%22`
-        : `host.name==%22${encodeURIComponent(host)}%22`;
-      const type = service ? 'Service' : 'Host';
-      const resp = await fetch(
-        `${ICINGA_API_URL}/v1/actions/reschedule-check?type=${type}&filter=${filter}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: 'Basic ' + Buffer.from(`${ICINGA_API_USER}:${ICINGA_API_PASSWORD}`).toString('base64'),
-          },
-        }
-      );
+      const r = await icinga.rescheduleCheck(host, service || null);
+      return { success: r.ok, output: r.output };
+    },
+  },
+
+  // Risco baixo — registra host descoberto no Icinga2 para monitoramento
+  'icinga:add-host': {
+    description: 'Registra host descoberto no Icinga2',
+    risk:        'low',
+    params:      ['name', 'address', 'display_name?'],
+    async execute({ name, address, display_name }) {
+      if (!name || !address) throw new Error('"name" e "address" são obrigatórios para icinga:add-host');
+      const r = await icinga.registerHost(name, address, display_name || name, {});
       return {
-        success: resp.ok,
-        output:  `icinga reschedule HTTP ${resp.status}`,
+        success: r.ok,
+        output:  r.existed ? `host atualizado: ${name}` : `host registrado: ${name} (${address})`,
       };
     },
   },

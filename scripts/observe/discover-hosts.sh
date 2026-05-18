@@ -25,6 +25,8 @@ ENV_FILE="${REPO_ROOT}/.env.observe"
 # ── Defaults (sobrescritos por args ou .env.observe) ──────────────────────────
 SUBNET="${DISCOVER_SUBNET:-}"
 MODE="${DISCOVER_MODE:-api}"
+R_OBSERVE_URL="${R_OBSERVE_URL:-http://localhost:3080}"
+R_OBSERVE_TOKEN=""
 ICINGA_CONTAINER="${ICINGA_CONTAINER:-observe-icinga2}"
 ICINGA_API_USER="${ICINGA_API_USER:-icingaweb2}"
 ICINGA_API_PASSWORD="${ICINGA_API_PASSWORD:-}"
@@ -51,6 +53,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --subnet)   SUBNET="$2";        shift 2 ;;
     --mode)     MODE="$2";          shift 2 ;;
+    --token)    R_OBSERVE_TOKEN="$2"; shift 2 ;;
+    --url)      R_OBSERVE_URL="$2";  shift 2 ;;
     --container) ICINGA_CONTAINER="$2"; shift 2 ;;
     --output)   OUTPUT_FILE="$2";   shift 2 ;;
     --dry-run)  DRY_RUN=true;       shift   ;;
@@ -72,14 +76,18 @@ if [[ -f "${ENV_FILE}" ]]; then
     key="${key//[[:space:]]/}"
     val="${val#\"}" val="${val%\"}" val="${val#\'}" val="${val%\'}"
     case "$key" in
-      ICINGA_API_USER)     [[ -z "${ICINGA_API_USER:-}"     ]] && ICINGA_API_USER="$val"     ;;
-      ICINGA_API_PASSWORD) [[ -z "${ICINGA_API_PASSWORD:-}" ]] && ICINGA_API_PASSWORD="$val" ;;
-      ICINGA_CONTAINER)    [[ -z "${ICINGA_CONTAINER:-}"    ]] && ICINGA_CONTAINER="$val"    ;;
+      ICINGA_API_USER)       [[ -z "${ICINGA_API_USER:-}"       ]] && ICINGA_API_USER="$val"       ;;
+      ICINGA_API_PASSWORD)   [[ -z "${ICINGA_API_PASSWORD:-}"   ]] && ICINGA_API_PASSWORD="$val"   ;;
+      ICINGA_CONTAINER)      [[ -z "${ICINGA_CONTAINER:-}"      ]] && ICINGA_CONTAINER="$val"      ;;
+      OBSERVE_INTERNAL_TOKEN)[[ -z "${R_OBSERVE_TOKEN:-}"       ]] && R_OBSERVE_TOKEN="$val"       ;;
+      R_OBSERVE_PUBLIC_URL)  [[ -z "${R_OBSERVE_URL:-http://localhost:3080}" ]] && R_OBSERVE_URL="$val" ;;
     esac
   done < "${ENV_FILE}"
 fi
 
-[[ -z "${ICINGA_API_PASSWORD}" ]] && die "ICINGA_API_PASSWORD não definido. Defina em .env.observe ou exporte a variável."
+if [[ "${MODE}" != "r-observe" ]]; then
+  [[ -z "${ICINGA_API_PASSWORD}" ]] && die "ICINGA_API_PASSWORD não definido. Defina em .env.observe ou exporte a variável."
+fi
 
 # ── Funções de descoberta ──────────────────────────────────────────────────────
 
@@ -338,6 +346,60 @@ for r in d.get('results',[]):
   ok "Removido: ${host_name}"
 }
 
+# ── Modo r-observe: POST para a API do R-Observe ──────────────────────────────
+
+register_host_r_observe() {
+  local ip="$1" name="$2" display_name="$3"
+  shift 3
+  local ports=("$@")
+
+  # Constrói o JSON de vars a partir das portas abertas
+  local vars_json
+  vars_json=$(python3 - "${ports[@]:-}" <<'PYEOF'
+import json, sys
+PORT_MAP = {
+    "25": "smtp_port", "143": "imap_port", "465": "smtp_tls_port",
+    "587": "smtp_submission_port", "993": "imaps_port", "995": "pop3s_port",
+    "11334": "check_rspamd",
+}
+vars = {}
+for p in sys.argv[1:]:
+    if p in PORT_MAP:
+        vars[PORT_MAP[p]] = int(p) if p != "11334" else True
+print(json.dumps(vars))
+PYEOF
+)
+
+  local body
+  body=$(python3 -c "
+import json, sys
+print(json.dumps({
+  'name': sys.argv[1], 'address': sys.argv[2],
+  'display_name': sys.argv[3], 'vars': json.loads(sys.argv[4])
+}))" "${name}" "${ip}" "${display_name}" "${vars_json}")
+
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    echo -e "${YELLOW}[dry-run]${RESET} POST ${R_OBSERVE_URL}/observe/api/hosts"
+    echo "${body}" | python3 -m json.tool 2>/dev/null || echo "${body}"
+    return
+  fi
+
+  local http_code
+  http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -H "x-internal-token: ${R_OBSERVE_TOKEN}" \
+    -d "${body}" \
+    "${R_OBSERVE_URL}/observe/api/hosts" 2>/dev/null)
+
+  case "${http_code}" in
+    201) ok "Registrado via R-Observe: ${name} (${ip})" ;;
+    200) ok "Atualizado via R-Observe: ${name} (${ip})" ;;
+    401) warn "Token inválido para R-Observe (401). Use --token ou defina OBSERVE_INTERNAL_TOKEN." ;;
+    *)   warn "R-Observe respondeu HTTP ${http_code} para ${name}" ;;
+  esac
+}
+
 # ── Geração de arquivo hosts.conf ──────────────────────────────────────────────
 
 gen_host_conf_entry() {
@@ -514,11 +576,27 @@ main() {
         log "Concluído. Use --list para ver todos os hosts registrados."
       fi
       ;;
+    r-observe)
+      [[ -z "${R_OBSERVE_TOKEN}" ]] && die "Token não encontrado. Use --token ou defina OBSERVE_INTERNAL_TOKEN em .env.observe."
+      log "Registrando hosts via R-Observe API (${R_OBSERVE_URL})..."
+      echo ""
+      for ip in "${!HOSTS_DATA[@]}"; do
+        IFS=':' read -ra parts <<< "${HOSTS_DATA[$ip]}"
+        local name="${parts[0]}"
+        local display_name="${parts[1]}"
+        local ports=("${parts[@]:2}")
+        register_host_r_observe "${ip}" "${name}" "${display_name}" "${ports[@]:-}"
+      done
+      echo ""
+      if [[ "${DRY_RUN}" == "false" ]]; then
+        log "Concluído. Hosts registrados em DB e Icinga2 via R-Observe."
+      fi
+      ;;
     file)
       generate_hosts_file HOSTS_DATA
       ;;
     *)
-      die "Modo inválido: '${MODE}'. Use 'api' ou 'file'."
+      die "Modo inválido: '${MODE}'. Use 'api', 'r-observe' ou 'file'."
       ;;
   esac
 }

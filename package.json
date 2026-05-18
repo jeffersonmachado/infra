@@ -22,7 +22,6 @@
     "sync:maildata:legacy": "./scripts/sync-maildata-from-legacy.sh sync",
     "test:mail:services": "./scripts/test-mail-services.sh --host ${TARGET_HOST:-127.0.0.1}",
     "test:mail:services:legacy": "./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password \"$LDAP_BIND_PASSWORD\" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password \"$MAIL_MYSQL_PASSWORD\"",
-
     "observe:up": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-monitoring --profile observe-proxy up -d",
     "observe:up:core": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core up -d",
     "observe:up:full": "docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-agent --profile observe-monitoring --profile observe-icinga --profile observe-proxy up -d",
@@ -39,6 +38,17 @@
     "observe:deploy": "sh ./scripts/observe/deploy.sh",
     "observe:deploy:remote": "sh ./scripts/observe/deploy.sh --host ${DEPLOY_HOST:-10.10.2.30}",
     "observe:security": "sh ./scripts/observe/check-docker-safety.sh",
-    "observe:release-check": "npm run observe:validate && npm run observe:security"
+    "observe:release-check": "npm run observe:validate && npm run observe:security",
+    "observe:discover": "bash ./scripts/observe/discover-hosts.sh",
+    "observe:discover:r-observe": "bash ./scripts/observe/discover-hosts.sh --mode r-observe",
+    "observe:hosts:list": "bash ./scripts/observe/discover-hosts.sh --list",
+    "observe:token:show": "bash ./scripts/observe/token.sh show",
+    "observe:token:copy": "bash ./scripts/observe/token.sh copy",
+    "observe:token:verify": "bash ./scripts/observe/token.sh verify",
+    "observe:token:rotate": "bash ./scripts/observe/token.sh rotate",
+    "observe:token:recover": "bash ./scripts/observe/token.sh recover"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }

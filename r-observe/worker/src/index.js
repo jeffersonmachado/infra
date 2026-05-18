@@ -5,6 +5,7 @@ const { Pool }   = require('pg');
 const Redis      = require('ioredis');
 const { v4: uuidv4 } = require('uuid');
 const remediation = require('./remediation');
+const icinga      = require('./icinga');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const PORT           = parseInt(process.env.PORT || '3000', 10);
@@ -12,7 +13,7 @@ const LOG_LEVEL      = process.env.LOG_LEVEL || 'info';
 const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN || '';
 const AI_ENABLED     = process.env.AI_ENABLED === 'true';
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://observe-ai:3000';
-const QUEUE_KEYS     = ['observe:events', 'observe:events:icinga', 'observe:remediation:execute'];
+const QUEUE_KEYS     = ['observe:events', 'observe:events:icinga', 'observe:remediation:execute', 'observe:scan:results'];
 const REMEDIATION_ENABLED = process.env.REMEDIATION_ENABLED !== 'false';
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
@@ -108,17 +109,43 @@ async function buildAIContext(hostId, event) {
   return ctx;
 }
 
-// ─── Upsert host ──────────────────────────────────────────────────────────────
+// ─── Upsert host (DB + Icinga2) ───────────────────────────────────────────────
 async function upsertHost(name, address, metadata = {}) {
   const r = await db.query(
     `INSERT INTO observe_hosts (id, name, address, metadata, updated_at)
      VALUES ($1, $2, $3, $4, NOW())
      ON CONFLICT (name)
      DO UPDATE SET address = EXCLUDED.address, metadata = EXCLUDED.metadata, updated_at = NOW()
-     RETURNING id`,
+     RETURNING id, (xmax = 0) AS inserted`,
     [uuidv4(), name, address, JSON.stringify(metadata)]
   );
-  return r.rows[0].id;
+  const { id, inserted } = r.rows[0];
+
+  // Registra no Icinga2 apenas hosts novos com endereço válido
+  if (inserted && address) {
+    icinga.registerHost(name, address, name, {}).then(res => {
+      if (!res.ok) log('warn', 'Icinga2 host sync failed', { name, status: res.status });
+      else         log('debug', 'Icinga2 host synced', { name, existed: res.existed });
+    }).catch(e => log('warn', 'Icinga2 host sync error', { name, err: e.message }));
+  }
+
+  return id;
+}
+
+// ─── Processa resultado de scan de rede ───────────────────────────────────────
+async function processScanResults(raw) {
+  let payload;
+  try { payload = JSON.parse(raw); } catch { return; }
+  const hosts = Array.isArray(payload.hosts) ? payload.hosts : [];
+  log('info', 'Processing scan results', { total: hosts.length });
+  for (const h of hosts) {
+    if (!h.name || !h.address) continue;
+    try {
+      await upsertHost(h.name, h.address, { source: 'network-scan', ports: h.ports || [], display_name: h.display_name });
+    } catch (e) {
+      log('warn', 'Failed to upsert scanned host', { name: h.name, err: e.message });
+    }
+  }
 }
 
 // ─── Process event ────────────────────────────────────────────────────────────
@@ -317,6 +344,8 @@ async function pollQueues() {
   const [key, raw] = result;
   if (key === 'observe:remediation:execute') {
     await dispatchApprovedRemediation(raw);
+  } else if (key === 'observe:scan:results') {
+    await processScanResults(raw);
   } else {
     await processEvent(raw);
   }
