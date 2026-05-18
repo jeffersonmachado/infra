@@ -1,0 +1,106 @@
+---
+# ─── DNS Consolidado — PowerDNS + dnsdist ────────────────────────────────────
+# Backend: MariaDB existente em 10.10.2.99 (sem container novo)
+# Substitui: CoreDNS (Docker), BIND (10.10.2.1/10.10.2.20), PowerDNS (10.10.2.51)
+#
+# Portas (durante migração — não conflita com BIND na :53):
+#   :5353  TCP/UDP  → dnsdist (teste — mudar para 53 no corte)
+#   :5300  TCP/UDP  → pdns-auth  (direto, para debug)
+#   :5301  TCP/UDP  → pdns-recursor (direto, para debug)
+#   :8081           → pdns-auth API
+#   :8082           → pdns-recursor API
+#
+# Corte: DNS_PORT=53 → parar BIND → reiniciar dnsdist
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+services:
+
+  # ── PowerDNS Authoritative ────────────────────────────────────────────────
+  # Backend: MariaDB em 10.10.2.99 (banco 'results', tabela records/domains)
+  # Serve: todas as zonas públicas + split-horizon interno
+  pdns-auth:
+    <<: *common
+    image: powerdns/pdns-auth-49:latest
+    container_name: pdns-auth
+    volumes:
+      - ./pdns-auth/pdns.conf:/etc/powerdns/pdns.conf:ro
+    extra_hosts:
+      - "srvmysql.results.intranet:10.10.2.99"
+    networks:
+      dns-internal:
+        ipv4_address: 10.53.53.11
+    ports:
+      - "127.0.0.1:5300:53/udp"
+      - "127.0.0.1:5300:53/tcp"
+      - "127.0.0.1:9081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "pdns_control ping 2>/dev/null || nc -z 127.0.0.1 53 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── PowerDNS Recursor ─────────────────────────────────────────────────────
+  # Resolução interna: split-horizon, recursão para internet, cache
+  # Clientes permitidos: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+  pdns-recursor:
+    <<: *common
+    image: powerdns/pdns-recursor-51:latest
+    container_name: pdns-recursor
+    depends_on:
+      - pdns-auth
+    volumes:
+      - ./pdns-recursor/recursor.conf:/etc/powerdns/recursor.conf:ro
+      - ./pdns-recursor/forward-zones.conf:/etc/powerdns/forward-zones.conf:ro
+    networks:
+      dns-internal:
+        ipv4_address: 10.53.53.12
+    ports:
+      - "127.0.0.1:5301:53/udp"
+      - "127.0.0.1:5301:53/tcp"
+      - "127.0.0.1:9082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "rec_control ping 2>/dev/null || nc -z 127.0.0.1 53 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── dnsdist ───────────────────────────────────────────────────────────────
+  # Porta de entrada única: routa para auth ou recursor por origem/tipo
+  # Durante migração: DNS_PORT=5353
+  # Após corte:       DNS_PORT=53 (parar BIND primeiro)
+  dnsdist:
+    <<: *common
+    image: powerdns/dnsdist-19:latest
+    container_name: dns-dnsdist
+    depends_on:
+      - pdns-auth
+      - pdns-recursor
+    volumes:
+      - ./dnsdist/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+    networks:
+      dns-internal:
+        ipv4_address: 10.53.53.13
+    ports:
+      - "${DNS_BIND_IP:-0.0.0.0}:${DNS_PORT:-5353}:53/udp"
+      - "${DNS_BIND_IP:-0.0.0.0}:${DNS_PORT:-5353}:53/tcp"
+      - "127.0.0.1:9083:8083"
+    healthcheck:
+      disable: true
+
+networks:
+  dns-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.53.53.0/24
+          gateway: 10.53.53.254
