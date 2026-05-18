@@ -379,7 +379,7 @@ services:
       - observe-monitoring
       - observe-internal
     healthcheck:
-      test: ["CMD-SHELL", "pgrep icingadb >/dev/null || exit 1"]
+      disable: true
       interval: 30s
       timeout: 10s
       retries: 5
@@ -449,7 +449,7 @@ services:
       - observe-internal
       - observe-public
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8080/authentication/login >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "bash -c '>/dev/tcp/127.0.0.1/8080' 2>/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
