@@ -91,8 +91,10 @@ services:
       dns-internal:
         ipv4_address: 10.53.53.13
     ports:
-      - "${DNS_BIND_IP:-0.0.0.0}:${DNS_PORT:-5353}:53/udp"
-      - "${DNS_BIND_IP:-0.0.0.0}:${DNS_PORT:-5353}:53/tcp"
+      # 0.0.0.0 → portável: funciona em qualquer servidor Docker.
+      # IP virtual (10.10.2.1/10.10.2.20) é responsabilidade do HOST.
+      - "0.0.0.0:${DNS_PORT:-5353}:53/udp"
+      - "0.0.0.0:${DNS_PORT:-5353}:53/tcp"
       - "127.0.0.1:9083:8083"
     healthcheck:
       disable: true
