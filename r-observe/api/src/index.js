@@ -675,8 +675,12 @@ const API = '/observe/api';
 let _data = {};
 
 const tokenEl = document.getElementById('token');
-tokenEl.value = sessionStorage.getItem('obs_token') || '';
-tokenEl.addEventListener('input', () => sessionStorage.setItem('obs_token', tokenEl.value.trim()));
+tokenEl.value = sessionStorage.getItem('observe_token') || '';
+tokenEl.addEventListener('input', () => {
+  const v = tokenEl.value.trim();
+  if (v) sessionStorage.setItem('observe_token', v);
+  else   sessionStorage.removeItem('observe_token');
+});
 
 function getHeaders() {
   const h = { 'Content-Type': 'application/json' };
@@ -705,6 +709,11 @@ function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 function dt(s) { return s ? new Date(s).toLocaleString('pt-BR', {dateStyle:'short',timeStyle:'short'}) : '—'; }
 
 async function loadAll() {
+  if (!tokenEl.value.trim()) {
+    document.getElementById('metrics-grid').innerHTML =
+      '<div style="color:var(--muted);grid-column:1/-1;padding:1rem">Cole o OBSERVE_INTERNAL_TOKEN no campo acima e clique em ↺ Atualizar.</div>';
+    return;
+  }
   try {
     const r = await fetch(API + '/ai/activity', { headers: getHeaders() });
     if (!r.ok) { toast('Erro ' + r.status + ' — verifique o token', false); return; }
@@ -811,7 +820,14 @@ async function enableAction(action) {
 }
 
 loadAll();
-setInterval(loadAll, 30000);
+// Auto-refresh apenas quando há token
+let _refreshTimer = null;
+function scheduleRefresh() {
+  clearInterval(_refreshTimer);
+  if (tokenEl.value.trim()) _refreshTimer = setInterval(loadAll, 30000);
+}
+tokenEl.addEventListener('change', scheduleRefresh);
+scheduleRefresh();
 </script>
 </body>
 </html>`;
