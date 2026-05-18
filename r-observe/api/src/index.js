@@ -388,10 +388,131 @@ app.post(`${BASE}/remediation/:id/reject`, requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── AI Feedback ─────────────────────────────────────────────────────────────
+app.post(`${BASE}/ai/feedback`, requireAuth, async (req, res) => {
+  const { incident_id, rating, comment } = req.body;
+  if (!incident_id || ![1, -1].includes(Number(rating)))
+    return res.status(400).json({ error: 'incident_id e rating (1 ou -1) são obrigatórios' });
+  try {
+    const r = await db.query(
+      `INSERT INTO observe_ai_feedback (incident_id, rating, comment)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [incident_id, Number(rating), comment || null]
+    );
+    res.status(201).json({ feedback: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── AI Activity ─────────────────────────────────────────────────────────────
+app.get(`${BASE}/ai/activity`, requireAuth, apiLimiter, async (_req, res) => {
+  try {
+    const [incidents, remediations, feedback, catalog] = await Promise.all([
+      db.query(`
+        SELECT i.id, i.title, i.severity, i.status, i.source,
+               i.ai_summary, i.ai_cause, i.ai_suggestion, i.ai_pattern,
+               h.name AS host_name, i.created_at, i.updated_at
+        FROM observe_incidents i
+        LEFT JOIN observe_hosts h ON i.host_id = h.id
+        WHERE i.ai_summary IS NOT NULL
+        ORDER BY i.updated_at DESC LIMIT 20`),
+      db.query(`
+        SELECT action, status, confidence_score, auto_executed, requested_at
+        FROM observe_remediations
+        ORDER BY requested_at DESC LIMIT 20`),
+      db.query(`
+        SELECT rating, COUNT(*) AS count
+        FROM observe_ai_feedback GROUP BY rating`),
+      db.query(`
+        SELECT action, description, risk, enabled, auto_ok, max_severity
+        FROM observe_ai_catalog ORDER BY risk, action`),
+    ]);
+
+    const totalAnalyzed  = incidents.rowCount;
+    const remRows        = remediations.rows;
+    const autoExecuted   = remRows.filter(r => r.auto_executed).length;
+    const pendingApproval= remRows.filter(r => r.status === 'pending_approval').length;
+    const succeeded      = remRows.filter(r => r.status === 'executed').length;
+    const failed         = remRows.filter(r => r.status === 'failed').length;
+    const fbPos = feedback.rows.find(r => r.rating == 1)?.count || 0;
+    const fbNeg = feedback.rows.find(r => r.rating == -1)?.count || 0;
+
+    res.json({
+      metrics: { total_analyzed: totalAnalyzed, auto_executed: autoExecuted,
+                 pending_approval: pendingApproval, succeeded, failed,
+                 feedback_positive: Number(fbPos), feedback_negative: Number(fbNeg) },
+      recent_analyses:    incidents.rows,
+      recent_remediations:remRows,
+      catalog:            catalog.rows,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── AI Catalog CRUD ──────────────────────────────────────────────────────────
+app.get(`${BASE}/ai/catalog`, requireAuth, async (_req, res) => {
+  try {
+    const r = await db.query('SELECT * FROM observe_ai_catalog ORDER BY risk, action');
+    res.json({ catalog: r.rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post(`${BASE}/ai/catalog`, requireAuth, async (req, res) => {
+  const { action, description, risk, params, auto_ok, max_severity } = req.body;
+  if (!action || !description) return res.status(400).json({ error: 'action e description são obrigatórios' });
+  try {
+    const r = await db.query(
+      `INSERT INTO observe_ai_catalog (action, description, risk, params, auto_ok, max_severity)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [action, description, risk || 'medium', JSON.stringify(params || []),
+       auto_ok || false, max_severity || 'warning']
+    );
+    res.status(201).json({ action: r.rows[0] });
+  } catch (e) { res.status(e.message.includes('unique') ? 409 : 500).json({ error: e.message }); }
+});
+
+app.patch(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
+  const { action } = req.params;
+  const { description, risk, params, auto_ok, max_severity, enabled } = req.body;
+  try {
+    const r = await db.query(
+      `UPDATE observe_ai_catalog
+       SET description  = COALESCE($1, description),
+           risk         = COALESCE($2, risk),
+           params       = COALESCE($3, params),
+           auto_ok      = COALESCE($4, auto_ok),
+           max_severity = COALESCE($5, max_severity),
+           enabled      = COALESCE($6, enabled),
+           updated_at   = NOW()
+       WHERE action = $7 RETURNING *`,
+      [description, risk, params ? JSON.stringify(params) : null,
+       auto_ok, max_severity, enabled, action]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Ação não encontrada' });
+    res.json({ action: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
+  try {
+    const r = await db.query(
+      `UPDATE observe_ai_catalog SET enabled = false, updated_at = NOW()
+       WHERE action = $1 RETURNING action`,
+      [req.params.action]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Ação não encontrada' });
+    res.json({ disabled: true, action: req.params.action });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── UI: página de configuração do provider de IA ─────────────────────────────
 app.get('/observe/settings', (_req, res) => {
   res.set('Content-Type', 'text/html; charset=utf-8');
   res.end(SETTINGS_HTML);
+});
+
+// ─── UI: dashboard de atividade da IA ─────────────────────────────────────────
+app.get('/observe/ai', (_req, res) => {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.end(AI_DASHBOARD_HTML);
 });
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
@@ -404,13 +525,297 @@ app.use((err, _req, res, _next) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  log('info', `Listening on :${PORT}`, { basePath: BASE });
-});
+const { runMigrations } = require('./migrate');
+
+(async () => {
+  try {
+    await runMigrations(db);
+  } catch (e) {
+    log('error', 'Migration failed — starting anyway', { err: e.message });
+  }
+  app.listen(PORT, '0.0.0.0', () => {
+    log('info', `Listening on :${PORT}`, { basePath: BASE });
+  });
+})();
 
 module.exports = app;
 
 // ─── HTML da UI de configuração ───────────────────────────────────────────────
+const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>R-Observe · IA Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+      --green: #3fb950; --yellow: #d29922; --red: #f85149;
+      --orange: #e3b341; --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 14px/1.5 'Segoe UI', sans-serif; }
+    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .header h1 { font-size: 1.1rem; font-weight: 600; }
+    .header .sub { color: var(--muted); font-size: .85rem; }
+    .logo { width: 36px; height: 36px; background: linear-gradient(135deg,#6e40c9,#2188ff); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 1.5rem; }
+    .tab { padding: .65rem 1.1rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: .85rem; transition: .15s; }
+    .tab.active { color: var(--text); border-color: var(--accent); }
+    .tab:hover { color: var(--text); }
+    .page { display: none; padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+    .page.active { display: block; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+    .metric .val { font-size: 1.8rem; font-weight: 700; }
+    .metric .lbl { color: var(--muted); font-size: .75rem; margin-top: .25rem; }
+    .metric.green .val { color: var(--green); }
+    .metric.yellow .val { color: var(--yellow); }
+    .metric.red .val { color: var(--red); }
+    .metric.purple .val { color: var(--purple); }
+    .metric.orange .val { color: var(--orange); }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    th { background: var(--bg); color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; padding: .6rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); font-size: .85rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #21262d; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+    .badge.none   { background: #1f6feb33; color: #58a6ff; }
+    .badge.low    { background: #1a7f3733; color: #3fb950; }
+    .badge.medium { background: #9e6a0333; color: #d29922; }
+    .badge.high   { background: #da363333; color: #f85149; }
+    .badge.open   { background: #da363333; color: #f85149; }
+    .badge.resolved { background: #1a7f3733; color: #3fb950; }
+    .badge.critical { background: #da363333; color: #f85149; }
+    .badge.warning  { background: #9e6a0333; color: #d29922; }
+    .badge.info     { background: #1f6feb33; color: #58a6ff; }
+    .badge.ok       { background: #1a7f3733; color: #3fb950; }
+    .badge.disabled { background: #30363d55; color: #8b949e; }
+    .ai-text { color: var(--muted); font-size: .8rem; line-height: 1.4; max-width: 320px; }
+    .section-title { font-size: .95rem; font-weight: 600; margin: 1.5rem 0 .75rem; color: var(--text); }
+    .token-field { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: .5rem .75rem; color: var(--text); width: 100%; max-width: 380px; font-family: monospace; font-size: .85rem; }
+    .btn { padding: .45rem .9rem; border-radius: 6px; border: none; cursor: pointer; font-size: .85rem; font-weight: 500; transition: .15s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger  { background: var(--red); color: #fff; }
+    .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
+    .btn:hover { opacity: .85; }
+    .feedback-bar { display: flex; gap: .5rem; align-items: center; }
+    .fb-pos { color: var(--green); font-size: .85rem; }
+    .fb-neg { color: var(--red); font-size: .85rem; }
+    .token-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .ts-label { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+    select.token-field { max-width: 200px; }
+    .empty { color: var(--muted); text-align: center; padding: 2rem; font-size: .9rem; }
+    #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; display: none; z-index: 99; }
+    #toast.ok  { border-color: var(--green); color: var(--green); }
+    #toast.err { border-color: var(--red); color: var(--red); }
+  </style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">⚡</div>
+  <div>
+    <h1>R-Observe · IA Dashboard</h1>
+    <div class="sub">Atividade, catálogo de remediações e feedback</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;">
+    <span style="color:var(--muted);font-size:.8rem;">TOKEN</span>
+    <input type="password" id="token" class="token-field" style="max-width:200px" placeholder="OBSERVE_INTERNAL_TOKEN">
+    <button class="btn btn-primary btn-sm" onclick="loadAll()">↺ Atualizar</button>
+  </div>
+</div>
+
+<nav>
+  <div class="tab active" onclick="showTab('overview')">Visão Geral</div>
+  <div class="tab" onclick="showTab('analyses')">Análises</div>
+  <div class="tab" onclick="showTab('catalog')">Catálogo</div>
+  <div class="tab" onclick="showTab('remediations')">Remediações</div>
+</nav>
+
+<div id="overview" class="page active">
+  <div class="metrics" id="metrics-grid">
+    <div class="metric"><div class="val">—</div><div class="lbl">Analisados</div></div>
+  </div>
+  <div class="section-title">Análises Recentes com IA</div>
+  <table id="overview-table">
+    <thead><tr><th>Incidente</th><th>Severidade</th><th>Resumo IA</th><th>Status</th><th>Data</th></tr></thead>
+    <tbody><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+  </table>
+</div>
+
+<div id="analyses" class="page">
+  <div class="section-title">Todas as Análises</div>
+  <table id="analyses-table">
+    <thead><tr><th>Título</th><th>Host</th><th>Causa</th><th>Sugestão</th><th>Feedback</th></tr></thead>
+    <tbody><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+  </table>
+</div>
+
+<div id="catalog" class="page">
+  <div class="section-title">Catálogo de Remediações</div>
+  <table id="catalog-table">
+    <thead><tr><th>Ação</th><th>Descrição</th><th>Risco</th><th>Auto</th><th>Max Sev.</th><th>Status</th><th></th></tr></thead>
+    <tbody><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
+  </table>
+</div>
+
+<div id="remediations" class="page">
+  <div class="section-title">Remediações Recentes</div>
+  <table id="rem-table">
+    <thead><tr><th>Ação</th><th>Status</th><th>Score</th><th>Auto</th><th>Output</th><th>Data</th></tr></thead>
+    <tbody><tr><td colspan="6" class="empty">Carregando…</td></tr></tbody>
+  </table>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '/observe/api';
+let _data = {};
+
+const tokenEl = document.getElementById('token');
+tokenEl.value = sessionStorage.getItem('obs_token') || '';
+tokenEl.addEventListener('input', () => sessionStorage.setItem('obs_token', tokenEl.value.trim()));
+
+function getHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const t = tokenEl.value.trim();
+  if (t) h['x-internal-token'] = t;
+  return h;
+}
+
+function showTab(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelector('[onclick="showTab(\\''+id+'\\')"]').classList.add('active');
+}
+
+function toast(msg, ok) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'err';
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function badge(cls, text) { return '<span class="badge ' + cls + '">' + text + '</span>'; }
+function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function dt(s) { return s ? new Date(s).toLocaleString('pt-BR', {dateStyle:'short',timeStyle:'short'}) : '—'; }
+
+async function loadAll() {
+  try {
+    const r = await fetch(API + '/ai/activity', { headers: getHeaders() });
+    if (!r.ok) { toast('Erro ' + r.status + ' — verifique o token', false); return; }
+    _data = await r.json();
+    renderMetrics(_data.metrics);
+    renderOverview(_data.recent_analyses);
+    renderAnalyses(_data.recent_analyses);
+    renderCatalog(_data.catalog);
+    renderRemediations(_data.recent_remediations);
+  } catch(e) { toast('Falha: ' + e.message, false); }
+}
+
+function renderMetrics(m) {
+  document.getElementById('metrics-grid').innerHTML = [
+    ['green',  m.total_analyzed,   'Analisados'],
+    ['yellow', m.auto_executed,    'Auto-executados'],
+    ['orange', m.pending_approval, 'Aguardando aprovação'],
+    ['ok',     m.succeeded,        'Sucesso'],
+    ['red',    m.failed,           'Falhas'],
+    ['purple', m.feedback_positive + '👍 / ' + m.feedback_negative + '👎', 'Feedback'],
+  ].map(([cls, val, lbl]) =>
+    '<div class="metric ' + cls + '"><div class="val">' + val + '</div><div class="lbl">' + lbl + '</div></div>'
+  ).join('');
+}
+
+function renderOverview(rows) {
+  const tb = document.querySelector('#overview-table tbody');
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma análise ainda.</td></tr>'; return; }
+  tb.innerHTML = rows.map(r => '<tr>' +
+    '<td>' + esc(r.title) + '</td>' +
+    '<td>' + badge(r.severity, r.severity) + '</td>' +
+    '<td><div class="ai-text">' + esc(r.ai_summary || '—') + '</div></td>' +
+    '<td>' + badge(r.status, r.status) + '</td>' +
+    '<td style="white-space:nowrap">' + dt(r.created_at) + '</td>' +
+  '</tr>').join('');
+}
+
+function renderAnalyses(rows) {
+  const tb = document.querySelector('#analyses-table tbody');
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma análise ainda.</td></tr>'; return; }
+  tb.innerHTML = rows.map(r => '<tr>' +
+    '<td><b>' + esc(r.title) + '</b><br><span style="color:var(--muted);font-size:.75rem">' + esc(r.host_name || '') + '</span></td>' +
+    '<td><div class="ai-text">' + esc(r.ai_cause || '—') + '</div></td>' +
+    '<td><div class="ai-text">' + esc(r.ai_suggestion || '—') + '</div></td>' +
+    '<td><div class="feedback-bar">' +
+      '<button class="btn btn-sm" style="background:#1a7f3733;color:var(--green)" onclick="sendFeedback(\\''+r.id+'\\',1)">👍</button>' +
+      '<button class="btn btn-sm" style="background:#da363333;color:var(--red)"   onclick="sendFeedback(\\''+r.id+'\\',-1)">👎</button>' +
+    '</div></td>' +
+  '</tr>').join('');
+}
+
+function renderCatalog(rows) {
+  const tb = document.querySelector('#catalog-table tbody');
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">Catálogo vazio.</td></tr>'; return; }
+  tb.innerHTML = rows.map(r => '<tr>' +
+    '<td><code style="color:var(--accent)">' + esc(r.action) + '</code></td>' +
+    '<td>' + esc(r.description) + '</td>' +
+    '<td>' + badge(r.risk, r.risk) + '</td>' +
+    '<td>' + (r.auto_ok ? badge('low','sim') : badge('disabled','não')) + '</td>' +
+    '<td>' + badge(r.max_severity || 'warning', r.max_severity || 'warning') + '</td>' +
+    '<td>' + (r.enabled ? badge('low','ativo') : badge('disabled','desativado')) + '</td>' +
+    '<td>' + (r.enabled
+      ? '<button class="btn btn-danger btn-sm" onclick="disableAction(\\''+r.action+'\\')">Desativar</button>'
+      : '<button class="btn btn-sm" style="background:var(--green);color:#fff" onclick="enableAction(\\''+r.action+'\\')">Ativar</button>') +
+    '</td>' +
+  '</tr>').join('');
+}
+
+function renderRemediations(rows) {
+  const tb = document.querySelector('#rem-table tbody');
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma remediação ainda.</td></tr>'; return; }
+  const colors = { executed:'low', failed:'high', pending_approval:'medium', executing:'ok', rejected:'disabled' };
+  tb.innerHTML = rows.map(r => '<tr>' +
+    '<td><code style="color:var(--accent)">' + esc(r.action) + '</code></td>' +
+    '<td>' + badge(colors[r.status] || 'medium', r.status.replace('_',' ')) + '</td>' +
+    '<td>' + (r.confidence_score ? (parseFloat(r.confidence_score)*100).toFixed(0)+'%' : '—') + '</td>' +
+    '<td>' + (r.auto_executed ? '✅' : '👤') + '</td>' +
+    '<td><div class="ai-text">' + esc(r.execution_output || '—') + '</div></td>' +
+    '<td style="white-space:nowrap">' + dt(r.requested_at) + '</td>' +
+  '</tr>').join('');
+}
+
+async function sendFeedback(incidentId, rating) {
+  const r = await fetch(API + '/ai/feedback', {
+    method: 'POST', headers: getHeaders(),
+    body: JSON.stringify({ incident_id: incidentId, rating }),
+  });
+  toast(r.ok ? (rating > 0 ? '👍 Feedback positivo enviado' : '👎 Feedback negativo enviado') : 'Erro ao enviar feedback', r.ok);
+  if (r.ok) loadAll();
+}
+
+async function disableAction(action) {
+  const r = await fetch(API + '/ai/catalog/' + action, { method: 'DELETE', headers: getHeaders() });
+  toast(r.ok ? 'Ação "' + action + '" desativada' : 'Erro', r.ok);
+  if (r.ok) loadAll();
+}
+
+async function enableAction(action) {
+  const r = await fetch(API + '/ai/catalog/' + action, {
+    method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ enabled: true }),
+  });
+  toast(r.ok ? 'Ação "' + action + '" ativada' : 'Erro', r.ok);
+  if (r.ok) loadAll();
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>`;
+
 const SETTINGS_HTML = /* html */`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>

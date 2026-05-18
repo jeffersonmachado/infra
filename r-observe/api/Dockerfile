@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY src/ ./src/
+COPY src/        ./src/
+COPY migrations/ ./migrations/
 
 RUN addgroup -S observe && adduser -S observe -G observe \
     && mkdir -p /app/data/evidence /app/data/replays /app/logs \

@@ -13,7 +13,9 @@ const LOG_LEVEL      = process.env.LOG_LEVEL || 'info';
 const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN || '';
 const AI_ENABLED     = process.env.AI_ENABLED === 'true';
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://observe-ai:3000';
-const QUEUE_KEYS     = ['observe:events', 'observe:events:icinga', 'observe:remediation:execute', 'observe:scan:results'];
+const QUEUE_KEYS             = ['observe:events', 'observe:events:icinga', 'observe:remediation:execute', 'observe:scan:results'];
+const PROACTIVE_INTERVAL_MS  = parseInt(process.env.AI_PROACTIVE_INTERVAL_MS || '300000', 10); // 5 min
+const PROACTIVE_STALE_MIN    = parseInt(process.env.AI_PROACTIVE_STALE_MIN   || '10',     10); // sem análise há 10+ min
 const REMEDIATION_ENABLED = process.env.REMEDIATION_ENABLED !== 'false';
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
@@ -107,6 +109,20 @@ async function buildAIContext(hostId, event) {
     log('warn', 'Failed to build AI context', { err: e.message });
   }
   return ctx;
+}
+
+// ─── Carrega catálogo dinâmico do banco ───────────────────────────────────────
+async function loadCatalogFromDb() {
+  try {
+    const r = await db.query(
+      `SELECT action, description, risk, params, enabled, auto_ok, max_severity
+       FROM observe_ai_catalog WHERE enabled = true ORDER BY action`
+    );
+    remediation.setCatalogMeta(r.rows);
+    log('info', 'Catálogo dinâmico carregado', { count: r.rowCount });
+  } catch (e) {
+    log('warn', 'Falha ao carregar catálogo do DB — usando embutido', { err: e.message });
+  }
 }
 
 // ─── Upsert host (DB + Icinga2) ───────────────────────────────────────────────
@@ -337,6 +353,55 @@ async function dispatchApprovedRemediation(raw) {
     { remediation_id, action, ...result });
 }
 
+// ─── Monitoramento proativo — re-analisa incidentes abertos sem análise ───────
+async function proactiveAnalysis() {
+  if (!AI_ENABLED) return;
+  try {
+    const r = await db.query(
+      `SELECT i.id, i.title, i.severity, i.source, i.host_id,
+              h.address AS host_address, h.name AS host_name,
+              i.metadata->>'event_output' AS event_output,
+              i.metadata->>'event_service' AS event_service
+       FROM observe_incidents i
+       LEFT JOIN observe_hosts h ON i.host_id = h.id
+       WHERE i.status = 'open'
+         AND i.ai_summary IS NULL
+         AND i.created_at < NOW() - INTERVAL '${PROACTIVE_STALE_MIN} minutes'
+       ORDER BY i.created_at ASC
+       LIMIT 5`
+    );
+    if (r.rowCount === 0) return;
+    log('info', 'Proactive analysis', { stale_incidents: r.rowCount });
+
+    for (const inc of r.rows) {
+      const aiContext = await buildAIContext(inc.host_id, {
+        output:  inc.event_output,
+        service: inc.event_service,
+        address: inc.host_address,
+      });
+      const aiResult = await callAI(
+        { id: inc.id, title: inc.title, severity: inc.severity, source: inc.source },
+        aiContext
+      );
+      if (!aiResult) continue;
+      await db.query(
+        `UPDATE observe_incidents
+         SET ai_summary = $1, ai_cause = $2, ai_suggestion = $3, ai_pattern = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [aiResult.summary || null, aiResult.cause || null, aiResult.suggestion || null,
+         aiResult.pattern || null, inc.id]
+      );
+      log('info', 'Proactive AI analysis attached', { incident_id: inc.id });
+      if (REMEDIATION_ENABLED && aiResult.remediation?.action) {
+        await scheduleOrExecuteRemediation(inc.id, inc.severity, aiResult.remediation);
+      }
+      processedCount++;
+    }
+  } catch (e) {
+    log('warn', 'Proactive analysis error', { err: e.message });
+  }
+}
+
 // ─── Poll loop (blpop bloqueante — sem busy-wait) ────────────────────────────
 async function pollQueues() {
   const result = await redis.blpop(...QUEUE_KEYS, 1);
@@ -353,8 +418,16 @@ async function pollQueues() {
 
 async function startWorker() {
   await redis.connect();
+  await loadCatalogFromDb();
   log('info', 'Worker started, polling queues', { queues: QUEUE_KEYS });
   running = true;
+
+  // Monitoramento proativo — roda a cada PROACTIVE_INTERVAL_MS
+  if (AI_ENABLED && PROACTIVE_INTERVAL_MS > 0) {
+    setInterval(proactiveAnalysis, PROACTIVE_INTERVAL_MS);
+    log('info', 'Proactive AI analysis scheduled', { interval_ms: PROACTIVE_INTERVAL_MS });
+  }
+
   const loop = async () => {
     if (!running) return;
     try {

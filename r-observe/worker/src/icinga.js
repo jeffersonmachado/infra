@@ -109,4 +109,4 @@ async function listHosts() {
   }));
 }
 
-module.exports = { registerHost, removeHost, hostExists, rescheduleCheck, listHosts };
+module.exports = { request, registerHost, removeHost, hostExists, rescheduleCheck, listHosts };

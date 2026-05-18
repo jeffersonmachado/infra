@@ -39,6 +39,8 @@
     "observe:deploy:remote": "sh ./scripts/observe/deploy.sh --host ${DEPLOY_HOST:-10.10.2.30}",
     "observe:security": "sh ./scripts/observe/check-docker-safety.sh",
     "observe:release-check": "npm run observe:validate && npm run observe:security",
+    "observe:migrate": "node r-observe/api/src/migrate.js",
+    "observe:migrate:status": "node -e \"const {runMigrations}=require('./r-observe/api/src/migrate');\" 2>/dev/null || echo 'use: npm run observe:migrate'",
     "observe:discover": "bash ./scripts/observe/discover-hosts.sh",
     "observe:discover:r-observe": "bash ./scripts/observe/discover-hosts.sh --mode r-observe",
     "observe:hosts:list": "bash ./scripts/observe/discover-hosts.sh --list",
