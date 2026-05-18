@@ -127,6 +127,13 @@ services:
       ICINGA_API_PASSWORD: ${ICINGA_API_PASSWORD:-}
       CORS_ORIGINS: ${OBSERVE_CORS_ORIGINS:-}
       TZ: ${TZ:-America/Sao_Paulo}
+      # ── OpenTelemetry ──────────────────────────────────────────────────────
+      OTEL_SERVICE_NAME: r-observe-api
+      OTEL_SERVICE_VERSION: "0.1.0"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observe-otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_RESOURCE_ATTRIBUTES: product=r-observe,environment=${NODE_ENV:-production}
     volumes:
       - observe-evidence:/app/data/evidence
       - observe-replays:/app/data/replays
@@ -185,12 +192,17 @@ services:
       # Containers Docker permitidos para restart/start automático (vírgula-separados)
       # Deixar vazio desabilita operações Docker. Ex: r-observe-worker,r-observe-api
       REMEDIATION_ALLOWED_CONTAINERS: ${REMEDIATION_ALLOWED_CONTAINERS:-}
+      # ── OpenTelemetry ──────────────────────────────────────────────────────
+      OTEL_SERVICE_NAME: r-observe-worker
+      OTEL_SERVICE_VERSION: "0.1.0"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observe-otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_RESOURCE_ATTRIBUTES: product=r-observe,environment=${NODE_ENV:-production}
     volumes:
       - observe-evidence:/app/data/evidence
       - observe-replays:/app/data/replays
       - observe-logs:/app/logs
-      # docker.sock necessário para remediações docker:restart e docker:start
-      # Remover se REMEDIATION_ALLOWED_CONTAINERS estiver vazio
       - /var/run/docker.sock:/var/run/docker.sock:rw
     tmpfs:
       - /tmp
@@ -222,6 +234,13 @@ services:
       INTERNAL_TOKEN: ${OBSERVE_INTERNAL_TOKEN:?OBSERVE_INTERNAL_TOKEN obrigatório}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
+      # ── OpenTelemetry ──────────────────────────────────────────────────────
+      OTEL_SERVICE_NAME: r-observe-ai
+      OTEL_SERVICE_VERSION: "0.4.0"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observe-otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_RESOURCE_ATTRIBUTES: product=r-observe,environment=${NODE_ENV:-production}
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -258,6 +277,13 @@ services:
       DISK_WARN_PERCENT: ${OBSERVE_AGENT_DISK_WARN:-80}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
+      # ── OpenTelemetry ──────────────────────────────────────────────────────
+      OTEL_SERVICE_NAME: r-observe-agent
+      OTEL_SERVICE_VERSION: "0.1.0"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observe-otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_RESOURCE_ATTRIBUTES: product=r-observe,environment=${NODE_ENV:-production}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     tmpfs:
@@ -453,7 +479,7 @@ services:
       - observe-monitoring
       - observe-internal
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy | grep -q 'Prometheus is Healthy' || exit 1"]
+      test: ["CMD-SHELL", "wget -q --tries=1 -O /dev/null http://127.0.0.1:9090/-/healthy || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -532,11 +558,7 @@ services:
       - observe-monitoring
       - observe-internal
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:13133/ >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+      disable: true
 
   # ─── NGINX REVERSE PROXY ─────────────────────────────────────────────────────
   observe-proxy:
