@@ -12,7 +12,7 @@ COPY migrations/ ./migrations/
 
 RUN addgroup -S observe && adduser -S observe -G observe \
     && mkdir -p /app/data/evidence /app/data/replays /app/logs \
-    && chown -R observe:observe /app
+    && chown -R observe:observe /app/data /app/logs /app/src /app/migrations package*.json
 
 USER observe
 

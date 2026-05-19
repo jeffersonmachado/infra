@@ -17,6 +17,15 @@ const API_BASE_PATH = process.env.API_BASE_PATH || '/observe/api';
 const CHECK_INTERVAL_MS = parseInt(process.env.CHECK_INTERVAL_MS || '60000', 10);
 const DISK_WARN_PERCENT = parseInt(process.env.DISK_WARN_PERCENT || '80', 10);
 const AGENT_ID = process.env.AGENT_ID || 'local-agent-01';
+const AGENT_HOST_ADDRESS = process.env.AGENT_HOST_ADDRESS || '';
+const DOCKER_PROJECTS = (process.env.OBSERVE_DOCKER_PROJECTS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+const DOCKER_IGNORE_CONTAINERS = (process.env.OBSERVE_DOCKER_IGNORE_CONTAINERS || 'results-mail-certs-bootstrap')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
 function log(level, msg, extra = {}) {
@@ -66,6 +75,68 @@ async function sendEvent(type, data) {
   }
 }
 
+async function postInventory(containers) {
+  try {
+    const resp = await fetch(`${API_URL}${API_BASE_PATH}/inventory/docker`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-token': AGENT_TOKEN,
+      },
+      body: JSON.stringify({
+        agent_id: AGENT_ID,
+        host: AGENT_ID,
+        address: AGENT_HOST_ADDRESS || null,
+        containers,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) {
+      log('warn', 'Inventory rejected', { status: resp.status });
+      return;
+    }
+    log('debug', 'Inventory synced', { containers: containers.length });
+  } catch (e) {
+    log('warn', 'Failed to sync inventory', { err: e.message });
+  }
+}
+
+function containerHealth(container) {
+  const health = container.Labels?.['com.docker.compose.healthcheck'] || '';
+  if (container.Status?.includes('(healthy)')) return 'healthy';
+  if (container.Status?.includes('(unhealthy)')) return 'unhealthy';
+  if (container.Status?.includes('health: starting')) return 'starting';
+  return health || null;
+}
+
+function normalizePorts(ports = []) {
+  return ports.map(p => ({
+    private_port: p.PrivatePort,
+    public_port: p.PublicPort || null,
+    type: p.Type || null,
+    ip: p.IP || null,
+  }));
+}
+
+function normalizeNetworks(networks = {}) {
+  const out = {};
+  for (const [name, cfg] of Object.entries(networks)) {
+    out[name] = {
+      ip_address: cfg?.IPAddress || null,
+      aliases: cfg?.Aliases || [],
+    };
+  }
+  return out;
+}
+
+function projectAllowed(composeProject) {
+  return DOCKER_PROJECTS.length === 0 || DOCKER_PROJECTS.includes(composeProject || '');
+}
+
+function containerIgnored(name) {
+  return DOCKER_IGNORE_CONTAINERS.includes(name);
+}
+
 // ─── Checks ───────────────────────────────────────────────────────────────────
 
 // Check: Docker daemon
@@ -85,8 +156,30 @@ async function checkContainers() {
   if (!docker) return;
   try {
     const containers = await docker.listContainers({ all: true });
+    const inventory = [];
     for (const c of containers) {
       const name = (c.Names[0] || '').replace(/^\//, '');
+      const composeProject = c.Labels?.['com.docker.compose.project'] || '';
+      const composeService = c.Labels?.['com.docker.compose.service'] || '';
+      if (!projectAllowed(composeProject)) continue;
+
+      const ignored = containerIgnored(name);
+      if (projectAllowed(composeProject)) {
+        inventory.push({
+          id: c.Id.slice(0, 12),
+          name,
+          image: c.Image,
+          state: c.State,
+          status: c.Status,
+          health: containerHealth(c),
+          compose_project: composeProject || null,
+          compose_service: composeService || null,
+          ports: normalizePorts(c.Ports),
+          networks: normalizeNetworks(c.NetworkSettings?.Networks || {}),
+          ignored,
+        });
+      }
+      if (ignored) continue;
       if (c.State === 'exited' || c.State === 'dead') {
         log('warn', 'Container stopped', { name, state: c.State });
         await sendEvent('container.stopped', {
@@ -110,6 +203,7 @@ async function checkContainers() {
         });
       }
     }
+    await postInventory(inventory);
   } catch (e) {
     log('error', 'Container check failed', { err: e.message });
   }

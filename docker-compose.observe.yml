@@ -269,11 +269,14 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
-      AGENT_TOKEN: ${OBSERVE_AGENT_TOKEN:?OBSERVE_AGENT_TOKEN obrigatório}
+      AGENT_TOKEN: ${OBSERVE_INTERNAL_TOKEN:?OBSERVE_INTERNAL_TOKEN obrigatório}
       API_URL: ${OBSERVE_AGENT_API_URL:-http://observe-api:3000}
       API_BASE_PATH: ${R_OBSERVE_API_BASE_PATH:-/observe/api}
       CHECK_INTERVAL_MS: ${OBSERVE_AGENT_CHECK_INTERVAL_MS:-60000}
       AGENT_ID: ${OBSERVE_AGENT_ID:-local-agent-01}
+      AGENT_HOST_ADDRESS: ${OBSERVE_AGENT_HOST_ADDRESS:-}
+      OBSERVE_DOCKER_PROJECTS: ${OBSERVE_DOCKER_PROJECTS:-infra,infra-httpd,infra-mail,dns-consolidated,edge-sni}
+      OBSERVE_DOCKER_IGNORE_CONTAINERS: ${OBSERVE_DOCKER_IGNORE_CONTAINERS:-results-mail-certs-bootstrap}
       DISK_WARN_PERCENT: ${OBSERVE_AGENT_DISK_WARN:-80}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}

@@ -28,7 +28,7 @@ DB_HOST="${DNS_DB_HOST:-10.10.2.99}"
 DB_PORT="${DNS_DB_PORT:-3306}"
 DB_NAME="${DNS_DB_NAME:-results}"
 DB_USER="${DNS_DB_USER:-resultsdba}"
-DB_PASS="${DNS_DB_PASSWORD:-resu100dba}"
+DB_PASS="${DNS_DB_PASSWORD:-resu1@@dba}"
 
 # Servidores legados
 BIND_MASTER="10.10.2.71"

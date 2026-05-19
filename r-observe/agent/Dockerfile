@@ -10,12 +10,10 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY src/ ./src/
 
-RUN addgroup -S observe && adduser -S observe -G observe \
-    && chown -R observe:observe /app
+RUN addgroup -S observe && adduser -S observe -G observe
 
-# Usuário com permissão para ler docker.sock (GID 999 = docker group padrão)
-# O volume /var/run/docker.sock é montado como :ro no compose
-USER observe
+# O agente precisa ler /var/run/docker.sock para inventariar containers.
+# O socket fica montado como :ro no compose, mas o GID varia entre hosts.
 
 EXPOSE 3000
 

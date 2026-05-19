@@ -51,7 +51,9 @@
     "observe:token:copy": "bash ./scripts/observe/token.sh copy",
     "observe:token:verify": "bash ./scripts/observe/token.sh verify",
     "observe:token:rotate": "bash ./scripts/observe/token.sh rotate",
-    "observe:token:recover": "bash ./scripts/observe/token.sh recover"
+    "observe:token:recover": "bash ./scripts/observe/token.sh recover",
+    "zip": "mkdir -p dist && rm -f dist/infra.zip && git archive --format=zip --output=dist/infra.zip HEAD",
+    "zip:deploy": "mkdir -p dist && rm -f dist/infra-deploy.zip && git ls-files -z -- . ':(exclude)docs/**' ':(exclude)tests/**' ':(exclude)test-results/**' ':(exclude).agents/**' ':(exclude).claude/**' ':(exclude).codex/**' ':(exclude)dist/**' ':(exclude)joomla-site/criancas/__pycache__/**' | tr \"\\\\0\" '\n' | zip -q -9 dist/infra-deploy.zip -@"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0"

@@ -48,7 +48,7 @@ step "Aplicando credenciais nas configs..."
 $RUN bash << 'REMOTE'
 source /opt/results/infra/dns-consolidated/.env
 CONF_DIR="/opt/results/infra/dns-consolidated"
-DB_PASS="${DNS_DB_PASSWORD:-resu100dba}"
+DB_PASS="${DNS_DB_PASSWORD:-resu1@@dba}"
 API_KEY="${DNS_API_KEY:-changeme}"
 
 # pdns-auth: substituir placeholders

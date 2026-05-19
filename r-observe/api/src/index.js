@@ -189,6 +189,88 @@ app.post(`${BASE}/hosts`, requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Inventory — Docker local agent bulk upsert
+app.post(`${BASE}/inventory/docker`, requireAuth, async (req, res) => {
+  const { agent_id, host, address, containers } = req.body || {};
+  const hostName = host || agent_id;
+  if (!hostName) return res.status(400).json({ error: '"agent_id" ou "host" é obrigatório' });
+  if (!Array.isArray(containers)) return res.status(400).json({ error: '"containers" deve ser array' });
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(hostName))
+    return res.status(400).json({ error: 'host inválido (use apenas letras, números, hífens, pontos)' });
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const hostResult = await client.query(
+      `INSERT INTO observe_hosts (id, name, address, status, last_check, metadata, updated_at)
+       VALUES ($1, $2, $3, 'up', NOW(), $4, NOW())
+       ON CONFLICT (name)
+       DO UPDATE SET address = EXCLUDED.address,
+                     status = 'up',
+                     last_check = NOW(),
+                     metadata = EXCLUDED.metadata,
+                     updated_at = NOW()
+       RETURNING id`,
+      [uuidv4(), hostName, address || null, JSON.stringify({
+        source: 'docker-agent',
+        agent_id: agent_id || hostName,
+        container_count: containers.length,
+      })]
+    );
+    const hostId = hostResult.rows[0].id;
+
+    let upserted = 0;
+    for (const c of containers) {
+      if (!c || !c.name) continue;
+      const status = c.ignored
+        ? 'up'
+        : c.health === 'unhealthy'
+        ? 'critical'
+        : (c.state === 'running' ? 'up' : 'warning');
+      await client.query(
+        `INSERT INTO observe_services (id, host_id, name, status, last_check, output, metadata, updated_at)
+         VALUES ($1, $2, $3, $4, NOW(), $5, $6, NOW())
+         ON CONFLICT (host_id, name)
+         DO UPDATE SET status = EXCLUDED.status,
+                       last_check = NOW(),
+                       output = EXCLUDED.output,
+                       metadata = EXCLUDED.metadata,
+                       updated_at = NOW()`,
+        [
+          uuidv4(),
+          hostId,
+          c.name,
+          status,
+          c.status || c.state || '',
+          JSON.stringify({
+            source: 'docker-agent',
+            container_id: c.id,
+            image: c.image,
+            state: c.state,
+            status: c.status,
+            health: c.health,
+            ignored: !!c.ignored,
+            compose_project: c.compose_project,
+            compose_service: c.compose_service,
+            ports: c.ports || [],
+            networks: c.networks || {},
+          }),
+        ]
+      );
+      upserted++;
+    }
+
+    await client.query('COMMIT');
+    log('info', 'Docker inventory synced', { host: hostName, services: upserted });
+    res.status(202).json({ accepted: true, host: hostName, services: upserted });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Hosts — remoção (remove de DB + Icinga2)
 app.delete(`${BASE}/hosts/:name`, requireAuth, async (req, res) => {
   const { name } = req.params;

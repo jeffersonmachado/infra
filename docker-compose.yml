@@ -91,7 +91,7 @@ services:
     volumes:
       - joomla-site-data:/var/www/html/results
       - joomla-logs:/var/www/html/results/logs
-      - ./joomla-site/webmail/config/config.inc.php:/var/www/html/results/webmail/config/config.inc.php:ro
+      - ./roundcube/config.inc.php:/var/www/html/results/webmail/config/config.inc.php:ro
     tmpfs:
       - /var/www/html/results/cache:size=${JOOMLA_CACHE_TMPFS_SIZE:-256m}
       - /tmp

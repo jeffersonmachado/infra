@@ -1,6 +1,6 @@
 $TTL 300
 @   IN SOA ns1.results.com.br. infra.results.com.br. (
-        2026041801
+        2026051801
         300
         120
         604800
@@ -16,6 +16,7 @@ $TTL 300
 ns1             IN A     10.10.2.1
 ns2             IN A     10.10.2.20
 www             IN A     10.10.2.60
+r-observe       IN A     10.10.2.60
 mx1             IN A     10.10.2.3
 mx2             IN A     10.10.2.23
 imap            IN A     10.10.2.3
