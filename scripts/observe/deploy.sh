@@ -16,6 +16,7 @@ REMOTE_HOST=""
 SKIP_DISCOVER=false
 SKIP_SMOKE=false
 SUBNET="${DEPLOY_SUBNET:-}"
+SSH_PASSWORD="${SSH_PASSWORD:-${DEPLOY_SSH_PASSWORD:-}}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
@@ -38,15 +39,31 @@ done
 
 # ── Decide se executa local ou via SSH ────────────────────────────────────────
 if [[ -n "${REMOTE_HOST}" ]]; then
-  run() { ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" "cd /opt/results/infra && $*"; }
+  if [[ -n "${SSH_PASSWORD}" ]]; then
+    command -v sshpass >/dev/null 2>&1 || die "sshpass nao encontrado. Instale ou configure chave SSH para deploy remoto."
+    run() { sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" "cd /opt/results/infra && $*"; }
+    rsync_remote() {
+      sshpass -p "${SSH_PASSWORD}" rsync -az --delete \
+        --exclude='.env*' \
+        --exclude='node_modules' \
+        --exclude='.git' \
+        -e "ssh -o StrictHostKeyChecking=no" \
+        "${REPO_ROOT}/" "root@${REMOTE_HOST}:/opt/results/infra/"
+    }
+  else
+    run() { ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" "cd /opt/results/infra && $*"; }
+    rsync_remote() {
+      rsync -az --delete \
+        --exclude='.env*' \
+        --exclude='node_modules' \
+        --exclude='.git' \
+        "${REPO_ROOT}/" "root@${REMOTE_HOST}:/opt/results/infra/"
+    }
+  fi
   run_local() { "$@"; }
   DEPLOY_TARGET="${REMOTE_HOST}"
   step "Sincronizando repositório em ${REMOTE_HOST}..."
-  rsync -az --delete \
-    --exclude='.env*' \
-    --exclude='node_modules' \
-    --exclude='.git' \
-    "${REPO_ROOT}/" "root@${REMOTE_HOST}:/opt/results/infra/"
+  rsync_remote
   ok "Repositório sincronizado"
 else
   run() { (cd "${REPO_ROOT}" && eval "$*"); }
@@ -142,8 +159,7 @@ if [[ "${SKIP_DISCOVER}" == "false" ]]; then
   [[ -n "${SUBNET}" ]] && DISCOVER_ARGS="--subnet ${SUBNET}"
 
   if [[ -n "${REMOTE_HOST}" ]]; then
-    ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" \
-      "cd /opt/results/infra && bash scripts/observe/discover-hosts.sh ${DISCOVER_ARGS}" || \
+    run "bash scripts/observe/discover-hosts.sh ${DISCOVER_ARGS}" || \
       warn "Descoberta falhou — execute manualmente: npm run observe:discover"
   else
     bash "${SCRIPT_DIR}/discover-hosts.sh" ${DISCOVER_ARGS} || \
@@ -155,11 +171,9 @@ fi
 if [[ "${SKIP_SMOKE}" == "false" ]]; then
   step "Executando smoke tests..."
   if [[ -n "${REMOTE_HOST}" ]]; then
-    ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" \
-      "cd /opt/results/infra && bash scripts/observe/smoke-observe-stack.sh" && \
+    run "bash scripts/observe/smoke-observe-stack.sh" && \
       ok "Smoke test geral passou" || warn "Smoke test geral falhou"
-    ssh -o StrictHostKeyChecking=no "root@${REMOTE_HOST}" \
-      "cd /opt/results/infra && bash scripts/observe/smoke-icinga.sh" && \
+    run "bash scripts/observe/smoke-icinga.sh" && \
       ok "Smoke test Icinga passou" || warn "Smoke test Icinga falhou"
   else
     bash "${SCRIPT_DIR}/smoke-observe-stack.sh" && ok "Smoke test geral passou" || warn "Smoke test geral falhou"

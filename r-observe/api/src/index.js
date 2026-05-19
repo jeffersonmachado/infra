@@ -143,6 +143,63 @@ async function proxyToDiscovery(path, options = {}) {
   }
 }
 
+// ─── Persistência de settings de IA (PostgreSQL) ───────────────────────────
+async function getPersistedAISettings() {
+  try {
+    const r = await db.query(
+      `SELECT provider, model, api_key, updated_at
+         FROM observe_ai_settings
+        WHERE id = 1`
+    );
+    return r.rowCount ? r.rows[0] : null;
+  } catch (e) {
+    log('warn', 'AI settings table unavailable', { err: e.message });
+    return null;
+  }
+}
+
+async function upsertPersistedAISettings(partial = {}) {
+  const current = (await getPersistedAISettings()) || { provider: 'mock', model: 'auto', api_key: null };
+
+  const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+  const next = {
+    provider: has(partial, 'provider') ? partial.provider : current.provider,
+    model: has(partial, 'model') ? partial.model : current.model,
+    api_key: has(partial, 'api_key') ? partial.api_key : current.api_key,
+  };
+
+  await db.query(
+    `INSERT INTO observe_ai_settings (id, provider, model, api_key, updated_at)
+     VALUES (1, $1, $2, $3, NOW())
+     ON CONFLICT (id) DO UPDATE
+     SET provider = EXCLUDED.provider,
+         model = EXCLUDED.model,
+         api_key = EXCLUDED.api_key,
+         updated_at = NOW()`,
+    [next.provider, next.model, next.api_key || null]
+  );
+
+  return next;
+}
+
+async function applyPersistedAISettingsOnStartup() {
+  const persisted = await getPersistedAISettings();
+  if (!persisted) return;
+
+  const payload = {
+    provider: persisted.provider,
+    model: persisted.model,
+  };
+  if (persisted.api_key) payload.api_key = persisted.api_key;
+
+  const result = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(payload) });
+  if (!result.ok || result.status >= 400) {
+    log('warn', 'Failed to apply persisted AI settings on startup', { status: result.status });
+    return;
+  }
+  log('info', 'Persisted AI settings applied on startup', { provider: persisted.provider, model: persisted.model });
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // Health
@@ -167,6 +224,45 @@ app.get(`${BASE}/status`, requireAuth, async (_req, res) => {
   } catch (e) { components.redis = 'error'; log('warn', 'Redis status check failed', { err: e.message }); }
   const healthy = components.db === 'ok';
   res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'degraded', components });
+});
+
+function explainTacticalVsAI(tactical, aiMetrics) {
+  const reasons = [];
+
+  reasons.push('Tactical mostra estado atual (snapshot) de hosts/servicos; IA mostra historico de incidentes e remediacoes acumuladas.');
+
+  if ((tactical.services.critical || 0) === 0 && (aiMetrics.pending_approval || 0) > 0) {
+    reasons.push('Mesmo sem servicos criticos agora, ha remediacoes pendentes de analises anteriores aguardando aprovacao.');
+  }
+
+  if ((aiMetrics.failed || 0) > 0) {
+    reasons.push('Falhas em IA/remediacao sao acumuladas no tempo e nao refletem somente o estado operacional instantaneo do Tactical.');
+  }
+
+  if ((aiMetrics.total_analyzed || 0) > (tactical.services.total || 0)) {
+    reasons.push('Total analisado pela IA conta eventos/incidentes ao longo do tempo, por isso pode ser maior que o total de servicos monitorados.');
+  }
+
+  return reasons;
+}
+
+app.get(`${BASE}/comparison/tactical-ai`, requireAuth, async (_req, res) => {
+  try {
+    const tactical = await icinga.getTacticalSummary();
+    const aiResult = await proxyToAI('/ai/activity');
+    const aiMetrics = aiResult.ok && aiResult.status < 400
+      ? (aiResult.data.metrics || {})
+      : { total_analyzed: 0, auto_executed: 0, pending_approval: 0, succeeded: 0, failed: 0, feedback_positive: 0, feedback_negative: 0 };
+
+    res.json({
+      tactical,
+      ai: aiMetrics,
+      reasons: explainTacticalVsAI(tactical, aiMetrics),
+      generated_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Hosts — listagem
@@ -465,14 +561,50 @@ app.get(`${BASE}/ai/models`, requireAuth, async (req, res) => {
 
 // AI settings — lê configuração atual do provider
 app.get(`${BASE}/ai/settings`, requireAuth, async (_req, res) => {
-  const result = await proxyToAI('/ai/settings');
-  res.status(result.status).json(result.data);
+  const [result, persisted] = await Promise.all([
+    proxyToAI('/ai/settings'),
+    getPersistedAISettings(),
+  ]);
+
+  if (!persisted) {
+    return res.status(result.status).json(result.data);
+  }
+
+  const merged = {
+    ...(result.data || {}),
+    provider: persisted.provider,
+    model: persisted.model,
+    has_api_key: !!persisted.api_key,
+    persisted_in_db: true,
+    updated_at: persisted.updated_at,
+  };
+
+  const status = result.status >= 400 ? 200 : result.status;
+  res.status(status).json(merged);
 });
 
 // AI settings — atualiza provider/model/api_key em runtime
 app.post(`${BASE}/ai/settings`, requireAuth, async (req, res) => {
   const result = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(req.body) });
-  res.status(result.status).json(result.data);
+  if (!result.ok || result.status >= 400) {
+    return res.status(result.status).json(result.data);
+  }
+
+  const body = req.body || {};
+  const persisted = await upsertPersistedAISettings({
+    ...(Object.prototype.hasOwnProperty.call(body, 'provider') ? { provider: body.provider } : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, 'model') ? { model: body.model } : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, 'api_key') ? { api_key: body.api_key } : {}),
+  });
+
+  res.status(result.status).json({
+    ...(result.data || {}),
+    persisted_in_db: true,
+    updated_at: new Date().toISOString(),
+    provider: persisted.provider,
+    model: persisted.model,
+    has_api_key: !!persisted.api_key,
+  });
 });
 
 // Remediation request (manual)
@@ -760,6 +892,12 @@ app.get('/observe/settings', (_req, res) => {
   res.end(SETTINGS_HTML);
 });
 
+// ─── UI: home com atalhos das interfaces ────────────────────────────────────
+app.get('/observe/home', (_req, res) => {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.end(HOME_HTML);
+});
+
 // ─── UI: dashboard de atividade da IA ─────────────────────────────────────────
 app.get('/observe/ai', (_req, res) => {
   res.set('Content-Type', 'text/html; charset=utf-8');
@@ -783,6 +921,7 @@ const { bootstrapInitialUsers } = require('./bootstrap');
   try {
     await runMigrations(db);
     await bootstrapInitialUsers(db, process.env, { log: (line) => process.stdout.write(line + '\n') });
+    await applyPersistedAISettingsOnStartup();
   } catch (e) {
     log('error', 'Startup bootstrap failed', { err: e.message });
     await db.end().catch(() => {});
@@ -795,6 +934,136 @@ const { bootstrapInitialUsers } = require('./bootstrap');
 })();
 
 module.exports = app;
+
+// ─── HTML da UI inicial ──────────────────────────────────────────────────────
+const HOME_HTML = /* html */`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results · R-Observe</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --brand: #cc1212;
+      --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #ffe5e5 0%, transparent 60%),
+        radial-gradient(1000px 450px at 90% -20%, #e9eefc 0%, transparent 60%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 34px 20px 24px; }
+    .hero {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: var(--brand);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 900;
+      font-size: 26px;
+      box-shadow: 0 8px 24px rgba(204, 18, 18, 0.25);
+    }
+    h1 { margin: 0; font-size: clamp(1.4rem, 2vw, 1.9rem); }
+    .sub { margin: 2px 0 0; color: var(--muted); }
+    .grid {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      box-shadow: var(--shadow);
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 30px rgba(17, 24, 39, 0.12);
+    }
+    .card h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .94rem; }
+    .tag {
+      display: inline-block;
+      margin-bottom: 8px;
+      font-size: .76rem;
+      color: #991b1b;
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div class="logo">R</div>
+      <div>
+        <h1>R-Observe · Painel de Opções</h1>
+        <p class="sub">Acesso rápido às interfaces principais do ambiente.</p>
+      </div>
+    </header>
+
+    <section class="grid">
+      <a class="card" href="/observe/ai">
+        <span class="tag">IA</span>
+        <h2>IA Dashboard</h2>
+        <p>Atividade, análises, catálogo e remediações com feedback.</p>
+      </a>
+
+      <a class="card" href="/observe/settings">
+        <span class="tag">Configuração</span>
+        <h2>Configuração IA</h2>
+        <p>Seleção de provider, modelo e token interno.</p>
+      </a>
+
+      <a class="card" href="/grafana/">
+        <span class="tag">Métricas</span>
+        <h2>Grafana</h2>
+        <p>Dashboards e visualização de indicadores do stack.</p>
+      </a>
+
+      <a class="card" href="/icinga/">
+        <span class="tag">Monitoramento</span>
+        <h2>Icinga Web 2</h2>
+        <p>Status de hosts e serviços com navegação web.</p>
+      </a>
+
+      <a class="card" href="/observe/discovery">
+        <span class="tag">Discovery</span>
+        <h2>Discovery UI</h2>
+        <p>Descoberta de ativos e inspeção de varreduras.</p>
+      </a>
+    </section>
+  </main>
+</body>
+</html>`;
 
 // ─── HTML da UI de configuração ───────────────────────────────────────────────
 const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
@@ -830,6 +1099,10 @@ const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
 <div id="overview" class="page active">
   <div class="metrics" id="metrics-grid">
     <div class="metric"><div class="val">—</div><div class="lbl">Analisados</div></div>
+  </div>
+  <div class="section-title">Comparacao Tactical x IA</div>
+  <div id="compare-box" style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;color:#e2e8f0;margin-bottom:12px">
+    Carregando comparacao...
   </div>
   <div class="section-title">Análises Recentes com IA</div>
   <table id="overview-table">
@@ -906,10 +1179,14 @@ async function loadAll() {
   if (!tokenEl.value.trim()) {
     document.getElementById('metrics-grid').innerHTML =
       '<div style="color:var(--muted);grid-column:1/-1;padding:1rem">Cole o OBSERVE_INTERNAL_TOKEN no campo acima e clique em ↺ Atualizar.</div>';
+    document.getElementById('compare-box').innerHTML = 'Cole o token para carregar a comparacao Tactical x IA.';
     return;
   }
   try {
-    const r = await fetch(API + '/ai/activity', { headers: getHeaders() });
+    const [r, c] = await Promise.all([
+      fetch(API + '/ai/activity', { headers: getHeaders() }),
+      fetch(API + '/comparison/tactical-ai', { headers: getHeaders() }),
+    ]);
     if (!r.ok) { toast('Erro ' + r.status + ' — verifique o token', false); return; }
     _data = await r.json();
     renderMetrics(_data.metrics);
@@ -917,7 +1194,33 @@ async function loadAll() {
     renderAnalyses(_data.recent_analyses);
     renderCatalog(_data.catalog);
     renderRemediations(_data.recent_remediations);
+    if (c.ok) {
+      renderComparison(await c.json());
+    } else {
+      document.getElementById('compare-box').innerHTML = 'Nao foi possivel carregar comparacao Tactical x IA.';
+    }
   } catch(e) { toast('Falha: ' + e.message, false); }
+}
+
+function renderComparison(data) {
+  const t = data.tactical || { hosts: {}, services: {} };
+  const a = data.ai || {};
+  const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+
+  const lines = [
+    'Hosts: total ' + (t.hosts.total ?? 0) + ' | up ' + (t.hosts.up ?? 0) + ' | down ' + (t.hosts.down ?? 0),
+    'Servicos: total ' + (t.services.total ?? 0) + ' | ok ' + (t.services.ok ?? 0) + ' | warning ' + (t.services.warning ?? 0) + ' | critical ' + (t.services.critical ?? 0) + ' | unknown ' + (t.services.unknown ?? 0),
+    'IA: analisados ' + (a.total_analyzed ?? 0) + ' | auto ' + (a.auto_executed ?? 0) + ' | pendentes ' + (a.pending_approval ?? 0) + ' | falhas ' + (a.failed ?? 0),
+  ];
+
+  const reasonHtml = reasons.length
+    ? '<ul style="margin:8px 0 0 16px">' + reasons.map((r) => '<li style="margin:4px 0">' + esc(r) + '</li>').join('') + '</ul>'
+    : '<div style="margin-top:8px">Sem diferencas relevantes detectadas agora.</div>';
+
+  document.getElementById('compare-box').innerHTML =
+    '<div style="font-weight:600;margin-bottom:6px">Resumo atual</div>' +
+    '<div>' + lines.map((l) => '<div>' + esc(l) + '</div>').join('') + '</div>' +
+    '<div style="font-weight:600;margin-top:10px">Motivos da diferenca</div>' + reasonHtml;
 }
 
 function renderMetrics(m) {
@@ -1033,6 +1336,38 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Results · R-Observe — Configuração IA</title>
   <link rel="stylesheet" href="/observe/api/ui/observe-settings.css">
+  <style>
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
+    .quick-link {
+      display: block;
+      text-decoration: none;
+      border: 1px solid #dbe3f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fbff;
+      color: #123;
+      transition: .15s ease;
+    }
+    .quick-link:hover {
+      transform: translateY(-1px);
+      background: #f0f7ff;
+      border-color: #c8d8f2;
+    }
+    .quick-link strong {
+      display: block;
+      font-size: .92rem;
+      margin-bottom: 3px;
+    }
+    .quick-link span {
+      color: #5a6578;
+      font-size: .82rem;
+    }
+  </style>
 </head>
 <body>
   <div class="card">
@@ -1042,6 +1377,32 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
         <div class="brand-name">Results · Sistemas de Informática</div>
         <h1>R-Observe · Configuração IA</h1>
         <div class="subtitle">Altere o provider de IA sem reiniciar o serviço</div>
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <a class="quick-link" href="/observe/ai">
+        <strong>IA Dashboard</strong>
+        <span>Análises e remediações</span>
+      </a>
+      <a class="quick-link" href="/grafana/">
+        <strong>Grafana</strong>
+        <span>Métricas e dashboards</span>
+      </a>
+      <a class="quick-link" href="/icinga/">
+        <strong>Icinga Web 2</strong>
+        <span>Hosts e serviços</span>
+      </a>
+      <a class="quick-link" href="/observe/discovery">
+        <strong>Discovery</strong>
+        <span>Descoberta de ativos</span>
+      </a>
+    </div>
+
+    <div class="field" style="margin-top:6px">
+      <label>Comparacao Tactical x IA</label>
+      <div id="settings-compare" style="border:1px solid #dbe3f0;border-radius:10px;padding:10px;background:#f8fbff;color:#1f2937">
+        Cole o token e clique em ↺ para carregar os numeros comparativos.
       </div>
     </div>
 
@@ -1224,11 +1585,35 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
       el.className = isOk ? 'ok' : 'err';
     }
 
+    function renderSettingsComparison(data) {
+      const box = document.getElementById('settings-compare');
+      const t = data.tactical || { hosts: {}, services: {} };
+      const a = data.ai || {};
+      const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+
+      const rows = [
+        'Hosts: total ' + (t.hosts.total ?? 0) + ' | up ' + (t.hosts.up ?? 0) + ' | down ' + (t.hosts.down ?? 0),
+        'Servicos: total ' + (t.services.total ?? 0) + ' | ok ' + (t.services.ok ?? 0) + ' | warning ' + (t.services.warning ?? 0) + ' | critical ' + (t.services.critical ?? 0),
+        'IA: analisados ' + (a.total_analyzed ?? 0) + ' | pendentes ' + (a.pending_approval ?? 0) + ' | falhas ' + (a.failed ?? 0),
+      ];
+
+      const reasonHtml = reasons.length
+        ? '<ul style="margin:8px 0 0 16px">' + reasons.map((r) => '<li style="margin:4px 0">' + r + '</li>').join('') + '</ul>'
+        : '<div style="margin-top:8px">Sem diferencas relevantes agora.</div>';
+
+      box.innerHTML =
+        '<div>' + rows.map((r) => '<div>' + r + '</div>').join('') + '</div>' +
+        '<div style="margin-top:8px;font-weight:600">Motivos</div>' + reasonHtml;
+    }
+
     async function loadStatus() {
       _statusReady = false;
       setStatus('warn', 'Consultando serviço de IA…', '');
       try {
-        const resp = await fetch(API_BASE + '/ai/settings', { headers: getHeaders() });
+        const [resp, cmp] = await Promise.all([
+          fetch(API_BASE + '/ai/settings', { headers: getHeaders() }),
+          fetch(API_BASE + '/comparison/tactical-ai', { headers: getHeaders() }),
+        ]);
         if (resp.status === 401) { setStatus('err', 'Cole o OBSERVE_INTERNAL_TOKEN abaixo e clique em ↺', ''); return; }
         if (!resp.ok)            { setStatus('err', 'Serviço AI indisponível.', resp.status); return; }
 
@@ -1250,6 +1635,12 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
 
         if (hasKey && d.provider !== 'mock') {
           document.getElementById('key-hint').textContent = 'Chave já configurada. Deixe em branco para mantê-la.';
+        }
+
+        if (cmp.ok) {
+          renderSettingsComparison(await cmp.json());
+        } else {
+          document.getElementById('settings-compare').textContent = 'Nao foi possivel carregar comparacao Tactical x IA.';
         }
       } catch (e) {
         setStatus('err', 'Erro ao consultar API.', e.message);

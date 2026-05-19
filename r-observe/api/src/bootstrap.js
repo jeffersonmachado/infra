@@ -1,5 +1,77 @@
 'use strict';
 
+function parseBool(value, defaultValue = false) {
+  if (value == null || value === '') return defaultValue;
+  return String(value).toLowerCase() === 'true';
+}
+
+async function ensureGrafanaAdminIfNotPersisted(env = process.env, logger = console) {
+  const enabled = parseBool(env.OBSERVE_BOOTSTRAP_GRAFANA_ADMIN_ENABLED, true);
+  if (!enabled) return { status: 'disabled' };
+
+  const user = String(env.GRAFANA_ADMIN_USER || '').trim();
+  const password = String(env.GRAFANA_ADMIN_PASSWORD || '').trim();
+  const baseUrl = String(env.GRAFANA_URL || 'http://observe-grafana:3000').replace(/\/+$/, '');
+
+  if (!user || !password) {
+    logger.log?.(JSON.stringify({
+      level: 'info',
+      service: 'r-observe-api',
+      msg: 'Grafana bootstrap skipped (missing admin credentials)',
+      ts: new Date().toISOString(),
+    }));
+    return { status: 'skipped-missing-env' };
+  }
+
+  try {
+    const loginRes = await fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, password }),
+    });
+
+    if (loginRes.ok) {
+      logger.log?.(JSON.stringify({
+        level: 'info',
+        service: 'r-observe-api',
+        msg: 'Grafana admin credentials accepted (persisted or freshly initialized)',
+        user,
+        ts: new Date().toISOString(),
+      }));
+      return { status: 'ok' };
+    }
+
+    if (loginRes.status === 401) {
+      logger.log?.(JSON.stringify({
+        level: 'info',
+        service: 'r-observe-api',
+        msg: 'Grafana credentials appear persisted with different password; bootstrap will not overwrite',
+        user,
+        ts: new Date().toISOString(),
+      }));
+      return { status: 'persisted-different-password' };
+    }
+
+    logger.log?.(JSON.stringify({
+      level: 'warn',
+      service: 'r-observe-api',
+      msg: 'Grafana bootstrap check returned unexpected status',
+      status: loginRes.status,
+      ts: new Date().toISOString(),
+    }));
+    return { status: `unexpected-${loginRes.status}` };
+  } catch (error) {
+    logger.log?.(JSON.stringify({
+      level: 'warn',
+      service: 'r-observe-api',
+      msg: 'Grafana bootstrap check failed',
+      err: error.message,
+      ts: new Date().toISOString(),
+    }));
+    return { status: 'unreachable' };
+  }
+}
+
 function parseInitialUsers(env = process.env) {
   const users = [];
   const seen = new Set();
@@ -46,51 +118,52 @@ async function bootstrapInitialUsers(pool, env = process.env, logger = console) 
       msg: 'No initial users configured',
       ts: new Date().toISOString(),
     }));
-    return { users: 0 };
-  }
+  } else {
+    await pool.query(`
+      INSERT INTO icingaweb_group ("name", "ctime", "mtime")
+      VALUES ('Administrators', NOW(), NOW())
+      ON CONFLICT ("name") DO NOTHING
+    `);
 
-  await pool.query(`
-    INSERT INTO icingaweb_group ("name", "ctime", "mtime")
-    VALUES ('Administrators', NOW(), NOW())
-    ON CONFLICT ("name") DO NOTHING
-  `);
+    for (const user of users) {
+      if (forcePasswordUpdate) {
+        await pool.query(`
+          INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
+          VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
+          ON CONFLICT ("name") DO UPDATE
+          SET "active" = EXCLUDED."active",
+              "password_hash" = EXCLUDED."password_hash",
+              "mtime" = NOW()
+        `, [user.name, user.active, user.password]);
+      } else {
+        await pool.query(`
+          INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
+          VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
+          ON CONFLICT ("name") DO NOTHING
+        `, [user.name, user.active, user.password]);
+      }
 
-  for (const user of users) {
-    if (forcePasswordUpdate) {
-      await pool.query(`
-        INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
-        VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
-        ON CONFLICT ("name") DO UPDATE
-        SET "active" = EXCLUDED."active",
-            "password_hash" = EXCLUDED."password_hash",
-            "mtime" = NOW()
-      `, [user.name, user.active, user.password]);
-    } else {
-      await pool.query(`
-        INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
-        VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
-        ON CONFLICT ("name") DO NOTHING
-      `, [user.name, user.active, user.password]);
+      if (user.admin) {
+        await pool.query(`
+          INSERT INTO icingaweb_group_membership ("group_name", "username", "ctime", "mtime")
+          VALUES ('Administrators', $1, NOW(), NOW())
+          ON CONFLICT ("group_name", "username") DO NOTHING
+        `, [user.name]);
+      }
     }
 
-    if (user.admin) {
-      await pool.query(`
-        INSERT INTO icingaweb_group_membership ("group_name", "username", "ctime", "mtime")
-        VALUES ('Administrators', $1, NOW(), NOW())
-        ON CONFLICT ("group_name", "username") DO NOTHING
-      `, [user.name]);
-    }
+    logger.log?.(JSON.stringify({
+      level: 'info',
+      service: 'r-observe-api',
+      msg: 'Initial users bootstrapped',
+      users: users.map((user) => user.name),
+      ts: new Date().toISOString(),
+    }));
   }
 
-  logger.log?.(JSON.stringify({
-    level: 'info',
-    service: 'r-observe-api',
-    msg: 'Initial users bootstrapped',
-    users: users.map((user) => user.name),
-    ts: new Date().toISOString(),
-  }));
+  const grafana = await ensureGrafanaAdminIfNotPersisted(env, logger);
 
-  return { users: users.length };
+  return { users: users.length, grafana: grafana.status };
 }
 
-module.exports = { bootstrapInitialUsers, parseInitialUsers };
+module.exports = { bootstrapInitialUsers, parseInitialUsers, ensureGrafanaAdminIfNotPersisted };

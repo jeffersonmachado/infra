@@ -109,4 +109,40 @@ async function listHosts() {
   }));
 }
 
-module.exports = { registerHost, removeHost, hostExists, rescheduleCheck, listHosts };
+async function listServices() {
+  const r = await request('GET', '/objects/services?attrs=state');
+  if (!r.ok) return [];
+  return (r.data.results || []).map((s) => ({
+    name: s.name,
+    state: s.attrs?.state,
+  }));
+}
+
+async function getTacticalSummary() {
+  const [hosts, services] = await Promise.all([listHosts(), listServices()]);
+
+  const hostUp = hosts.filter((h) => h.state === 0).length;
+  const hostDown = hosts.filter((h) => h.state === 1).length;
+
+  const svcOk = services.filter((s) => s.state === 0).length;
+  const svcWarning = services.filter((s) => s.state === 1).length;
+  const svcCritical = services.filter((s) => s.state === 2).length;
+  const svcUnknown = services.filter((s) => s.state === 3).length;
+
+  return {
+    hosts: {
+      total: hosts.length,
+      up: hostUp,
+      down: hostDown,
+    },
+    services: {
+      total: services.length,
+      ok: svcOk,
+      warning: svcWarning,
+      critical: svcCritical,
+      unknown: svcUnknown,
+    },
+  };
+}
+
+module.exports = { registerHost, removeHost, hostExists, rescheduleCheck, listHosts, listServices, getTacticalSummary };
