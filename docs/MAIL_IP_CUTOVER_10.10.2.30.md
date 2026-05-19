@@ -43,21 +43,21 @@ Ele suporta tres modos:
 
 ```bash
 cd /opt/results/infra
-DEPLOY_SSH_PASSWORD='resu100gabao' ./scripts/mail-cutover-10.10.2.30.sh precheck
+DEPLOY_SSH_PASSWORD='$SSH_PASSWORD' ./scripts/mail-cutover-10.10.2.30.sh precheck
 ```
 
 Se a interface nao for detectada automaticamente, repetir com `--interface`:
 
 ```bash
 cd /opt/results/infra
-DEPLOY_SSH_PASSWORD='resu100gabao' ./scripts/mail-cutover-10.10.2.30.sh precheck --interface eth0
+DEPLOY_SSH_PASSWORD='$SSH_PASSWORD' ./scripts/mail-cutover-10.10.2.30.sh precheck --interface eth0
 ```
 
 ### 2. Cutover
 
 ```bash
 cd /opt/results/infra
-DEPLOY_SSH_PASSWORD='resu100gabao' ./scripts/mail-cutover-10.10.2.30.sh cutover
+DEPLOY_SSH_PASSWORD='$SSH_PASSWORD' ./scripts/mail-cutover-10.10.2.30.sh cutover
 ```
 
 O script faz isso no host remoto:
@@ -75,14 +75,14 @@ Executar a suite contra o IP principal:
 
 ```bash
 cd /opt/results/infra
-LDAP_BIND_PASSWORD='resu100vsza' MAIL_MYSQL_PASSWORD='resu1@@dba' ./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password 'resu100vsza' --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password 'resu1@@dba'
+LDAP_BIND_PASSWORD='$LDAP_BIND_PASSWORD' MAIL_MYSQL_PASSWORD='$MAIL_MYSQL_PASSWORD' ./scripts/test-mail-services.sh --host 10.10.2.3 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password "$LDAP_BIND_PASSWORD" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password "$MAIL_MYSQL_PASSWORD"
 ```
 
 Executar a suite contra o IP secundario para validar SMTP:
 
 ```bash
 cd /opt/results/infra
-LDAP_BIND_PASSWORD='resu100vsza' MAIL_MYSQL_PASSWORD='resu1@@dba' ./scripts/test-mail-services.sh --host 10.10.2.23 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password 'resu100vsza' --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password 'resu1@@dba'
+LDAP_BIND_PASSWORD='$LDAP_BIND_PASSWORD' MAIL_MYSQL_PASSWORD='$MAIL_MYSQL_PASSWORD' ./scripts/test-mail-services.sh --host 10.10.2.23 --ldap-uri ldap://srvldap0.results.intranet --ldap-base-dn 'dc=results,dc=com,dc=br' --ldap-bind-dn 'cn=administrador,dc=results,dc=com,dc=br' --ldap-bind-password "$LDAP_BIND_PASSWORD" --mysql-host 10.10.2.99 --mysql-db results --mysql-user resultsdba --mysql-password "$MAIL_MYSQL_PASSWORD"
 ```
 
 ### 4. Ajuste final no DNS autoritativo
@@ -101,7 +101,7 @@ Se houver falha no cutover, remover os IPs do host novo e derrubar a stack de ma
 
 ```bash
 cd /opt/results/infra
-DEPLOY_SSH_PASSWORD='resu100gabao' ./scripts/mail-cutover-10.10.2.30.sh rollback
+DEPLOY_SSH_PASSWORD='$SSH_PASSWORD' ./scripts/mail-cutover-10.10.2.30.sh rollback
 ```
 
 Depois disso, reativar os IPs antigos nos hosts legados apenas se o retorno deles fizer parte da janela aprovada.

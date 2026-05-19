@@ -15,6 +15,8 @@
 
 x-common: &common
   restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
   logging:
     driver: json-file
     options:

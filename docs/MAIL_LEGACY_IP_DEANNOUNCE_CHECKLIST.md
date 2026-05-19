@@ -109,7 +109,7 @@ Assim que os dois IPs pararem de responder, executar sem demora no host de opera
 
 ```bash
 cd /opt/results/infra
-DEPLOY_SSH_PASSWORD='resu100gabao' ./scripts/mail-cutover-10.10.2.30.sh cutover
+DEPLOY_SSH_PASSWORD='$SSH_PASSWORD' ./scripts/mail-cutover-10.10.2.30.sh cutover
 ```
 
 Em seguida, continuar a validacao descrita em [MAIL_IP_CUTOVER_10.10.2.30.md](MAIL_IP_CUTOVER_10.10.2.30.md).

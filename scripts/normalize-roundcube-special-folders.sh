@@ -6,7 +6,7 @@ DOVECOT_CONTAINER="${DOVECOT_CONTAINER:-results-mail-dovecot}"
 MAIL_ROOT="${MAIL_ROOT:-/var/lib/docker/volumes/infra-mail_maildata/_data}"
 ROUNDCUBE_DB_DSN="${ROUNDCUBE_DB_DSN:-mysql:host=srvmysql.results.intranet;dbname=roundcubemail}"
 ROUNDCUBE_DB_USER="${ROUNDCUBE_DB_USER:-roundcube}"
-ROUNDCUBE_DB_PASSWORD="${ROUNDCUBE_DB_PASSWORD:-resu100roundcube}"
+ROUNDCUBE_DB_PASSWORD="${ROUNDCUBE_DB_PASSWORD:-}"
 
 info() {
   printf '[INFO] %s\n' "$1"

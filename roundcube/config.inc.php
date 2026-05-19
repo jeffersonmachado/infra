@@ -5,7 +5,7 @@
 // ----------------------------------
 // SQL DATABASE
 // ----------------------------------
-$config['db_dsnw'] = 'mysql://roundcube:resu100roundcube@srvmysql.results.intranet/roundcubemail';
+$config['db_dsnw'] = 'mysql://roundcube:' . (getenv('ROUNDCUBE_DB_PASSWORD') ?: 'CHANGE_ME') . '@srvmysql.results.intranet/roundcubemail';
 
 // ----------------------------------
 // IMAP

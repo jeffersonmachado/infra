@@ -34,7 +34,6 @@
     "observe:validate": "sh ./scripts/observe/validate-compose.sh",
     "observe:smoke": "sh ./scripts/observe/smoke-observe-stack.sh",
     "observe:smoke:icinga": "sh ./scripts/observe/smoke-icinga.sh",
-    "observe:discover": "sh ./scripts/observe/discover-hosts.sh",
     "observe:deploy": "bash ./scripts/observe/deploy.sh",
     "observe:deploy:remote": "bash ./scripts/observe/deploy.sh --host ${DEPLOY_HOST:-10.10.2.30}",
     "observe:deploy:prod": "bash ./scripts/observe/deploy-prod.sh",
