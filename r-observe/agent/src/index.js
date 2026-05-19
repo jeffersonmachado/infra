@@ -3,6 +3,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const Docker = require('dockerode');
+const net = require('net');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 
@@ -26,6 +27,50 @@ const DOCKER_IGNORE_CONTAINERS = (process.env.OBSERVE_DOCKER_IGNORE_CONTAINERS |
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+
+// ─── Config: checks externos ──────────────────────────────────────────────────
+// Formato OBSERVE_HTTP_CHECKS: "label=url,label=url,..."
+// Ex: "secure-httpd=https://10.10.2.30,grafana=http://observe-grafana:3000/api/health"
+const HTTP_CHECKS = (process.env.OBSERVE_HTTP_CHECKS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .map(entry => {
+    const idx = entry.indexOf('=');
+    if (idx === -1) return null;
+    return { label: entry.slice(0, idx), url: entry.slice(idx + 1) };
+  })
+  .filter(Boolean);
+
+// Formato OBSERVE_TCP_CHECKS: "label=host:port,label=host:port,..."
+// Ex: "postfix-mx1=10.10.2.3:25,dovecot-imaps=10.10.2.3:993,mariadb=10.10.2.99:3306"
+const TCP_CHECKS = (process.env.OBSERVE_TCP_CHECKS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .map(entry => {
+    const idx = entry.indexOf('=');
+    if (idx === -1) return null;
+    const label = entry.slice(0, idx);
+    const target = entry.slice(idx + 1);
+    const lastColon = target.lastIndexOf(':');
+    if (lastColon === -1) return null;
+    const host = target.slice(0, lastColon);
+    const port = parseInt(target.slice(lastColon + 1), 10);
+    if (!host || isNaN(port)) return null;
+    return { label, host, port };
+  })
+  .filter(Boolean);
+
+// Formato OBSERVE_STATIC_HOSTS: JSON array de objetos
+// Ex: '[{"name":"mariadb","address":"10.10.2.99"},{"name":"ns1","address":"10.10.2.1"}]'
+let STATIC_HOSTS = [];
+try {
+  STATIC_HOSTS = JSON.parse(process.env.OBSERVE_STATIC_HOSTS || '[]');
+  if (!Array.isArray(STATIC_HOSTS)) STATIC_HOSTS = [];
+} catch {
+  STATIC_HOSTS = [];
+}
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
 function log(level, msg, extra = {}) {
@@ -263,6 +308,73 @@ async function checkHTTP(url, label) {
   }
 }
 
+// Check: TCP port de um serviço externo
+function checkTCP(host, port, label) {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    let settled = false;
+
+    const finish = async (ok, errMsg) => {
+      if (settled) return;
+      settled = true;
+      sock.destroy();
+      if (!ok) {
+        await sendEvent('check.tcp.failed', {
+          severity: 'warning',
+          check: 'tcp',
+          target: label,
+          host,
+          port,
+          message: `TCP check falhou: ${label} (${host}:${port}) — ${errMsg}`,
+        }).catch(() => {});
+      } else {
+        log('debug', 'TCP check OK', { label, host, port });
+      }
+      resolve();
+    };
+
+    sock.setTimeout(5000);
+    sock.connect(port, host, () => finish(true, null));
+    sock.on('timeout', () => finish(false, 'timeout'));
+    sock.on('error', (e) => finish(false, e.message));
+  });
+}
+
+// Registro de hosts externos / estáticos na API
+async function postStaticHosts() {
+  for (const h of STATIC_HOSTS) {
+    if (!h.name || !h.address) continue;
+    // Valida nome (mesma regex da API)
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(h.name)) {
+      log('warn', 'Static host name inválido, ignorado', { name: h.name });
+      continue;
+    }
+    try {
+      const resp = await fetch(`${API_URL}${API_BASE_PATH}/hosts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': AGENT_TOKEN,
+        },
+        body: JSON.stringify({
+          name: h.name,
+          address: h.address,
+          display_name: h.display_name || h.name,
+          vars: h.vars || {},
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (resp.ok) {
+        log('debug', 'Static host upserted', { name: h.name, address: h.address });
+      } else {
+        log('warn', 'Static host upsert failed', { name: h.name, status: resp.status });
+      }
+    } catch (e) {
+      log('warn', 'Failed to register static host', { name: h.name, err: e.message });
+    }
+  }
+}
+
 // Check: volumes órfãos (apenas conta — não remove nunca)
 async function checkOrphanVolumes() {
   if (!docker) return;
@@ -296,6 +408,12 @@ async function runChecks() {
     checkOrphanVolumes(),
     // HTTP check da própria API para validar conectividade
     checkHTTP(`${API_URL}${API_BASE_PATH}/health`, 'r-observe-api'),
+    // HTTP checks externos configuráveis (OBSERVE_HTTP_CHECKS)
+    ...HTTP_CHECKS.map(({ label, url }) => checkHTTP(url, label)),
+    // TCP checks externos configuráveis (OBSERVE_TCP_CHECKS)
+    ...TCP_CHECKS.map(({ label, host, port }) => checkTCP(host, port, label)),
+    // Registro de hosts estáticos/externos (OBSERVE_STATIC_HOSTS)
+    postStaticHosts(),
   ]);
 
   log('debug', 'Checks complete', { checkCount });
@@ -315,6 +433,11 @@ app.get('/health', (_req, res) => {
     eventsSent,
     lastCheckAt,
     version: '0.1.0',
+    checks: {
+      http: HTTP_CHECKS.map(c => c.label),
+      tcp: TCP_CHECKS.map(c => `${c.label}(${c.host}:${c.port})`),
+      static_hosts: STATIC_HOSTS.map(h => h.name),
+    },
   });
 });
 

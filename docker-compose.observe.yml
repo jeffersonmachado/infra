@@ -280,6 +280,12 @@ services:
       DISK_WARN_PERCENT: ${OBSERVE_AGENT_DISK_WARN:-80}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
+      # ── Checks HTTP externos (label=url, separados por vírgula) ───────────────
+      OBSERVE_HTTP_CHECKS: ${OBSERVE_HTTP_CHECKS:-secure-httpd=https://10.10.2.30,webmail=https://10.10.2.30/webmail,observe-proxy=http://observe-proxy:80/observe/api/health,grafana=http://observe-grafana:3000/api/health,prometheus=http://observe-prometheus:9090/-/healthy,rspamd=http://10.10.2.30:11334/stat}
+      # ── Checks TCP externos (label=host:port, separados por vírgula) ──────────
+      OBSERVE_TCP_CHECKS: ${OBSERVE_TCP_CHECKS:-postfix-mx1=10.10.2.3:25,postfix-mx2=10.10.2.23:25,dovecot-imaps=10.10.2.3:993,smtp-submission-mx1=10.10.2.3:587,mariadb=10.10.2.99:3306,ns1-dns=10.10.2.1:53,ns2-dns=10.10.2.20:53}
+      # ── Hosts estáticos/externos a registrar no inventário (JSON) ─────────────
+      OBSERVE_STATIC_HOSTS: ${OBSERVE_STATIC_HOSTS:-[{"name":"mariadb","address":"10.10.2.99","display_name":"MariaDB 10.10.2.99","vars":{"role":"database","port":3306}},{"name":"postfix-mx1","address":"10.10.2.3","display_name":"Postfix MX1","vars":{"role":"mail-mx","smtp_port":25,"imaps_port":993}},{"name":"postfix-mx2","address":"10.10.2.23","display_name":"Postfix MX2","vars":{"role":"mail-mx","smtp_port":25}},{"name":"ns1","address":"10.10.2.1","display_name":"NS1 (dnsdist)","vars":{"role":"dns"}},{"name":"ns2","address":"10.10.2.20","display_name":"NS2","vars":{"role":"dns"}}]}
       # ── OpenTelemetry ──────────────────────────────────────────────────────
       OTEL_SERVICE_NAME: r-observe-agent
       OTEL_SERVICE_VERSION: "0.1.0"
@@ -294,6 +300,8 @@ services:
     networks:
       - observe-internal
       - observe-agent
+      - observe-egress
+      - observe-monitoring
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health | grep -q '\"status\":\"ok\"' || exit 1"]
       interval: 30s

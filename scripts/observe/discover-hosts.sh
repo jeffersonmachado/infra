@@ -34,6 +34,9 @@ OUTPUT_FILE="${REPO_ROOT}/observe/icinga2/conf.d/hosts.conf"
 DRY_RUN=false
 LIST_ONLY=false
 REMOVE_HOST=""
+# Hosts conhecidos que sempre serão varridos independente de ping
+# Formato: "ip:display_name ip:display_name ..."
+KNOWN_HOSTS="${DISCOVER_KNOWN_HOSTS:-10.10.2.99:MariaDB 10.10.2.1:NS1 10.10.2.3:MX1 10.10.2.20:NS2 10.10.2.23:MX2}"
 
 # Portas de serviço verificadas no port scan
 SCAN_PORTS="22,25,80,143,443,465,587,993,995,8080,11334"
@@ -70,6 +73,7 @@ while [[ $# -gt 0 ]]; do
     --sd-dir)   SD_OUTPUT_DIR="$2"; SD_OUTPUT_FILE="${SD_OUTPUT_DIR}/discovered.json"; shift 2 ;;
     --container) ICINGA_CONTAINER="$2"; shift 2 ;;
     --output)   OUTPUT_FILE="$2";   shift 2 ;;
+    --known-hosts) KNOWN_HOSTS="$2"; shift 2 ;;
     --dry-run)  DRY_RUN=true;       shift   ;;
     --list)     LIST_ONLY=true;     shift   ;;
     --remove)   REMOVE_HOST="$2";   shift 2 ;;
@@ -625,16 +629,28 @@ main() {
     fi
     log "Subnets encontradas: ${SUBNETS[*]}"
   else
-    SUBNETS=("${SUBNET}")
+    # Suporta múltiplas subnets separadas por vírgula
+    IFS=',' read -ra SUBNETS <<< "${SUBNET}"
   fi
 
   # Coleta todos os IPs vivos
   declare -A LIVE_HOSTS=()
   for subnet in "${SUBNETS[@]}"; do
+    subnet="${subnet// /}"  # remove espaços
+    [[ -z "${subnet}" ]] && continue
     while IFS= read -r ip; do
       [[ -n "${ip}" ]] && LIVE_HOSTS["${ip}"]=1
     done < <(discover_hosts_in_subnet "${subnet}")
   done
+
+  # Injeta hosts conhecidos (sempre incluídos, mesmo sem resposta ao ping)
+  if [[ -n "${KNOWN_HOSTS}" ]]; then
+    log "Injetando hosts conhecidos..."
+    for entry in ${KNOWN_HOSTS}; do
+      local kip="${entry%%:*}"
+      [[ -n "${kip}" ]] && LIVE_HOSTS["${kip}"]=1
+    done
+  fi
 
   local total=${#LIVE_HOSTS[@]}
   log "Hosts vivos encontrados: ${total}"
@@ -654,12 +670,23 @@ main() {
   for ip in "${!LIVE_HOSTS[@]}"; do
     log "Analisando ${ip}..."
 
-    # Nome: DNS reverso ou derivado do IP
+    # Nome: preferência para hint de KNOWN_HOSTS, depois DNS reverso, depois derivado do IP
+    local known_hint=""
+    for entry in ${KNOWN_HOSTS}; do
+      if [[ "${entry%%:*}" == "${ip}" ]]; then
+        known_hint="${entry#*:}"
+        break
+      fi
+    done
+
     local rdns
     rdns=$(reverse_dns "${ip}")
-    local display_name="${rdns:-${ip}}"
+    local display_name="${known_hint:-${rdns:-${ip}}}"
     local name
-    if [[ -n "${rdns}" ]]; then
+    if [[ -n "${known_hint}" ]]; then
+      # Normaliza hint para hostname válido: lowercase, espaços → hífens
+      name=$(echo "${known_hint}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-.')
+    elif [[ -n "${rdns}" ]]; then
       name="${rdns%%.*}"
       [[ "${name}" =~ ^(localhost|mail|www|smtp)$ ]] && name=$(ip_to_hostname "${ip}")
     else

@@ -16,4 +16,4 @@ package-lock.json
 
 # Artefatos de testes
 test-results/
-tests/playwright-report/
+tests/playwright-report/dist/
