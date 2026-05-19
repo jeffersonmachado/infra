@@ -41,7 +41,7 @@ test.describe('R-Observe · Página de configuração IA', () => {
   });
 
   test('status inicia como "Consultando" antes de ter token', async ({ page }) => {
-    await expect(page.locator('#status-text')).toHaveText(/Consultando|Token inválido/);
+    await expect(page.locator('#status-text')).toHaveText(/Consultando|Token inválido|Cole o OBSERVE_INTERNAL_TOKEN/);
   });
 
   // ── Autenticação ──────────────────────────────────────────────────────────

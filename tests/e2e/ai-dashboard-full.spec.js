@@ -1,7 +1,7 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
 
-const BASE  = 'http://localhost:3080';
+const BASE  = process.env.BASE_URL || 'http://localhost:3080';
 const TOKEN = process.env.OBSERVE_TOKEN || '';
 
 test.skip(!TOKEN, 'Defina OBSERVE_TOKEN para rodar testes autenticados.');

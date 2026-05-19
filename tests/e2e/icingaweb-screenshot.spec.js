@@ -4,13 +4,15 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3080';
+const ICINGA_USER = process.env.ICINGAWEB_ADMIN_USER || 'admin';
+const ICINGA_PASS = process.env.ICINGAWEB_ADMIN_PASS || 'admin';
 
 test('IcingaWeb2 — captura dashboard, hosts e serviços', async ({ page }) => {
   // Login
   await page.goto(`${BASE_URL}/icinga/`);
   await page.waitForSelector('input[name="username"]', { timeout: 15000 });
-  await page.fill('input[name="username"]', 'admin');
-  await page.fill('input[name="password"]', 'admin');
+  await page.fill('input[name="username"]', ICINGA_USER);
+  await page.fill('input[name="password"]', ICINGA_PASS);
   await page.click('input[type="submit"]');
   await page.waitForURL(url => !url.toString().includes('/authentication/login'), { timeout: 15000 });
 

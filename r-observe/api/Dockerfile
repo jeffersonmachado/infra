@@ -9,6 +9,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY src/        ./src/
 COPY migrations/ ./migrations/
+COPY public/     ./public/
 
 RUN addgroup -S observe && adduser -S observe -G observe \
     && mkdir -p /app/data/evidence /app/data/replays /app/logs \

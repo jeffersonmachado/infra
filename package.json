@@ -30,7 +30,7 @@
     "observe:build": "docker compose -f docker-compose.observe.yml --env-file .env.observe build",
     "observe:logs": "docker compose -f docker-compose.observe.yml --env-file .env.observe logs -f --tail=100",
     "observe:ps": "docker compose -f docker-compose.observe.yml --env-file .env.observe ps",
-    "observe:health": "sh ./scripts/observe/healthcheck.sh",
+    "observe:health": "bash ./scripts/observe/healthcheck.sh",
     "observe:validate": "bash ./scripts/observe/validate-compose.sh",
     "observe:smoke": "sh ./scripts/observe/smoke-observe-stack.sh",
     "observe:smoke:icinga": "sh ./scripts/observe/smoke-icinga.sh",

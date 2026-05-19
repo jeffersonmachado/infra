@@ -118,6 +118,23 @@ else
   run "docker ps --format 'table {{.Names}}\t{{.Status}}' | grep observe" || true
 fi
 
+# ── Garante usuário admin do IcingaWeb2 ───────────────────────────────────────
+step "Garantindo usuário admin do IcingaWeb2..."
+run "bash scripts/observe/ensure-icingaweb-admin.sh" && \
+  ok "Admin IcingaWeb2 sincronizado com .env.observe" || \
+  warn "Não foi possível sincronizar admin IcingaWeb2"
+
+step "Garantindo configuração writable do IcingaWeb2..."
+ICINGAWEB_CONFIG_STATUS="$(run "bash scripts/observe/ensure-icingaweb-config.sh" || true)"
+if [[ "${ICINGAWEB_CONFIG_STATUS}" == *"changed"* ]]; then
+  run "docker restart observe-icingaweb2 >/dev/null"
+  ok "Command Transport do IcingaDB configurado e IcingaWeb2 reiniciado"
+elif [[ "${ICINGAWEB_CONFIG_STATUS}" == *"unchanged"* ]]; then
+  ok "Command Transport do IcingaDB já estava configurado"
+else
+  warn "Não foi possível garantir Command Transport do IcingaDB"
+fi
+
 # ── Descoberta de hosts ───────────────────────────────────────────────────────
 if [[ "${SKIP_DISCOVER}" == "false" ]]; then
   step "Descoberta automática de hosts..."

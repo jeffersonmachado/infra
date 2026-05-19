@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -35,6 +36,7 @@ client.collectDefaultMetrics({ register });
 const runsTotal = new client.Counter({ name: 'r_observe_discovery_runs_total', help: 'Total discovery runs', labelNames: ['status'], registers: [register] });
 
 const app = express();
+app.use('/observe/discovery/data', express.static(path.join(__dirname, '../public')));
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(rateLimit({ windowMs: 60_000, max: 120 }));
@@ -317,37 +319,17 @@ const DISCOVERY_UI_HTML = `<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>R-Observe Discovery</title>
+  <title>Results · R-Observe Discovery</title>
+  <link rel="stylesheet" href="/observe/discovery/data/discovery.css">
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <style>
-    :root { --bg:#f7f6f2; --ink:#101820; --muted:#4b5b68; --panel:#ffffff; --line:#d8d9da; --brand:#0f7b6c; --accent:#c96a3d; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; background:
-      radial-gradient(circle at 90% -10%, #f9d9b8 0%, transparent 30%),
-      radial-gradient(circle at -10% 110%, #c6ebe6 0%, transparent 35%), var(--bg);
-      color:var(--ink); }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
-    .hero { display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:16px; }
-    h1 { margin:0; font-size:28px; letter-spacing:.2px; }
-    .sub { color:var(--muted); margin-top:6px; }
-    .btn { border:0; background:var(--brand); color:#fff; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:700; }
-    .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:12px 0; }
-    .filters input,.filters select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:16px 0; }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
-    .k { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
-    .v { font-size:26px; font-weight:800; margin-top:6px; }
-    table { width:100%; border-collapse: collapse; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:10px; }
-    th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:14px; }
-    th { background:#f3f3ef; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-    .split { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .panel-title { font-size:13px; color:var(--muted); margin-top:14px; text-transform:uppercase; letter-spacing:.04em; }
-    @media (max-width: 640px) { .wrap{padding:14px;} h1{font-size:22px;} }
-    @media (max-width: 900px) { .split{grid-template-columns:1fr;} }
-  </style>
 </head>
 <body>
+  <div class="topbar">
+    <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" width="28" height="28" style="flex-shrink:0"><rect width="28" height="28" rx="6" fill="#CC1212"/><text x="14" y="20" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="16" fill="white" text-anchor="middle">R</text></svg>
+    <span class="topbar-brand">Results · Sistemas de Informática</span>
+    <span class="topbar-title">/ R-Observe Discovery</span>
+  </div>
   <div id="app"></div>
   <script>
   const e = React.createElement;
@@ -361,6 +343,8 @@ const DISCOVERY_UI_HTML = `<!doctype html>
     const [site, setSite] = React.useState('default-site');
     const [edge, setEdge] = React.useState('central');
     const [status, setStatus] = React.useState('all');
+    const [token, setToken] = React.useState(() => sessionStorage.getItem('observe_token') || '');
+    const [scanStatus, setScanStatus] = React.useState('');
 
     async function load() {
       const q = '?tenant_id=' + encodeURIComponent(tenant) + '&site_id=' + encodeURIComponent(site) + '&edge_id=' + encodeURIComponent(edge);
@@ -373,11 +357,18 @@ const DISCOVERY_UI_HTML = `<!doctype html>
     }
 
     async function scanNow() {
-      await fetch('/observe/discovery/api/discovery/scan', {
+      sessionStorage.setItem('observe_token', token);
+      setScanStatus('Executando discovery...');
+      const r = await fetch('/observe/discovery/api/discovery/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-internal-token': token } : {}) },
         body: JSON.stringify({ profile: 'safe', trigger: 'ui', tenant_id: tenant, site_id: site, edge_id: edge }),
       });
+      if (!r.ok) {
+        setScanStatus('Falha ao executar discovery: HTTP ' + r.status);
+        return;
+      }
+      setScanStatus('Discovery solicitado com sucesso');
       setTimeout(load, 1200);
     }
 
@@ -401,6 +392,7 @@ const DISCOVERY_UI_HTML = `<!doctype html>
         e('input', { value: tenant, onChange: (ev) => setTenant(ev.target.value), placeholder: 'tenant_id' }),
         e('input', { value: site, onChange: (ev) => setSite(ev.target.value), placeholder: 'site_id' }),
         e('input', { value: edge, onChange: (ev) => setEdge(ev.target.value), placeholder: 'edge_id' }),
+        e('input', { type: 'password', value: token, onChange: (ev) => setToken(ev.target.value), placeholder: 'OBSERVE_INTERNAL_TOKEN' }),
         e('select', { value: status, onChange: (ev) => setStatus(ev.target.value) },
           e('option', { value: 'all' }, 'status: all'),
           e('option', { value: 'discovered' }, 'discovered'),
@@ -411,6 +403,7 @@ const DISCOVERY_UI_HTML = `<!doctype html>
           e('option', { value: 'disappeared' }, 'disappeared')
         )
       ),
+      scanStatus ? e('div', { className: 'sub' }, scanStatus) : null,
       e('div', { className: 'grid' },
         e('div', { className: 'card' }, e('div', { className: 'k' }, 'Assets descobertos'), e('div', { className: 'v' }, String(assets.length))),
         e('div', { className: 'card' }, e('div', { className: 'k' }, 'Runs'), e('div', { className: 'v' }, String(runs.length))),

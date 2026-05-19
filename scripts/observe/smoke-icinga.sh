@@ -43,14 +43,26 @@ _get_env() {
   grep -m1 "^${1}=" "${ENV_FILE}" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'"
 }
 
-API_BASE="http://localhost:${OBSERVE_HTTP_PORT:-$(_get_env OBSERVE_HTTP_PORT):-3080}/observe/api"
+_resolve_port() {
+  local p
+  p="${OBSERVE_HTTP_PORT:-$(_get_env OBSERVE_HTTP_PORT)}"
+  if [[ -z "${p}" ]]; then
+    echo "3080"
+  else
+    echo "${p}"
+  fi
+}
+
+API_BASE="http://localhost:$(_resolve_port)/observe/api"
 TOKEN="${OBSERVE_INTERNAL_TOKEN:-$(_get_env OBSERVE_INTERNAL_TOKEN)}"
 ICINGA_USER="${ICINGA_API_USER:-$(_get_env ICINGA_API_USER)}"
 ICINGA_PASS="${ICINGA_API_PASSWORD:-$(_get_env ICINGA_API_PASSWORD)}"
 ICINGA_CONTAINER="observe-icinga2"
 ICINGA_DB_CONTAINER="observe-postgres"
-ICINGA_DB_NAME="${ICINGADB_DB_NAME:-$(_get_env ICINGADB_DB_NAME):-icingadb}"
-ICINGA_DB_USER="${ICINGADB_DB_USER:-$(_get_env ICINGADB_DB_USER):-icingadb}"
+ICINGA_DB_NAME="${ICINGADB_DB_NAME:-$(_get_env ICINGADB_DB_NAME)}"
+ICINGA_DB_USER="${ICINGADB_DB_USER:-$(_get_env ICINGADB_DB_USER)}"
+ICINGA_DB_NAME="${ICINGA_DB_NAME:-icingadb}"
+ICINGA_DB_USER="${ICINGA_DB_USER:-icingadb}"
 
 [[ -z "${TOKEN}" ]] && { echo "ERRO: OBSERVE_INTERNAL_TOKEN não definido em .env.observe"; exit 1; }
 [[ -z "${ICINGA_PASS}" ]] && { echo "ERRO: ICINGA_API_PASSWORD não definido em .env.observe"; exit 1; }
@@ -89,7 +101,7 @@ fi
 step "IcingaDB sincronizando com PostgreSQL"
 ICINGADB_COUNT=$(docker exec "${ICINGA_DB_CONTAINER}" \
   psql -U "${ICINGA_DB_USER}" -d "${ICINGA_DB_NAME}" -tAc \
-  "SELECT COUNT(*) FROM host 2>/dev/null" 2>/dev/null | tr -d ' ' || echo "error")
+  "SELECT COUNT(*) FROM host;" 2>/dev/null | tr -d '[:space:]' || echo "error")
 if [[ "${ICINGADB_COUNT}" =~ ^[0-9]+$ ]]; then
   pass "Tabela 'host' no IcingaDB tem ${ICINGADB_COUNT} registro(s)"
   [[ "${ICINGADB_COUNT}" -eq 0 ]] && info "  Nenhum host ainda — execute discover-hosts.sh para popular."

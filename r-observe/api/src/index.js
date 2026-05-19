@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -65,6 +66,7 @@ if (redis) {
 // ─── Express ──────────────────────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1);
+app.use('/observe/api/ui', express.static(path.join(__dirname, '../public')));
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : false,
@@ -775,12 +777,17 @@ app.use((err, _req, res, _next) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const { runMigrations } = require('./migrate');
+const { bootstrapInitialUsers } = require('./bootstrap');
 
 (async () => {
   try {
     await runMigrations(db);
+    await bootstrapInitialUsers(db, process.env, { log: (line) => process.stdout.write(line + '\n') });
   } catch (e) {
-    log('error', 'Migration failed — starting anyway', { err: e.message });
+    log('error', 'Startup bootstrap failed', { err: e.message });
+    await db.end().catch(() => {});
+    if (redis) await redis.quit().catch(() => {});
+    process.exit(1);
   }
   app.listen(PORT, '0.0.0.0', () => {
     log('info', `Listening on :${PORT}`, { basePath: BASE });
@@ -795,76 +802,14 @@ const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>R-Observe · IA Dashboard</title>
-  <style>
-    :root {
-      --bg: #0d1117; --surface: #161b22; --border: #30363d;
-      --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
-      --green: #3fb950; --yellow: #d29922; --red: #f85149;
-      --orange: #e3b341; --purple: #bc8cff;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font: 14px/1.5 'Segoe UI', sans-serif; }
-    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
-    .header h1 { font-size: 1.1rem; font-weight: 600; }
-    .header .sub { color: var(--muted); font-size: .85rem; }
-    .logo { width: 36px; height: 36px; background: linear-gradient(135deg,#6e40c9,#2188ff); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
-    nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 1.5rem; }
-    .tab { padding: .65rem 1.1rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: .85rem; transition: .15s; }
-    .tab.active { color: var(--text); border-color: var(--accent); }
-    .tab:hover { color: var(--text); }
-    .page { display: none; padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
-    .page.active { display: block; }
-    .metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
-    .metric .val { font-size: 1.8rem; font-weight: 700; }
-    .metric .lbl { color: var(--muted); font-size: .75rem; margin-top: .25rem; }
-    .metric.green .val { color: var(--green); }
-    .metric.yellow .val { color: var(--yellow); }
-    .metric.red .val { color: var(--red); }
-    .metric.purple .val { color: var(--purple); }
-    .metric.orange .val { color: var(--orange); }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-    th { background: var(--bg); color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; padding: .6rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
-    td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); font-size: .85rem; vertical-align: top; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #21262d; }
-    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; }
-    .badge.none   { background: #1f6feb33; color: #58a6ff; }
-    .badge.low    { background: #1a7f3733; color: #3fb950; }
-    .badge.medium { background: #9e6a0333; color: #d29922; }
-    .badge.high   { background: #da363333; color: #f85149; }
-    .badge.open   { background: #da363333; color: #f85149; }
-    .badge.resolved { background: #1a7f3733; color: #3fb950; }
-    .badge.critical { background: #da363333; color: #f85149; }
-    .badge.warning  { background: #9e6a0333; color: #d29922; }
-    .badge.info     { background: #1f6feb33; color: #58a6ff; }
-    .badge.ok       { background: #1a7f3733; color: #3fb950; }
-    .badge.disabled { background: #30363d55; color: #8b949e; }
-    .ai-text { color: var(--muted); font-size: .8rem; line-height: 1.4; max-width: 320px; }
-    .section-title { font-size: .95rem; font-weight: 600; margin: 1.5rem 0 .75rem; color: var(--text); }
-    .token-field { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: .5rem .75rem; color: var(--text); width: 100%; max-width: 380px; font-family: monospace; font-size: .85rem; }
-    .btn { padding: .45rem .9rem; border-radius: 6px; border: none; cursor: pointer; font-size: .85rem; font-weight: 500; transition: .15s; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-danger  { background: var(--red); color: #fff; }
-    .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
-    .btn:hover { opacity: .85; }
-    .feedback-bar { display: flex; gap: .5rem; align-items: center; }
-    .fb-pos { color: var(--green); font-size: .85rem; }
-    .fb-neg { color: var(--red); font-size: .85rem; }
-    .token-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .ts-label { color: var(--muted); font-size: .8rem; white-space: nowrap; }
-    select.token-field { max-width: 200px; }
-    .empty { color: var(--muted); text-align: center; padding: 2rem; font-size: .9rem; }
-    #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; display: none; z-index: 99; }
-    #toast.ok  { border-color: var(--green); color: var(--green); }
-    #toast.err { border-color: var(--red); color: var(--red); }
-  </style>
+  <title>Results · R-Observe IA</title>
+  <link rel="stylesheet" href="/observe/api/ui/observe-ai.css">
 </head>
 <body>
 <div class="header">
-  <div class="logo">⚡</div>
+  <svg class="logo" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="36" rx="8" fill="#CC1212"/><text x="18" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="21" fill="white" text-anchor="middle">R</text></svg>
   <div>
+    <div class="brand-name">Results · Sistemas de Informática</div>
     <h1>R-Observe · IA Dashboard</h1>
     <div class="sub">Atividade, catálogo de remediações e feedback</div>
   </div>
@@ -1086,225 +1031,15 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>R-Observe · Configuração IA</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:       #0f1117;
-      --surface:  #1a1d27;
-      --border:   #2a2d3a;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --accent:   #6366f1;
-      --accent-h: #818cf8;
-      --ok:       #22c55e;
-      --warn:     #f59e0b;
-      --err:      #ef4444;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      width: 100%;
-      max-width: 520px;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      margin-bottom: 1.75rem;
-    }
-
-    .logo {
-      width: 36px; height: 36px;
-      background: var(--accent);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem;
-    }
-
-    h1 { font-size: 1.15rem; font-weight: 600; }
-    .subtitle { font-size: .8rem; color: var(--muted); margin-top: 2px; }
-
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: .5rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: .65rem 1rem;
-      margin-bottom: 1.75rem;
-      font-size: .82rem;
-    }
-
-    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .dot.ok   { background: var(--ok); }
-    .dot.warn { background: var(--warn); }
-    .dot.err  { background: var(--err); }
-
-    .status-text  { color: var(--muted); }
-    .status-value { color: var(--text); font-weight: 500; margin-left: auto; text-align: right; }
-
-    label {
-      display: block;
-      font-size: .82rem;
-      font-weight: 500;
-      color: var(--muted);
-      margin-bottom: .4rem;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-
-    .field { margin-bottom: 1.25rem; }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: .9rem;
-      padding: .6rem .85rem;
-      outline: none;
-      transition: border-color .15s;
-    }
-    input:focus { border-color: var(--accent); }
-
-    select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: .9rem;
-      padding: .6rem .85rem;
-      outline: none;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right .85rem center;
-      padding-right: 2.2rem;
-      transition: border-color .15s;
-    }
-    select:focus { border-color: var(--accent); }
-    option { background: #1a1d27; color: var(--text); }
-
-    /* grid 2×2 para 4 providers */
-    .providers {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: .6rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .provider-btn {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: .85rem;
-      font-weight: 500;
-      padding: .65rem .5rem;
-      text-align: center;
-      transition: border-color .15s, color .15s, background .15s;
-    }
-    .provider-btn:hover { border-color: var(--accent); color: var(--text); }
-    .provider-btn.active {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 15%, transparent);
-      color: var(--accent-h);
-    }
-
-    .provider-icon { font-size: 1.2rem; display: block; margin-bottom: .25rem; }
-
-    #api-key-section { display: none; }
-    #api-key-section.visible { display: block; }
-
-    .key-row { display: flex; gap: .5rem; }
-    .key-row input { flex: 1; }
-
-    .toggle-btn {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: .85rem;
-      padding: 0 .75rem;
-      flex-shrink: 0;
-      transition: color .15s;
-    }
-    .toggle-btn:hover { color: var(--text); }
-
-    .hint { font-size: .76rem; color: var(--muted); margin-top: .4rem; }
-
-    .effective-model {
-      font-size: .76rem;
-      color: var(--muted);
-      margin-top: .4rem;
-    }
-    .effective-model span { color: var(--accent-h); }
-
-    .actions { display: flex; gap: .75rem; margin-top: 1.5rem; }
-
-    .btn {
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: .88rem;
-      font-weight: 600;
-      padding: .65rem 1.25rem;
-      transition: opacity .15s, filter .15s;
-    }
-    .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn-primary { background: var(--accent); color: #fff; flex: 1; }
-    .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
-    .btn-secondary {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-    .btn-secondary:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
-
-    #feedback {
-      margin-top: 1rem;
-      font-size: .84rem;
-      border-radius: 8px;
-      padding: .6rem .85rem;
-      display: none;
-    }
-    #feedback.ok  { display: block; background: color-mix(in srgb, var(--ok)  15%, transparent); color: var(--ok);  border: 1px solid color-mix(in srgb, var(--ok)  40%, transparent); }
-    #feedback.err { display: block; background: color-mix(in srgb, var(--err) 15%, transparent); color: var(--err); border: 1px solid color-mix(in srgb, var(--err) 40%, transparent); }
-
-    .token-section { border-top: 1px solid var(--border); margin-top: 1.75rem; padding-top: 1.5rem; }
-  </style>
+  <title>Results · R-Observe — Configuração IA</title>
+  <link rel="stylesheet" href="/observe/api/ui/observe-settings.css">
 </head>
 <body>
   <div class="card">
     <div class="header">
-      <div class="logo">⚡</div>
+      <svg class="logo" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="36" rx="8" fill="#CC1212"/><text x="18" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="21" fill="white" text-anchor="middle">R</text></svg>
       <div>
+        <div class="brand-name">Results · Sistemas de Informática</div>
         <h1>R-Observe · Configuração IA</h1>
         <div class="subtitle">Altere o provider de IA sem reiniciar o serviço</div>
       </div>

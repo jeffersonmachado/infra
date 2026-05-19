@@ -25,8 +25,21 @@ step()    { echo -e "${BLUE}[STEP $1]${NC} $2"; }
 
 FAILURES=0
 
+resolve_observe_http_port() {
+  local from_env_file
+  from_env_file="${OBSERVE_HTTP_PORT:-}"
+  if [[ -z "$from_env_file" ]]; then
+    from_env_file="$(grep -m1 '^OBSERVE_HTTP_PORT=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+  fi
+  if [[ -z "$from_env_file" ]]; then
+    echo "3080"
+  else
+    echo "$from_env_file"
+  fi
+}
+
 # ─── Argumentos ───────────────────────────────────────────────────────────────
-API_URL="${API_URL:-http://localhost:3000}"
+API_URL="${API_URL:-http://localhost:$(resolve_observe_http_port)}"
 API_BASE="${R_OBSERVE_API_BASE_PATH:-/observe/api}"
 TOKEN="${OBSERVE_INTERNAL_TOKEN:-}"
 

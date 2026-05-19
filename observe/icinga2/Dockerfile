@@ -1,4 +1,4 @@
-FROM icinga/icinga2:2.14
+FROM icinga/icinga2:2.15.3
 
 # Instala dependências como root
 USER root

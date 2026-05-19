@@ -1,12 +1,13 @@
 'use strict';
 const { test } = require('@playwright/test');
 
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3080';
 const TOKEN = process.env.OBSERVE_TOKEN || '';
 
 test.skip(!TOKEN, 'Defina OBSERVE_TOKEN para rodar testes autenticados.');
 
 test('AI Dashboard screenshot', async ({ page }) => {
-  await page.goto('http://localhost:3080/observe/ai');
+  await page.goto(`${BASE_URL}/observe/ai`);
   await page.fill('#token', TOKEN);
   await page.click('button:has-text("↺")');
   await page.waitForTimeout(2500);

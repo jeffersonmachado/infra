@@ -18,6 +18,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# Lê variáveis do .env local se existir. Variáveis exportadas no shell devem
+# prevalecer, então os defaults são aplicados somente depois.
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+  # shellcheck source=/dev/null
+  set -a; source "${REPO_ROOT}/.env" 2>/dev/null || true; set +a
+fi
+
 # ── Configurações de produção ──────────────────────────────────────────────────
 PROD_HOST="${PROD_HOST:-10.10.2.30}"
 PROD_USER="${PROD_USER:-root}"
@@ -29,8 +36,17 @@ INTERNAL_PORT="${INTERNAL_PORT:-3080}"
 MYSQL_HOST="${MYSQL_HOST:-10.10.2.99}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 MYSQL_DATABASE="${MYSQL_DATABASE:-results}"
-MYSQL_USER="${MYSQL_USER:-results}"
+MYSQL_USER="${MYSQL_USER:-resultsdba}"
 MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
+SSH_PASSWORD="${SSH_PASSWORD:-}"
+
+# Compatibilidade com nomes alternativos de variáveis de senha.
+if [[ -z "${MYSQL_PASSWORD}" && -n "${MYSQL_PASS:-}" ]]; then
+  MYSQL_PASSWORD="${MYSQL_PASS}"
+fi
+if [[ -z "${SSH_PASSWORD}" && -n "${DEPLOY_SSH_PASSWORD:-}" ]]; then
+  SSH_PASSWORD="${DEPLOY_SSH_PASSWORD}"
+fi
 
 SKIP_VHOST=false
 SKIP_DEPLOY=false
@@ -43,6 +59,55 @@ ok()   { echo -e "  ${GREEN}✓${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}!${RESET} $*"; }
 die()  { echo -e "${RED}ERRO:${RESET} $*" >&2; exit 1; }
 
+can_prompt_secret() {
+  [[ -t 0 ]]
+}
+
+prompt_and_export_secret() {
+  local var_name="$1"
+  local label="$2"
+  local value=""
+
+  if ! can_prompt_secret; then
+    return 1
+  fi
+
+  echo ""
+  warn "${label} ausente ou inválida."
+  read -r -s -p "Digite ${label}: " value
+  echo ""
+
+  if [[ -z "$value" ]]; then
+    warn "Nenhum valor informado para ${label}."
+    return 1
+  fi
+
+  printf -v "$var_name" '%s' "$value"
+  export "$var_name"
+  ok "${label} carregada e exportada para este processo."
+  return 0
+}
+
+mysql_upsert_vhost() {
+  local err_log="$1"
+  MYSQL_PWD="${MYSQL_PASSWORD}" mysql \
+    --host="${MYSQL_HOST}" \
+    --port="${MYSQL_PORT}" \
+    --user="${MYSQL_USER}" \
+    --database="${MYSQL_DATABASE}" \
+    --execute="
+      INSERT INTO apache_vhosts
+        (server_name, backend_scheme, backend_host, backend_port, backend_path, ssl_insecure, enabled)
+      VALUES
+        ('${PUBLIC_DOMAIN}', 'http', '${PROD_HOST}', ${INTERNAL_PORT}, '/', 0, 1)
+      ON DUPLICATE KEY UPDATE
+        backend_host = VALUES(backend_host),
+        backend_port = VALUES(backend_port),
+        enabled      = 1,
+        updated_at   = NOW();
+    " 2>"${err_log}"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-vhost)  SKIP_VHOST=true;  shift ;;
@@ -50,17 +115,31 @@ while [[ $# -gt 0 ]]; do
     --host)        PROD_HOST="$2";   shift 2 ;;
     --domain)      PUBLIC_DOMAIN="$2"; shift 2 ;;
     --mysql-host)  MYSQL_HOST="$2";  shift 2 ;;
+    --mysql-port)  MYSQL_PORT="$2";  shift 2 ;;
+    --mysql-db)    MYSQL_DATABASE="$2"; shift 2 ;;
+    --mysql-user)  MYSQL_USER="$2";  shift 2 ;;
     --mysql-pass)  MYSQL_PASSWORD="$2"; shift 2 ;;
+    --ssh-pass)    SSH_PASSWORD="$2"; shift 2 ;;
     --help|-h) grep '^#' "$0" | grep -v '!/usr/bin' | sed 's/^# *//'; exit 0 ;;
     *) die "Argumento desconhecido: $1" ;;
   esac
 done
 
-# Lê variáveis do .env local se existir
-if [[ -f "${REPO_ROOT}/.env" ]]; then
-  # shellcheck source=/dev/null
-  set -a; source "${REPO_ROOT}/.env" 2>/dev/null || true; set +a
-fi
+run_ssh() {
+  if [[ -n "${SSH_PASSWORD}" ]]; then
+    SSHPASS="${SSH_PASSWORD}" sshpass -e ssh "$@"
+  else
+    ssh "$@"
+  fi
+}
+
+run_rsync() {
+  if [[ -n "${SSH_PASSWORD}" ]]; then
+    SSHPASS="${SSH_PASSWORD}" sshpass -e rsync "$@"
+  else
+    rsync "$@"
+  fi
+}
 
 echo -e "${BOLD}── R-Observe Deploy Produção ────────────────────────────────────${RESET}"
 echo -e "  Servidor:  ${CYAN}${PROD_HOST}${RESET}"
@@ -72,9 +151,10 @@ if [[ "${SKIP_VHOST}" == "false" ]]; then
   step "Registrando vhost no secure-httpd (MySQL ${MYSQL_HOST})..."
 
   if [[ -z "${MYSQL_PASSWORD}" ]]; then
-    warn "MYSQL_PASSWORD não definido. Tente: export MYSQL_PASSWORD=... ou use --mysql-pass"
-    warn "Pulando registro de vhost — faça manualmente:"
-    cat <<SQL
+    if ! prompt_and_export_secret "MYSQL_PASSWORD" "MYSQL_PASSWORD"; then
+      warn "MYSQL_PASSWORD não definido. Tente: export MYSQL_PASSWORD=... ou use --mysql-pass"
+      warn "Pulando registro de vhost — faça manualmente:"
+      cat <<SQL
 
   mysql -h ${MYSQL_HOST} -u ${MYSQL_USER} -p ${MYSQL_DATABASE} <<'EOF'
   INSERT INTO apache_vhosts (server_name, backend_scheme, backend_host, backend_port, backend_path, ssl_insecure, enabled)
@@ -87,24 +167,43 @@ if [[ "${SKIP_VHOST}" == "false" ]]; then
 EOF
 
 SQL
-  else
-    MYSQL_PWD="${MYSQL_PASSWORD}" mysql \
-      --host="${MYSQL_HOST}" \
-      --port="${MYSQL_PORT}" \
-      --user="${MYSQL_USER}" \
-      --database="${MYSQL_DATABASE}" \
-      --execute="
-        INSERT INTO apache_vhosts
-          (server_name, backend_scheme, backend_host, backend_port, backend_path, ssl_insecure, enabled)
-        VALUES
-          ('${PUBLIC_DOMAIN}', 'http', '${PROD_HOST}', ${INTERNAL_PORT}, '/', 0, 1)
-        ON DUPLICATE KEY UPDATE
-          backend_host = VALUES(backend_host),
-          backend_port = VALUES(backend_port),
-          enabled      = 1,
-          updated_at   = NOW();
-      " 2>/dev/null && ok "Vhost '${PUBLIC_DOMAIN}' → ${PROD_HOST}:${INTERNAL_PORT} registrado" \
-      || warn "Falha ao inserir no MySQL. Veja a query acima e execute manualmente."
+    fi
+  fi
+
+  if [[ -n "${MYSQL_PASSWORD}" ]]; then
+    MYSQL_ERR_LOG="/tmp/deploy-prod-mysql-$$.log"
+    MYSQL_OK=0
+
+    for attempt in 1 2; do
+      set +e
+      mysql_upsert_vhost "${MYSQL_ERR_LOG}"
+      MYSQL_RC=$?
+      set -e
+
+      if [[ "$MYSQL_RC" -eq 0 ]]; then
+        MYSQL_OK=1
+        ok "Vhost '${PUBLIC_DOMAIN}' → ${PROD_HOST}:${INTERNAL_PORT} registrado"
+        break
+      fi
+
+      warn "Falha ao inserir no MySQL (host=${MYSQL_HOST} user=${MYSQL_USER} db=${MYSQL_DATABASE})."
+      warn "Motivo: $(tr '\n' ' ' < "${MYSQL_ERR_LOG}" | sed 's/[[:space:]]\+/ /g' | cut -c1-300)"
+
+      if [[ "$attempt" -eq 1 ]]; then
+        if prompt_and_export_secret "MYSQL_PASSWORD" "MYSQL_PASSWORD"; then
+          warn "Tentando novamente com a nova senha..."
+          continue
+        fi
+      fi
+
+      warn "Veja a query acima e execute manualmente."
+      break
+    done
+
+    if [[ "$MYSQL_OK" -eq 0 ]]; then
+      warn "Registro automático do vhost não concluído."
+    fi
+    rm -f "${MYSQL_ERR_LOG}"
 
     echo ""
     warn "O subdomain-sync atualiza o Apache a cada 15s."
@@ -116,10 +215,37 @@ fi
 if [[ "${SKIP_DEPLOY}" == "false" ]]; then
   step "Sincronizando repositório em root@${PROD_HOST}:${PROD_DIR}..."
 
-  ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-    "${PROD_USER}@${PROD_HOST}" "mkdir -p ${PROD_DIR}" || die "SSH falhou para ${PROD_HOST}"
+  if [[ -z "${SSH_PASSWORD}" ]]; then
+    prompt_and_export_secret "SSH_PASSWORD" "SSH_PASSWORD" || true
+  fi
 
-  rsync -az --delete \
+  SSH_READY=0
+  for attempt in 1 2; do
+    set +e
+    run_ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+      "${PROD_USER}@${PROD_HOST}" "mkdir -p ${PROD_DIR}"
+    SSH_RC=$?
+    set -e
+
+    if [[ "$SSH_RC" -eq 0 ]]; then
+      SSH_READY=1
+      break
+    fi
+
+    warn "SSH falhou para ${PROD_HOST}."
+    if [[ "$attempt" -eq 1 ]]; then
+      if prompt_and_export_secret "SSH_PASSWORD" "SSH_PASSWORD"; then
+        warn "Tentando novamente com a nova senha..."
+        continue
+      fi
+    fi
+  done
+
+  if [[ "$SSH_READY" -ne 1 ]]; then
+    die "SSH falhou para ${PROD_HOST} (senha pode estar incorreta ou conexão indisponível)"
+  fi
+
+  run_rsync -az --delete \
     --exclude='.env*' \
     --exclude='node_modules' \
     --exclude='.git' \
@@ -130,7 +256,7 @@ if [[ "${SKIP_DEPLOY}" == "false" ]]; then
   ok "Repositório sincronizado em ${PROD_HOST}:${PROD_DIR}"
 
   step "Verificando .env.observe no servidor..."
-  if ! ssh -o StrictHostKeyChecking=no "${PROD_USER}@${PROD_HOST}" \
+  if ! run_ssh -o StrictHostKeyChecking=no "${PROD_USER}@${PROD_HOST}" \
       "test -f ${PROD_DIR}/.env.observe"; then
     die ".env.observe não encontrado em ${PROD_HOST}:${PROD_DIR}/
     Crie-o a partir do exemplo:
@@ -140,7 +266,7 @@ if [[ "${SKIP_DEPLOY}" == "false" ]]; then
   ok ".env.observe presente"
 
   step "Executando deploy completo em ${PROD_HOST}..."
-  ssh -o StrictHostKeyChecking=no "${PROD_USER}@${PROD_HOST}" \
+  run_ssh -o StrictHostKeyChecking=no "${PROD_USER}@${PROD_HOST}" \
     "cd ${PROD_DIR} && bash scripts/observe/deploy.sh --skip-discover" \
     || die "Deploy falhou no servidor remoto"
 fi
@@ -149,9 +275,9 @@ fi
 EDGE_HOST="${EDGE_HOST:-}"
 if [[ -n "${EDGE_HOST}" ]]; then
   step "Atualizando HAProxy em ${EDGE_HOST}..."
-  rsync -az "${REPO_ROOT}/edge-sni/haproxy.cfg" \
+  run_rsync -az "${REPO_ROOT}/edge-sni/haproxy.cfg" \
     "${PROD_USER}@${EDGE_HOST}:/opt/results/infra/edge-sni/haproxy.cfg"
-  ssh -o StrictHostKeyChecking=no "${PROD_USER}@${EDGE_HOST}" \
+  run_ssh -o StrictHostKeyChecking=no "${PROD_USER}@${EDGE_HOST}" \
     "cd /opt/results/infra && docker compose -f docker-compose.edge-sni.yml restart edge-sni 2>/dev/null || true"
   ok "HAProxy recarregado"
 fi

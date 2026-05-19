@@ -3,6 +3,8 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3080';
+const ICINGA_USER = process.env.ICINGAWEB_ADMIN_USER || 'admin';
+const ICINGA_PASS = process.env.ICINGAWEB_ADMIN_PASS || 'admin';
 
 test('IcingaWeb2 — login admin e acesso ao dashboard', async ({ page }) => {
   // Acessa a página de login
@@ -12,8 +14,8 @@ test('IcingaWeb2 — login admin e acesso ao dashboard', async ({ page }) => {
   await expect(page).toHaveTitle(/Icinga Web 2 Login/, { timeout: 15000 });
 
   // Preenche credenciais
-  await page.fill('input[name="username"]', 'admin');
-  await page.fill('input[name="password"]', 'admin');
+  await page.fill('input[name="username"]', ICINGA_USER);
+  await page.fill('input[name="password"]', ICINGA_PASS);
 
   // Submete o formulário
   await page.click('input[type="submit"]');

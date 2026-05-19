@@ -7,12 +7,13 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY src/ ./src/
-COPY tests/ ./tests/
+COPY src/     ./src/
+COPY tests/   ./tests/
+COPY public/  ./public/
 
 RUN addgroup -S observe && adduser -S observe -G observe \
   && mkdir -p /app/data \
-  && chown -R observe:observe /app
+  && chown -R observe:observe /app/data /app/src /app/tests package*.json
 
 USER observe
 
