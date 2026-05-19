@@ -5,6 +5,9 @@
 !.env.mail.example
 !.env.observe.example
 
+# Arquivos locais de ambiente remoto (nunca versionar com credenciais reais)
+.env.remote-*
+
 joomla-site/configuration.php
 joomla-site/webmail/config/config.inc.php
 
@@ -17,3 +20,15 @@ package-lock.json
 # Artefatos de testes
 test-results/
 tests/playwright-report/dist/
+
+# Artefatos de release/build
+dist/
+coverage/
+playwright-report/
+screenshots/
+dumps/
+backups/
+tmp/
+*.zip
+*.tar
+*.log

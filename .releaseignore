@@ -1,0 +1,23 @@
+# Arquivos e diretórios proibidos no pacote de release
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+!.env.mail.example
+!.env.observe.example
+!.env.host-security.example
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+screenshots/
+dumps/
+backups/
+tmp/
+*.zip
+*.tar
+*.log
+*.pem
+*.key

@@ -4,8 +4,10 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3080';
-const TOKEN    = process.env.OBSERVE_TOKEN || 'f17ff319c89c90976a40f51cba29fee9721d4c51cea983b11084e4b06e539ddb';
+const TOKEN    = process.env.OBSERVE_TOKEN || '';
 const API      = `${BASE_URL}/observe/api`;
+
+test.skip(!TOKEN, 'Defina OBSERVE_TOKEN para rodar testes autenticados.');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

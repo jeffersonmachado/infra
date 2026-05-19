@@ -249,7 +249,7 @@ if [ ! -r "$DEPLOY_ENV_FILE" ]; then
 fi
 
 if [ -n "$SSH_PASSWORD" ] && [ -n "$SSH_PASSWORD_FILE" ]; then
-    error "Use apenas uma das variaveis: DEPLOY_SSH_PASSWORD/SSH_PASSWORD/SSHPASS ou DEPLOY_SSH_PASSWORD_FILE."
+    error "Use apenas uma das variaveis: DEPLOY_SSH_PASSWORD/SSH_PASSWORD/SSH_PASSWORD ou DEPLOY_SSH_PASSWORD_FILE."
     exit 1
 fi
 
@@ -260,35 +260,35 @@ if [ -n "$SSH_KEY_PATH" ]; then
 fi
 
 if [ "$USE_SSH_DIRECT" = "true" ]; then
-    info "Modo SSH direto habilitado (sem sshpass)."
+    info "Modo SSH direto habilitado (sem ssh)."
     SSH_CMD="ssh $SSH_OPTS"
     RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
 else
-    if [ -z "$SSHPASS" ] && [ -n "$SSH_PASSWORD" ]; then
-        export SSHPASS="$SSH_PASSWORD"
+    if [ -z "$SSH_PASSWORD" ] && [ -n "$SSH_PASSWORD" ]; then
+        export SSH_PASSWORD="$SSH_PASSWORD"
     fi
 
     if [ -n "$SSH_PASSWORD_FILE" ]; then
-        if ! command -v sshpass >/dev/null 2>&1; then
-            error "sshpass nao esta instalado. Instale com: apt-get install sshpass ou yum install sshpass"
+        if ! command -v ssh >/dev/null 2>&1; then
+            error "ssh nao esta instalado. Instale com: apt-get install ssh ou yum install ssh"
             exit 1
         fi
-        SSH_CMD="sshpass -f $SSH_PASSWORD_FILE ssh $SSH_OPTS"
-        RSYNC_SSH_TRANSPORT="sshpass -f $SSH_PASSWORD_FILE ssh $SSH_OPTS"
-    elif [ -n "$SSHPASS" ]; then
-        if ! command -v sshpass >/dev/null 2>&1; then
-            error "sshpass nao esta instalado. Instale com: apt-get install sshpass ou yum install sshpass"
+        SSH_CMD="ssh $SSH_OPTS"
+        RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
+    elif [ -n "$SSH_PASSWORD" ]; then
+        if ! command -v ssh >/dev/null 2>&1; then
+            error "ssh nao esta instalado. Instale com: apt-get install ssh ou yum install ssh"
             error "Ou use DEPLOY_USE_SSH_DIRECT=true para autenticacao SSH padrao."
             exit 1
         fi
-        export SSHPASS
-        SSH_CMD="sshpass -e ssh $SSH_OPTS"
-        RSYNC_SSH_TRANSPORT="sshpass -e ssh $SSH_OPTS"
+        export SSH_PASSWORD
+        SSH_CMD="ssh $SSH_OPTS"
+        RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
     elif [ -n "$SSH_KEY_PATH" ]; then
         SSH_CMD="ssh $SSH_OPTS"
         RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
     else
-        error "Defina SSHPASS, SSH_PASSWORD, DEPLOY_SSH_PASSWORD, DEPLOY_SSH_PASSWORD_FILE, DEPLOY_SSH_KEY ou DEPLOY_USE_SSH_DIRECT=true."
+        error "Defina SSH_PASSWORD, SSH_PASSWORD, DEPLOY_SSH_PASSWORD, DEPLOY_SSH_PASSWORD_FILE, DEPLOY_SSH_KEY ou DEPLOY_USE_SSH_DIRECT=true."
         exit 1
     fi
 fi

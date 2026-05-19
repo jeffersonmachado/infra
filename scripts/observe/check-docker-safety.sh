@@ -20,7 +20,7 @@ FAILURES=0
 COMPOSE_ARGS="--env-file ${ENV_FILE}"
 [ -f "$ENV_FILE" ] || COMPOSE_ARGS=""
 
-COMPOSE_FULL=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config 2>/dev/null || "")
+COMPOSE_FULL=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config 2>/dev/null || true)
 
 # ─── Banco de dados ────────────────────────────────────────────────────────────
 section "Banco de dados"

@@ -36,13 +36,13 @@ Variaveis suportadas:
   DEPLOY_PORT              Porta SSH do host novo (padrao: 22)
   DEPLOY_PATH              Diretorio remoto do projeto (padrao: /opt/results/infra)
   DEPLOY_SSH_PASSWORD      Senha SSH para acessar o host novo
-  SSHPASS                  Alternativa para DEPLOY_SSH_PASSWORD
+  SSH_PASSWORD                  Alternativa para DEPLOY_SSH_PASSWORD
   LEGACY_HOST              Host legado de mail (padrao: 10.10.2.2)
   LEGACY_USER              Usuario SSH do host legado (padrao: root)
   LEGACY_PORT              Porta SSH do host legado (padrao: 22)
   LEGACY_PATH              Raiz do spool legado (padrao: /gv/)
     LEGACY_SSH_PASSWORD      Senha SSH para acessar o servidor legado a partir da maquina local
-  LEGACY_SSHPASS           Alternativa para LEGACY_SSH_PASSWORD
+  LEGACY_SSH_PASSWORD           Alternativa para LEGACY_SSH_PASSWORD
   MAIL_ENV_FILE            Arquivo de ambiente da stack mail no host novo (padrao: .env.remote-10.10.2.30-mail)
     MAIL_PROJECT_NAME        Nome do projeto docker compose da stack mail (padrao: infra-mail)
     MAIL_VOLUME_NAME         Volume Docker que guarda o spool (padrao: <MAIL_PROJECT_NAME>_maildata)
@@ -135,31 +135,31 @@ case "$ACTION" in
 esac
 
 command -v ssh >/dev/null 2>&1 || { error "ssh nao encontrado"; exit 1; }
-command -v sshpass >/dev/null 2>&1 || { error "sshpass nao encontrado"; exit 1; }
+command -v ssh >/dev/null 2>&1 || { error "ssh nao encontrado"; exit 1; }
 command -v rsync >/dev/null 2>&1 || { error "rsync nao encontrado localmente"; exit 1; }
 
-if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSHPASS:-}" ]; then
-    export SSHPASS="$DEPLOY_SSH_PASSWORD"
+if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSH_PASSWORD:-}" ]; then
+    export SSH_PASSWORD="$DEPLOY_SSH_PASSWORD"
 fi
 
-if [ -z "${SSHPASS:-}" ]; then
-    error "Defina DEPLOY_SSH_PASSWORD ou SSHPASS para acessar o host novo."
+if [ -z "${SSH_PASSWORD:-}" ]; then
+    error "Defina DEPLOY_SSH_PASSWORD ou SSH_PASSWORD para acessar o host novo."
     exit 1
 fi
 
-LEGACY_PASSWORD="${LEGACY_SSH_PASSWORD:-${LEGACY_SSHPASS:-}}"
+LEGACY_PASSWORD="${LEGACY_SSH_PASSWORD:-${LEGACY_SSH_PASSWORD:-}}"
 if [ -z "$LEGACY_PASSWORD" ]; then
-    error "Defina LEGACY_SSH_PASSWORD ou LEGACY_SSHPASS para acessar o servidor legado."
+    error "Defina LEGACY_SSH_PASSWORD ou LEGACY_SSH_PASSWORD para acessar o servidor legado."
     exit 1
 fi
 
 SSH_OPTS="-p $REMOTE_PORT -o PreferredAuthentications=password,keyboard-interactive -o KbdInteractiveAuthentication=yes -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15"
-SSH_CMD="sshpass -e ssh $SSH_OPTS"
+SSH_CMD="ssh $SSH_OPTS"
 LEGACY_SSH_OPTS="-p $LEGACY_PORT -o PreferredAuthentications=password,keyboard-interactive -o KbdInteractiveAuthentication=yes -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa"
-LEGACY_SSH_CMD="sshpass -e ssh $LEGACY_SSH_OPTS"
+LEGACY_SSH_CMD="ssh $LEGACY_SSH_OPTS"
 
 REMOTE_BASE_CMD="$SSH_CMD ${REMOTE_USER}@${REMOTE_HOST}"
-LEGACY_BASE_CMD="env SSHPASS=$(printf '%q' "$LEGACY_PASSWORD") $LEGACY_SSH_CMD ${LEGACY_USER}@${LEGACY_HOST}"
+LEGACY_BASE_CMD="env SSH_PASSWORD=$(printf '%q' "$LEGACY_PASSWORD") $LEGACY_SSH_CMD ${LEGACY_USER}@${LEGACY_HOST}"
 
 if [ -z "$TARGET_MAIL_ROOT" ]; then
     TARGET_MAIL_ROOT="$($REMOTE_BASE_CMD "docker volume inspect '$MAIL_VOLUME_NAME' --format '{{ .Mountpoint }}'" 2>/dev/null | tr -d '\r')"
@@ -193,7 +193,7 @@ case "$ACTION" in
     run_cmd "Preparar staging local" "mkdir -p '$LOCAL_STAGE_ROOT'"
     run_cmd "Preparar destino base no host novo" "$REMOTE_BASE_CMD \"mkdir -p '$TARGET_MAIL_ROOT' && chown '$MAIL_UID:$MAIL_GID' '$TARGET_MAIL_ROOT' && chmod 0770 '$TARGET_MAIL_ROOT'\""
 
-    MAILBOX_LIST="$(env SSHPASS="$LEGACY_PASSWORD" sshpass -e ssh $LEGACY_SSH_OPTS "${LEGACY_USER}@${LEGACY_HOST}" "find '$LEGACY_PATH' -mindepth 2 -maxdepth 2 -type d -printf '%P\\n' | sort" | tr -d '\r')"
+    MAILBOX_LIST="$(env SSH_PASSWORD="$LEGACY_PASSWORD" ssh $LEGACY_SSH_OPTS "${LEGACY_USER}@${LEGACY_HOST}" "find '$LEGACY_PATH' -mindepth 2 -maxdepth 2 -type d -printf '%P\\n' | sort" | tr -d '\r')"
 
     if [ -z "$MAILBOX_LIST" ]; then
         error "Nenhuma mailbox encontrada em $LEGACY_PATH no host legado."
@@ -232,9 +232,9 @@ case "$ACTION" in
         fi
 
         run_cmd "Preparar staging de $mailbox_path" "mkdir -p '$local_stage_dir'"
-        run_cmd "Baixar $mailbox_path para staging local" "export SSHPASS='$LEGACY_PASSWORD' && rsync -a --delete --partial --append-verify -e \"sshpass -e ssh $LEGACY_SSH_OPTS\" '${LEGACY_USER}@${LEGACY_HOST}:${LEGACY_PATH%/}/$mailbox_path/' '$local_stage_dir/'"
+        run_cmd "Baixar $mailbox_path para staging local" "export SSH_PASSWORD='$LEGACY_PASSWORD' && rsync -a --delete --partial --append-verify -e \"ssh $LEGACY_SSH_OPTS\" '${LEGACY_USER}@${LEGACY_HOST}:${LEGACY_PATH%/}/$mailbox_path/' '$local_stage_dir/'"
         run_cmd "Preparar destino remoto de $mailbox_path" "$REMOTE_BASE_CMD \"mkdir -p '$remote_domain_dir' '$remote_mailbox_dir' && chown '$MAIL_UID:$MAIL_GID' '$remote_domain_dir' '$remote_mailbox_dir' && chmod 0770 '$remote_domain_dir' '$remote_mailbox_dir'\""
-        run_cmd "Enviar $mailbox_path ao host novo" "rsync -a --delete --partial --append-verify -e \"sshpass -e ssh $SSH_OPTS\" '$local_stage_dir/' '${REMOTE_USER}@${REMOTE_HOST}:$remote_mailbox_dir/'"
+        run_cmd "Enviar $mailbox_path ao host novo" "rsync -a --delete --partial --append-verify -e \"ssh $SSH_OPTS\" '$local_stage_dir/' '${REMOTE_USER}@${REMOTE_HOST}:$remote_mailbox_dir/'"
         run_cmd "Ajustar ownership de $mailbox_path no host novo" "$REMOTE_BASE_CMD \"chown -R '$MAIL_UID:$MAIL_GID' '$remote_mailbox_dir'\""
         run_cmd "Limpar staging de $mailbox_path" "rm -rf '$local_stage_dir'"
     done

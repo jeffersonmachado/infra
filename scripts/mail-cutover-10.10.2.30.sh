@@ -36,8 +36,8 @@ Variaveis suportadas:
   DEPLOY_USER              Usuario SSH (padrao: root)
   DEPLOY_PORT              Porta SSH (padrao: 22)
   DEPLOY_PATH              Diretorio remoto do projeto (padrao: /opt/results/infra)
-  DEPLOY_SSH_PASSWORD      Senha SSH para sshpass
-  SSHPASS                  Alternativa para sshpass
+  DEPLOY_SSH_PASSWORD      Senha SSH para ssh
+  SSH_PASSWORD                  Alternativa para ssh
   MAIL_ENV_FILE            Arquivo de ambiente remoto (padrao: .env.remote-10.10.2.30-mail)
   MAIL_COMPOSE_FILE        Compose file do mail (padrao: docker-compose.mail.yml)
   MAIL_PROJECT_NAME        Projeto compose (padrao: infra-mail)
@@ -134,19 +134,19 @@ case "$ACTION" in
 esac
 
 require_cmd ssh
-require_cmd sshpass
+require_cmd ssh
 
-if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSHPASS:-}" ]; then
-    export SSHPASS="$DEPLOY_SSH_PASSWORD"
+if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSH_PASSWORD:-}" ]; then
+    export SSH_PASSWORD="$DEPLOY_SSH_PASSWORD"
 fi
 
-if [ -z "${SSHPASS:-}" ]; then
-    error "Defina DEPLOY_SSH_PASSWORD ou SSHPASS antes de executar o script."
+if [ -z "${SSH_PASSWORD:-}" ]; then
+    error "Defina DEPLOY_SSH_PASSWORD ou SSH_PASSWORD antes de executar o script."
     exit 1
 fi
 
 SSH_OPTS="-p $REMOTE_PORT -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15"
-SSH_CMD="sshpass -e ssh $SSH_OPTS"
+SSH_CMD="ssh $SSH_OPTS"
 
 read -r -d '' REMOTE_PRECHECK <<'EOF' || true
 set -euo pipefail

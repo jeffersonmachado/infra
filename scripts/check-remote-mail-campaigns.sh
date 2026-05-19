@@ -10,16 +10,16 @@ RSPAMD_LOG_TAIL="${RSPAMD_LOG_TAIL:-200}"
 
 SSH_OPTS="-p ${REMOTE_PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 -o LogLevel=ERROR"
 
-if [ -z "${SSHPASS:-}" ] && [ -n "$SSH_PASSWORD" ]; then
-  export SSHPASS="$SSH_PASSWORD"
+if [ -z "${SSH_PASSWORD:-}" ] && [ -n "$SSH_PASSWORD" ]; then
+  export SSH_PASSWORD="$SSH_PASSWORD"
 fi
 
-if [ -n "${SSHPASS:-}" ]; then
-  if ! command -v sshpass >/dev/null 2>&1; then
-    echo "sshpass nao encontrado" >&2
+if [ -n "${SSH_PASSWORD:-}" ]; then
+  if ! command -v ssh >/dev/null 2>&1; then
+    echo "ssh nao encontrado" >&2
     exit 1
   fi
-  SSH_CMD="sshpass -e ssh ${SSH_OPTS}"
+  SSH_CMD="ssh ${SSH_OPTS}"
 else
   SSH_CMD="ssh ${SSH_OPTS}"
 fi

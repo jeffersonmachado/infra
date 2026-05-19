@@ -124,7 +124,7 @@ Verificacao operacional no host `10.10.2.30`:
 
 ```bash
 cd /opt/results/infra
-export SSHPASS='***'
+export SSH_PASSWORD='***'
 npm run host:security:status:remote
 ```
 
@@ -139,7 +139,7 @@ Para verificar disparos das composites locais do `Rspamd` e rejeicoes correlatas
 
 ```bash
 cd /opt/results/infra
-export SSHPASS='***'
+export SSH_PASSWORD='***'
 npm run mail:campaigns:status:remote
 ```
 
@@ -149,7 +149,7 @@ Para reaplicar o hardening com o arquivo operacional deste host:
 
 ```bash
 cd /opt/results/infra
-export SSHPASS='***'
+export SSH_PASSWORD='***'
 npm run host:harden:remote
 ```
 
@@ -588,11 +588,11 @@ Variáveis suportadas pelo deploy remoto:
 - `DEPLOY_PORT`: porta SSH. Padrão `22`.
 - `DEPLOY_PATH`: diretório remoto onde a stack será sincronizada. Padrão `/opt/results/infra`.
 - `DEPLOY_SSH_KEY`: caminho para chave privada SSH opcional.
-- `DEPLOY_SSH_PASSWORD`: senha SSH opcional para uso com `sshpass`.
-- `DEPLOY_SSH_PASSWORD_FILE`: arquivo com a senha SSH para uso com `sshpass`.
+- `DEPLOY_SSH_PASSWORD`: senha SSH opcional para uso com `ssh`.
+- `DEPLOY_SSH_PASSWORD_FILE`: arquivo com a senha SSH para uso com `ssh`.
 - `SSH_PASSWORD`: alias compatível com o padrão do `r-agent2`.
-- `SSHPASS`: variável preferida pelo `sshpass -e`, também compatível com o padrão do `r-agent2`.
-- `DEPLOY_USE_SSH_DIRECT`: se `true`, usa `ssh` direto sem `sshpass`.
+- `SSH_PASSWORD`: variável preferida pelo `ssh`, também compatível com o padrão do `r-agent2`.
+- `DEPLOY_USE_SSH_DIRECT`: se `true`, usa `ssh` direto sem `ssh`.
 - `DEPLOY_ENV_FILE`: arquivo de ambiente local a ser enviado junto no deploy. Padrão `.env`.
 - `DEPLOY_PROJECT_NAME`: nome do projeto do `docker compose` no host remoto. Padrão `infra-httpd`.
 
@@ -657,7 +657,7 @@ sh ./scripts/test-webmail-login.sh
 
 O script remoto também aceita `DEPLOY_ENV_FILE=.env.example`; nesse caso ele copia esse arquivo para `.env` no host remoto antes de executar o `docker compose`.
 
-Se você preferir autenticação por senha, o deploy usa `sshpass -e` no mesmo padrão do `r-agent2`, aceitando `SSHPASS`, `SSH_PASSWORD` ou `DEPLOY_SSH_PASSWORD`.
+Se você preferir autenticação por senha, o deploy usa `ssh` no mesmo padrão do `r-agent2`, aceitando `SSH_PASSWORD`, `SSH_PASSWORD` ou `DEPLOY_SSH_PASSWORD`.
 
 ## Validação
 

@@ -28,7 +28,7 @@ services:
   # Serve: todas as zonas públicas + split-horizon interno
   pdns-auth:
     <<: *common
-    image: powerdns/pdns-auth-49:latest
+    image: powerdns/pdns-auth-49:${PDNS_AUTH_TAG:-4.9.14}
     container_name: pdns-auth
     volumes:
       - ./pdns-auth/pdns.conf:/etc/powerdns/pdns.conf:ro
@@ -53,7 +53,7 @@ services:
   # Clientes permitidos: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
   pdns-recursor:
     <<: *common
-    image: powerdns/pdns-recursor-51:latest
+    image: powerdns/pdns-recursor-51:${PDNS_RECURSOR_TAG:-5.1.10}
     container_name: pdns-recursor
     depends_on:
       - pdns-auth
@@ -80,7 +80,7 @@ services:
   # Após corte:       DNS_PORT=53 (parar BIND primeiro)
   dnsdist:
     <<: *common
-    image: powerdns/dnsdist-19:latest
+    image: powerdns/dnsdist-19:${DNSDIST_TAG:-1.9.14}
     container_name: dns-dnsdist
     depends_on:
       - pdns-auth

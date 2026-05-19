@@ -19,14 +19,14 @@ ok()   { echo -e "  ${GREEN}✓${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}!${RESET} $*"; }
 die()  { echo -e "${RED}ERRO:${RESET} $*" >&2; exit 1; }
 
-RUN="sshpass -p resu100gabao ssh $SSH_OPT root@$TARGET"
+RUN="ssh $SSH_OPT root@$TARGET"
 
 echo -e "${BOLD}── DNS Consolidado: Deploy em $TARGET ──────────────────────────────${RESET}"
 
 # ── 1. Sincronizar arquivos ────────────────────────────────────────────────
 step "Sincronizando arquivos para $TARGET:$REMOTE_DIR..."
 $RUN "mkdir -p $REMOTE_DIR"
-sshpass -p 'resu100gabao' rsync -az \
+rsync -az \
   -e "ssh $SSH_OPT" \
   --exclude='.env' \
   "$COMPOSE_DIR/" "root@$TARGET:$REMOTE_DIR/"
@@ -48,8 +48,13 @@ step "Aplicando credenciais nas configs..."
 $RUN bash << 'REMOTE'
 source /opt/results/infra/dns-consolidated/.env
 CONF_DIR="/opt/results/infra/dns-consolidated"
-DB_PASS="${DNS_DB_PASSWORD:-resu1@@dba}"
-API_KEY="${DNS_API_KEY:-changeme}"
+DB_PASS="${DNS_DB_PASSWORD:-}"
+API_KEY="${DNS_API_KEY:-}"
+
+if [ -z "$DB_PASS" ] || [ -z "$API_KEY" ]; then
+  echo "ERRO: DNS_DB_PASSWORD e DNS_API_KEY devem estar definidos no .env" >&2
+  exit 1
+fi
 
 # pdns-auth: substituir placeholders
 sed -i \

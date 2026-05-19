@@ -2,7 +2,9 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE  = 'http://localhost:3080';
-const TOKEN = process.env.OBSERVE_TOKEN || 'f17ff319c89c90976a40f51cba29fee9721d4c51cea983b11084e4b06e539ddb';
+const TOKEN = process.env.OBSERVE_TOKEN || '';
+
+test.skip(!TOKEN, 'Defina OBSERVE_TOKEN para rodar testes autenticados.');
 
 test.describe('AI Dashboard — /observe/ai', () => {
 

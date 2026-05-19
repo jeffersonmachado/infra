@@ -37,7 +37,7 @@ Variaveis suportadas:
   DEPLOY_PATH              Diretorio remoto do projeto (padrao: /opt/results/infra)
     DEPLOY_SSH_AUTH_MODE     Modo de autenticacao SSH no host novo: auto, password ou key (padrao: auto)
   DEPLOY_SSH_PASSWORD      Senha SSH para acessar o host novo
-  SSHPASS                  Alternativa para DEPLOY_SSH_PASSWORD
+  SSH_PASSWORD                  Alternativa para DEPLOY_SSH_PASSWORD
   LEGACY_PATH              Raiz local do spool legado (padrao: /gv/)
   MAIL_ENV_FILE            Arquivo de ambiente da stack mail no host novo (padrao: .env.remote-10.10.2.30-mail)
   MAIL_PROJECT_NAME        Nome do projeto docker compose da stack mail (padrao: infra-mail)
@@ -129,8 +129,8 @@ esac
 command -v ssh >/dev/null 2>&1 || { error "ssh nao encontrado"; exit 1; }
 command -v rsync >/dev/null 2>&1 || { error "rsync nao encontrado"; exit 1; }
 
-if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSHPASS:-}" ]; then
-    export SSHPASS="$DEPLOY_SSH_PASSWORD"
+if [ -n "${DEPLOY_SSH_PASSWORD:-}" ] && [ -z "${SSH_PASSWORD:-}" ]; then
+    export SSH_PASSWORD="$DEPLOY_SSH_PASSWORD"
 fi
 
 case "$REMOTE_AUTH_MODE" in
@@ -142,9 +142,9 @@ case "$REMOTE_AUTH_MODE" in
         ;;
 esac
 
-HAS_SSHPASS=false
-if command -v sshpass >/dev/null 2>&1; then
-    HAS_SSHPASS=true
+HAS_SSH_PASSWORD=false
+if command -v ssh >/dev/null 2>&1; then
+    HAS_SSH_PASSWORD=true
 fi
 
 SSH_COMMON_OPTS="-p $REMOTE_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15"
@@ -152,7 +152,7 @@ SSH_PASSWORD_OPTS="$SSH_COMMON_OPTS -o PreferredAuthentications=password,keyboar
 SSH_KEY_OPTS="$SSH_COMMON_OPTS -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o BatchMode=yes"
 
 if [ "$REMOTE_AUTH_MODE" = "auto" ]; then
-    if [ "$HAS_SSHPASS" = "true" ] && [ -n "${SSHPASS:-}" ]; then
+    if [ "$HAS_SSH_PASSWORD" = "true" ] && [ -n "${SSH_PASSWORD:-}" ]; then
         REMOTE_AUTH_MODE="password"
     else
         REMOTE_AUTH_MODE="key"
@@ -160,19 +160,19 @@ if [ "$REMOTE_AUTH_MODE" = "auto" ]; then
 fi
 
 if [ "$REMOTE_AUTH_MODE" = "password" ]; then
-    if [ "$HAS_SSHPASS" != "true" ]; then
-        error "sshpass nao encontrado para autenticacao por senha. Use DEPLOY_SSH_AUTH_MODE=key com chave SSH, ou instale sshpass."
+    if [ "$HAS_SSH_PASSWORD" != "true" ]; then
+        error "ssh nao encontrado para autenticacao por senha. Use DEPLOY_SSH_AUTH_MODE=key com chave SSH, ou instale ssh."
         exit 1
     fi
 
-    if [ -z "${SSHPASS:-}" ]; then
-        error "Defina DEPLOY_SSH_PASSWORD ou SSHPASS para autenticacao por senha no host novo."
+    if [ -z "${SSH_PASSWORD:-}" ]; then
+        error "Defina DEPLOY_SSH_PASSWORD ou SSH_PASSWORD para autenticacao por senha no host novo."
         exit 1
     fi
 
     SSH_OPTS="$SSH_PASSWORD_OPTS"
-    SSH_CMD="sshpass -e ssh $SSH_OPTS"
-    RSYNC_RSH="sshpass -e ssh $SSH_OPTS"
+    SSH_CMD="ssh $SSH_OPTS"
+    RSYNC_RSH="ssh $SSH_OPTS"
 else
     SSH_OPTS="$SSH_KEY_OPTS"
     SSH_CMD="ssh $SSH_OPTS"

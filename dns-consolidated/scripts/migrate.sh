@@ -28,7 +28,7 @@ DB_HOST="${DNS_DB_HOST:-10.10.2.99}"
 DB_PORT="${DNS_DB_PORT:-3306}"
 DB_NAME="${DNS_DB_NAME:-results}"
 DB_USER="${DNS_DB_USER:-resultsdba}"
-DB_PASS="${DNS_DB_PASSWORD:-resu1@@dba}"
+DB_PASS="${DNS_DB_PASSWORD:-}"
 
 # Servidores legados
 BIND_MASTER="10.10.2.71"
@@ -53,8 +53,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-MYSQL="mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER \
-  --password=$DB_PASS --database=$DB_NAME"
+MYSQL="mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --database=$DB_NAME"
+
+if [[ -z "$DB_PASS" ]]; then
+  die "DNS_DB_PASSWORD não definido. Exporte a variável antes de executar."
+fi
 
 run_sql() {
   if $DRY_RUN; then
@@ -122,7 +125,7 @@ import_from_bind() {
   domain_id=$(get_domain_id "$zone")
 
   while IFS= read -r line; do
-    [[ -z "$line" || "$line" =~ ^; ]] && continue
+    [[ -z "$line" || "$line" =~ ^\; ]] && continue
     local name type content ttl
     # Parse: name ttl IN type content
     read -r name ttl _ type content <<< "$line" 2>/dev/null || continue
@@ -139,12 +142,12 @@ import_from_file() {
   local zone_file
 
   # Localiza arquivo de zona no servidor
-  zone_file=$(sshpass -p 'resu100gabao' ssh $SSH_OPT root@$host \
+  zone_file=$(ssh $SSH_OPT root@$host \
     "find /var/named/chroot/var/named /var/named -name 'db.${zone}' 2>/dev/null | head -1" 2>/dev/null)
   [[ -z "$zone_file" ]] && { warn "Arquivo não encontrado para $zone em $host"; return; }
 
   local zone_content
-  zone_content=$(sshpass -p 'resu100gabao' ssh $SSH_OPT root@$host "cat '$zone_file'" 2>/dev/null)
+  zone_content=$(ssh $SSH_OPT root@$host "cat '$zone_file'" 2>/dev/null)
 
   ensure_zone "$zone"
   local domain_id
