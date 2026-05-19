@@ -55,10 +55,18 @@
     "observe:token:rotate": "bash ./scripts/observe/token.sh rotate",
     "observe:token:recover": "bash ./scripts/observe/token.sh recover",
     "discovery:test": "npm --prefix ./r-observe/discovery test",
+    "discovery:lint": "bash ./scripts/discovery/discovery-lint.sh",
+    "discovery:smoke": "bash ./scripts/discovery/discovery-smoke.sh",
+    "discovery:audit": "bash ./scripts/discovery/discovery-audit.sh",
+    "discovery:integration": "bash ./scripts/discovery/discovery-integration.sh",
+    "discovery:gate": "bash ./scripts/discovery/discovery-gate.sh",
     "zip": "bash ./scripts/package/zip-release.sh --output dist/infra.zip",
     "zip:release": "bash ./scripts/package/zip-release.sh --output dist/infra-release.zip",
     "zip:validate": "bash ./scripts/package/validate-zip.sh dist/infra.zip",
-    "zip:deploy": "mkdir -p dist && rm -f dist/infra-deploy.zip && git ls-files -z -- . ':(exclude)docs/**' ':(exclude)tests/**' ':(exclude)test-results/**' ':(exclude).agents/**' ':(exclude).claude/**' ':(exclude).codex/**' ':(exclude)dist/**' ':(exclude)joomla-site/criancas/__pycache__/**' | tr \"\\\\0\" '\n' | zip -q -9 dist/infra-deploy.zip -@"
+    "zip:deploy": "mkdir -p dist && rm -f dist/infra-deploy.zip && git ls-files -z -- . ':(exclude)docs/**' ':(exclude)tests/**' ':(exclude)test-results/**' ':(exclude).agents/**' ':(exclude).claude/**' ':(exclude).codex/**' ':(exclude)dist/**' ':(exclude)joomla-site/criancas/__pycache__/**' | tr \"\\\\0\" '\n' | zip -q -9 dist/infra-deploy.zip -@",
+    "release:audit": "bash ./scripts/package/release-audit.sh",
+    "release:smoke": "bash ./scripts/package/release-smoke.sh",
+    "release:gate": "bash ./scripts/package/release-gate.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0"

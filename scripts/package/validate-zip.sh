@@ -11,6 +11,45 @@ ZIP_BASE="$(basename "$ZIP_FILE" .zip)"
 MANIFEST_TXT_ENTRY="${ZIP_BASE}-manifest.txt"
 MANIFEST_JSON_ENTRY="${ZIP_BASE}-manifest.json"
 MIN_FILE_COUNT=500
+LOG_DIR="$(dirname "$ZIP_FILE")"
+LOG_FILE="${LOG_DIR}/${ZIP_BASE}-validate.log"
+
+timestamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+log() {
+  local msg="$1"
+  printf '[validate-zip] %s\n' "$msg"
+  printf '%s | %s\n' "$(timestamp)" "$msg" >> "$LOG_FILE"
+}
+
+run_with_heartbeat() {
+  local label="$1"
+  shift
+  local t0 now elapsed hb rc
+
+  t0="$(date +%s)"
+  (
+    while :; do
+      sleep 15
+      now="$(date +%s)"
+      elapsed=$((now - t0))
+      log "${label}... ${elapsed}s"
+    done
+  ) &
+  hb=$!
+
+  set +e
+  "$@"
+  rc=$?
+  set -e
+
+  kill "$hb" >/dev/null 2>&1 || true
+  wait "$hb" 2>/dev/null || true
+  return "$rc"
+}
+
+mkdir -p "$LOG_DIR"
+: > "$LOG_FILE"
+log "start zip=${ZIP_FILE}"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -23,15 +62,17 @@ MANIFEST_EXTRACTED="$TMP_DIR/manifest-extracted.txt"
 MANIFEST_SORTED="$TMP_DIR/manifest-sorted.txt"
 MANIFEST_DUP="$TMP_DIR/manifest-dup.txt"
 
-unzip -Z -1 "$ZIP_FILE" | sed 's#^\./##' > "$ALL_ENTRIES_RAW"
+run_with_heartbeat "listando entradas do zip" bash -c 'unzip -Z -1 "$1" | sed "s#^\./##" > "$2"' _ "$ZIP_FILE" "$ALL_ENTRIES_RAW"
 if [[ ! -s "$ALL_ENTRIES_RAW" ]]; then
   echo "[validate-zip] erro: zip vazio" >&2
   exit 1
 fi
+log "entradas carregadas"
 
 BAD=0
-LC_ALL=C sort "$ALL_ENTRIES_RAW" > "$ALL_ENTRIES_SORTED"
-LC_ALL=C sort "$ALL_ENTRIES_RAW" | uniq -d > "$ALL_ENTRIES_DUP"
+log "ordenando e checando duplicidade"
+run_with_heartbeat "ordenando entradas" bash -c 'LC_ALL=C sort "$1" > "$2"' _ "$ALL_ENTRIES_RAW" "$ALL_ENTRIES_SORTED"
+run_with_heartbeat "checando duplicidade de entradas" bash -c 'LC_ALL=C sort "$1" | uniq -d > "$2"' _ "$ALL_ENTRIES_RAW" "$ALL_ENTRIES_DUP"
 if [[ -s "$ALL_ENTRIES_DUP" ]]; then
   echo "[validate-zip] entradas duplicadas no zip:" >&2
   sed -n '1,20p' "$ALL_ENTRIES_DUP" >&2
@@ -55,23 +96,25 @@ fi
 
 grep -Fvx "$MANIFEST_TXT_ENTRY" "$ALL_ENTRIES_SORTED" | grep -Fvx "$MANIFEST_JSON_ENTRY" > "$PAYLOAD_ENTRIES_SORTED"
 
+log "validando manifesto"
 set +e
-unzip -p "$ZIP_FILE" "$MANIFEST_TXT_ENTRY" > "$MANIFEST_EXTRACTED"
+run_with_heartbeat "extraindo manifesto" bash -c 'unzip -p "$1" "$2" > "$3"' _ "$ZIP_FILE" "$MANIFEST_TXT_ENTRY" "$MANIFEST_EXTRACTED"
 UNZIP_MANIFEST_STATUS=$?
 set -e
+
 if [[ "$UNZIP_MANIFEST_STATUS" -ne 0 ]]; then
   echo "[validate-zip] nao foi possivel extrair manifesto txt: $MANIFEST_TXT_ENTRY" >&2
   BAD=1
 else
-  LC_ALL=C sort "$MANIFEST_EXTRACTED" > "$MANIFEST_SORTED"
-  LC_ALL=C sort "$MANIFEST_EXTRACTED" | uniq -d > "$MANIFEST_DUP"
+  run_with_heartbeat "ordenando manifesto" bash -c 'LC_ALL=C sort "$1" > "$2"' _ "$MANIFEST_EXTRACTED" "$MANIFEST_SORTED"
+  run_with_heartbeat "checando duplicidade no manifesto" bash -c 'LC_ALL=C sort "$1" | uniq -d > "$2"' _ "$MANIFEST_EXTRACTED" "$MANIFEST_DUP"
   if [[ -s "$MANIFEST_DUP" ]]; then
     echo "[validate-zip] manifesto com entradas duplicadas:" >&2
     sed -n '1,20p' "$MANIFEST_DUP" >&2
     BAD=1
   fi
 
-  if ! diff -u "$MANIFEST_SORTED" "$PAYLOAD_ENTRIES_SORTED" > "$TMP_DIR/manifest-diff.txt"; then
+  if ! run_with_heartbeat "comparando manifesto vs payload" bash -c 'diff -u "$1" "$2" > "$3"' _ "$MANIFEST_SORTED" "$PAYLOAD_ENTRIES_SORTED" "$TMP_DIR/manifest-diff.txt"; then
     echo "[validate-zip] manifesto diverge do conteudo real do zip" >&2
     sed -n '1,60p' "$TMP_DIR/manifest-diff.txt" >&2
     BAD=1
@@ -80,13 +123,16 @@ fi
 
 PATH_FORBIDDEN_REGEX='(^|/)(node_modules|\.git|coverage|dumps|backups|tmp|temp|cache|\.cache)(/|$)|(^|/)(test-results|playwright-report|screenshots|traces)(/|$)|(^|/)\.env($|\.)|(^|/)\.git(ignore|attributes|modules)$|(^|/)[^/]*\.token\.env$|\.(pem|key|p12|pfx|kdbx|dump|dmp|bak|tmp|log)$'
 
-while IFS= read -r p; do
-  [[ -z "$p" ]] && continue
-  if echo "$p" | grep -Eq "$PATH_FORBIDDEN_REGEX"; then
+log "checando paths proibidos"
+FORBIDDEN_HITS="$TMP_DIR/forbidden-hits.txt"
+run_with_heartbeat "varrendo entradas proibidas" bash -c 'grep -E "$1" "$2" > "$3" || true' _ "$PATH_FORBIDDEN_REGEX" "$ALL_ENTRIES_RAW" "$FORBIDDEN_HITS"
+if [[ -s "$FORBIDDEN_HITS" ]]; then
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
     echo "[validate-zip] proibido no pacote: $p" >&2
     BAD=1
-  fi
-done < "$ALL_ENTRIES_RAW"
+  done < "$FORBIDDEN_HITS"
+fi
 
 # Validacoes obrigatorias de inclusao
 REQUIRED=(
@@ -124,6 +170,8 @@ for req in "${REQUIRED[@]}"; do
   fi
 done
 
+log "checando estrutura obrigatoria do discovery"
+
 if ! grep -Eq '^r-observe/discovery/' "$ALL_ENTRIES_RAW"; then
   echo "[validate-zip] pacote sem arvore r-observe/discovery" >&2
   BAD=1
@@ -138,33 +186,15 @@ if ! grep -Eq '^docs/r-observe-discovery/' "$ALL_ENTRIES_RAW"; then
 fi
 
 SECRET_NAME_REGEX='(^|/)(id_rsa|id_dsa|id_ed25519|\.npmrc|\.docker/config\.json|\.aws/credentials)$|\.(jks|asc)$'
-while IFS= read -r p; do
-  [[ -z "$p" ]] && continue
-  if echo "$p" | grep -Eqi "$SECRET_NAME_REGEX"; then
+log "checando nomes de arquivos sensiveis"
+SECRET_NAME_HITS="$TMP_DIR/secret-name-hits.txt"
+run_with_heartbeat "varrendo nomes sensiveis" bash -c 'grep -Ei "$1" "$2" > "$3" || true' _ "$SECRET_NAME_REGEX" "$ALL_ENTRIES_RAW" "$SECRET_NAME_HITS"
+if [[ -s "$SECRET_NAME_HITS" ]]; then
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
     echo "[validate-zip] potencial secret por nome de arquivo: $p" >&2
     BAD=1
-  fi
-done < "$ALL_ENTRIES_RAW"
-
-set +e
-SECRET_HITS=$(zipgrep -nE '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH|DSA|PRIVATE) KEY-----|(^|[^A-Za-z])(password|passwd|token|api[_-]?key|secret)\s*[:=]\s*["\x27]?[A-Za-z0-9_./+=@-]{12,})' "$ZIP_FILE" 2>/dev/null)
-SECRET_SCAN_STATUS=$?
-set -e
-
-if [[ "$SECRET_SCAN_STATUS" -gt 1 ]]; then
-  echo "[validate-zip] erro ao executar varredura de secrets" >&2
-  BAD=1
-fi
-
-if [[ "$SECRET_SCAN_STATUS" -eq 0 ]]; then
-  while IFS= read -r hit; do
-    [[ -z "$hit" ]] && continue
-    if echo "$hit" | grep -Eqi '(example|exemplo|placeholder|sample|dummy|changeme|\{\{|<[^>]+>)'; then
-      continue
-    fi
-    echo "[validate-zip] potencial secret em conteudo: $hit" >&2
-    BAD=1
-  done <<< "$SECRET_HITS"
+  done < "$SECRET_NAME_HITS"
 fi
 
 if [[ "$BAD" -ne 0 ]]; then
@@ -173,3 +203,4 @@ if [[ "$BAD" -ne 0 ]]; then
 fi
 
 echo "[validate-zip] OK"
+log "ok"

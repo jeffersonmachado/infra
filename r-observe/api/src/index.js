@@ -118,6 +118,29 @@ async function proxyToAI(path, options = {}) {
   }
 }
 
+async function proxyToDiscovery(path, options = {}) {
+  const svc = process.env.DISCOVERY_SERVICE_URL || 'http://observe-discovery:3010';
+  const timeout = parseInt(process.env.DISCOVERY_TIMEOUT_MS || '30000', 10);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const resp = await fetch(`${svc}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', 'x-internal-token': INTERNAL_TOKEN, ...(options.headers || {}) },
+      signal: ctrl.signal,
+    });
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    return { ok: true, status: resp.status, data };
+  } catch (e) {
+    if (e.name === 'AbortError') return { ok: false, status: 504, data: { error: 'Discovery timeout' } };
+    return { ok: false, status: 502, data: { error: 'Discovery service unavailable', detail: e.message } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // Health
@@ -301,6 +324,63 @@ app.post(`${BASE}/hosts/scan`, requireAuth, async (req, res) => {
       message:  'Scan enfileirado. Execute: npm run observe:discover -- --mode r-observe' + (subnet ? ` --subnet ${subnet}` : ''),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Discovery compatibility endpoints
+function discoveryQuery(req) {
+  const p = new URLSearchParams();
+  if (req.query.tenant_id) p.set('tenant_id', String(req.query.tenant_id));
+  if (req.query.site_id) p.set('site_id', String(req.query.site_id));
+  if (req.query.edge_id) p.set('edge_id', String(req.query.edge_id));
+  if (req.query.run_id) p.set('run_id', String(req.query.run_id));
+  if (req.query.asset_id) p.set('asset_id', String(req.query.asset_id));
+  const q = p.toString();
+  return q ? `?${q}` : '';
+}
+
+app.get(`${BASE}/discovery/runs`, requireAuth, async (_req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/runs${discoveryQuery(_req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/assets`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/assets${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/findings`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/findings${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/topology`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/topology${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/fingerprints`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/fingerprints${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/policies`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/policies${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.post(`${BASE}/discovery/policies`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery('/api/discovery/policies', { method: 'POST', body: JSON.stringify(req.body || {}) });
+  res.status(out.status).json(out.data);
+});
+
+app.post(`${BASE}/discovery/scan`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery('/api/discovery/scan', { method: 'POST', body: JSON.stringify(req.body || {}) });
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/history`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/history${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
 });
 
 // Hosts — lista hosts do Icinga2 diretamente

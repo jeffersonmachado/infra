@@ -119,6 +119,8 @@ services:
       INTERNAL_TOKEN: ${OBSERVE_INTERNAL_TOKEN:?OBSERVE_INTERNAL_TOKEN obrigatório}
       WEBHOOK_SECRET: ${OBSERVE_WEBHOOK_SECRET:-}
       AI_SERVICE_URL: http://observe-ai:3000
+      DISCOVERY_SERVICE_URL: http://observe-discovery:3010
+      DISCOVERY_TIMEOUT_MS: ${DISCOVERY_TIMEOUT_MS:-30000}
       AI_ENABLED: ${R_OBSERVE_AI_ENABLED:-true}
       AI_TIMEOUT_MS: ${R_OBSERVE_AI_TIMEOUT_MS:-30000}
       LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
@@ -203,7 +205,7 @@ services:
       - observe-evidence:/app/data/evidence
       - observe-replays:/app/data/replays
       - observe-logs:/app/logs
-      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     tmpfs:
       - /tmp
     networks:
@@ -304,6 +306,59 @@ services:
       - observe-monitoring
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health | grep -q '\"status\":\"ok\"' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ─── R-OBSERVE DISCOVERY ────────────────────────────────────────────────────
+  observe-discovery:
+    <<: *common
+    build:
+      context: ./r-observe/discovery
+    container_name: r-observe-discovery
+    profiles: [observe-core, observe-discovery]
+    depends_on:
+      observe-postgres:
+        condition: service_healthy
+      observe-redis:
+        condition: service_healthy
+      observe-api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3010
+      DB_HOST: observe-postgres
+      DB_PORT: 5432
+      DB_NAME: ${OBSERVE_DB_NAME:-observedb}
+      DB_USER: ${OBSERVE_DB_USER:-observe}
+      DB_PASSWORD: ${OBSERVE_DB_PASSWORD:?OBSERVE_DB_PASSWORD obrigatório}
+      REDIS_URL: redis://:${OBSERVE_REDIS_PASSWORD:-}@observe-redis:6379
+      INTERNAL_TOKEN: ${OBSERVE_INTERNAL_TOKEN:?OBSERVE_INTERNAL_TOKEN obrigatório}
+      LOG_LEVEL: ${OBSERVE_LOG_LEVEL:-info}
+      DISCOVERY_SD_FILE: /app/data/sd/discovery-engine.json
+      DISCOVERY_DOCKER_ENABLED: ${DISCOVERY_DOCKER_ENABLED:-false}
+      DISCOVERY_SCAN_QUEUE_ENABLED: ${DISCOVERY_SCAN_QUEUE_ENABLED:-true}
+      ICINGA_API_URL: ${ICINGA_API_URL:-https://observe-icinga2:5665}
+      ICINGA_API_USER: ${ICINGA_API_USER:-icingaweb2}
+      ICINGA_API_PASSWORD: ${ICINGA_API_PASSWORD:-}
+      TZ: ${TZ:-America/Sao_Paulo}
+      OTEL_SERVICE_NAME: r-observe-discovery
+      OTEL_SERVICE_VERSION: "0.1.0"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observe-otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_RESOURCE_ATTRIBUTES: product=r-observe,environment=${NODE_ENV:-production}
+    volumes:
+      - ./observe/prometheus/sd:/app/data/sd
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    tmpfs:
+      - /tmp
+    networks:
+      - observe-internal
+      - observe-monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3010/health | grep -q '\"status\":\"ok\"' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

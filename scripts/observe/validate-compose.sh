@@ -17,6 +17,7 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 section() { echo -e "\n${BLUE}═══ $1 ═══${NC}"; }
 
 FAILURES=0
+PROFILE_ARGS="--profile observe-core --profile observe-ai --profile observe-agent --profile observe-icinga --profile observe-monitoring --profile observe-proxy --profile observe-discovery"
 
 # ─── Argumentos ───────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -45,7 +46,7 @@ fi
 # ─── docker compose config ────────────────────────────────────────────────────
 section "Validação do compose"
 
-if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config --quiet 2>&1; then
+if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS $PROFILE_ARGS config --quiet 2>&1; then
   pass "docker compose config: sem erros de sintaxe"
 else
   fail "docker compose config falhou"
@@ -57,13 +58,13 @@ section "Serviços esperados"
 EXPECTED_SERVICES=(
   "observe-postgres" "observe-redis"
   "observe-api" "observe-worker"
-  "observe-ai" "observe-agent"
+  "observe-ai" "observe-agent" "observe-discovery"
   "icinga2" "icingadb" "icingaweb2" "icinga-redis"
   "prometheus" "loki" "grafana" "otel-collector"
   "observe-proxy"
 )
 
-DEFINED_SERVICES=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config --services 2>/dev/null)
+DEFINED_SERVICES=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS $PROFILE_ARGS config --services 2>/dev/null)
 
 for svc in "${EXPECTED_SERVICES[@]}"; do
   if echo "$DEFINED_SERVICES" | grep -q "^${svc}$"; then
@@ -84,7 +85,7 @@ EXPECTED_VOLUMES=(
 )
 
 for vol in "${EXPECTED_VOLUMES[@]}"; do
-  if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config 2>/dev/null | grep -q "^  ${vol}:"; then
+  if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS $PROFILE_ARGS config 2>/dev/null | grep -q "^  ${vol}:"; then
     pass "Volume definido: $vol"
   else
     warn "Volume não encontrado na saída do config: $vol (pode ser normal)"
@@ -97,7 +98,7 @@ section "Redes esperadas"
 EXPECTED_NETWORKS=("observe-public" "observe-internal" "observe-monitoring" "observe-agent")
 
 for net in "${EXPECTED_NETWORKS[@]}"; do
-  if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config 2>/dev/null | grep -q "^  ${net}:"; then
+  if docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS $PROFILE_ARGS config 2>/dev/null | grep -q "^  ${net}:"; then
     pass "Rede definida: $net"
   else
     fail "Rede ausente: $net"
@@ -107,7 +108,7 @@ done
 # ─── Segurança ────────────────────────────────────────────────────────────────
 section "Validação de segurança"
 
-COMPOSE_FULL=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS config 2>/dev/null)
+COMPOSE_FULL=$(docker compose -f "$COMPOSE_FILE" $COMPOSE_ARGS $PROFILE_ARGS config 2>/dev/null)
 
 # Banco não deve ter porta exposta
 if echo "$COMPOSE_FULL" | grep -A5 "container_name: observe-postgres" | grep -q "published:"; then
@@ -123,11 +124,13 @@ else
   pass "Redis sem porta exposta"
 fi
 
-# docker.sock read-only
-if echo "$COMPOSE_FULL" | grep "docker.sock" | grep -v ":ro" | grep -v "#"; then
-  fail "docker.sock montado sem :ro!"
-else
+# docker.sock deve ser somente leitura
+SOCK_MOUNTS=$(grep -E "^[[:space:]]*-[[:space:]]*/var/run/docker.sock:/var/run/docker.sock" "$COMPOSE_FILE" | grep -v "#" || true)
+SOCK_RW_COUNT=$(echo "$SOCK_MOUNTS" | grep -v ":ro" | grep -c "/var/run/docker.sock" || true)
+if [ "$SOCK_RW_COUNT" -eq 0 ]; then
   pass "docker.sock somente leitura (ou ausente)"
+else
+  fail "docker.sock montado sem :ro!"
 fi
 
 # ─── Arquivos de config ────────────────────────────────────────────────────────
@@ -149,6 +152,7 @@ CONFIG_FILES=(
   "${ROOT_DIR}/r-observe/worker/Dockerfile"
   "${ROOT_DIR}/r-observe/ai/Dockerfile"
   "${ROOT_DIR}/r-observe/agent/Dockerfile"
+  "${ROOT_DIR}/r-observe/discovery/Dockerfile"
 )
 
 for f in "${CONFIG_FILES[@]}"; do

@@ -42,6 +42,14 @@ scrape_configs:
         labels:
           service: 'r-observe-agent'
 
+  # R-Observe Discovery
+  - job_name: 'r-observe-discovery'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['observe-discovery:3010']
+        labels:
+          service: 'r-observe-discovery'
+
   # Prometheus self-scrape
   - job_name: 'prometheus'
     static_configs:
@@ -66,6 +74,15 @@ scrape_configs:
       - source_labels: [__address__]
         regex: '.+:(9100|9104|9108|9115|9117|9121|9187|9256|9419|9090|9091)'
         action: keep
+      - source_labels: [job]
+        target_label: job
+
+  # ── HTTP SD Discovery Engine ───────────────────────────────────────────────
+  - job_name: 'discovery-engine-http-sd'
+    http_sd_configs:
+      - url: 'http://observe-discovery:3010/api/discovery/prometheus/http-sd'
+        refresh_interval: 30s
+    relabel_configs:
       - source_labels: [job]
         target_label: job
 
