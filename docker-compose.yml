@@ -5,17 +5,12 @@ services:
     container_name: secure-httpd
     restart: unless-stopped
     depends_on:
-      internal-dns-a:
-        condition: service_started
-      internal-dns-b:
-        condition: service_started
       joomla:
         condition: service_started
       lsyncd:
         condition: service_started
     dns:
-      - 172.28.53.53
-      - 172.28.53.54
+      - ${HTTP_DOCKER_DNS:-172.25.0.1}
     ports:
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:8080"
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTPS_PORT:-443}:8443"
@@ -57,7 +52,6 @@ services:
       - /tmp
     networks:
       default:
-      dns-internal:
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -73,21 +67,20 @@ services:
     container_name: results-joomla
     restart: unless-stopped
     depends_on:
-      internal-dns-a:
-        condition: service_started
-      internal-dns-b:
-        condition: service_started
       joomla-lsyncd:
         condition: service_started
     dns:
-      - 172.28.53.53
-      - 172.28.53.54
+      - ${HTTP_DOCKER_DNS:-172.25.0.1}
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
       JOOMLA_DB_HOST: ${JOOMLA_DB_HOST:-10.10.2.99}
       JOOMLA_DB_NAME: ${JOOMLA_DB_NAME:-joomla}
       JOOMLA_DB_USER: ${JOOMLA_DB_USER:-resultsdba}
       JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-}
+      ROUNDCUBE_DB_PASSWORD: ${ROUNDCUBE_DB_PASSWORD:-}
+      ROUNDCUBE_IMAP_HOST: ${ROUNDCUBE_IMAP_HOST:-ssl://imap.results.com.br}
+      ROUNDCUBE_SMTP_SERVER: ${ROUNDCUBE_SMTP_SERVER:-tls://mx1.results.com.br}
+      ROUNDCUBE_MANAGESIEVE_HOST: ${ROUNDCUBE_MANAGESIEVE_HOST:-imap.results.com.br}
     volumes:
       - joomla-site-data:/var/www/html/results
       - joomla-logs:/var/www/html/results/logs
@@ -97,7 +90,7 @@ services:
       - /tmp
     networks:
       default:
-      dns-internal:
+      mail-backend:
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -185,46 +178,6 @@ services:
       retries: 5
       start_period: 10s
 
-  internal-dns-a:
-    image: coredns/coredns:1.11.1
-    container_name: results-internal-dns-a
-    restart: unless-stopped
-    command: ["-conf", "/etc/coredns/Corefile"]
-    volumes:
-      - ./dns-internal/Corefile:/etc/coredns/Corefile:ro
-      - ./dns-internal/zones:/zones:ro
-    networks:
-      dns-internal:
-        ipv4_address: 172.28.53.53
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 53 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
-  internal-dns-b:
-    image: coredns/coredns:1.11.1
-    container_name: results-internal-dns-b
-    restart: unless-stopped
-    command: ["-conf", "/etc/coredns/Corefile"]
-    volumes:
-      - ./dns-internal/Corefile:/etc/coredns/Corefile:ro
-      - ./dns-internal/zones:/zones:ro
-    networks:
-      dns-internal:
-        ipv4_address: 172.28.53.54
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 53 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
 volumes:
   site-data:
   md-data:
@@ -234,8 +187,6 @@ volumes:
   joomla-logs:
 
 networks:
-  dns-internal:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.53.0/24
+  mail-backend:
+    external: true
+    name: ${MAIL_BACKEND_NETWORK:-infra-mail_default}
