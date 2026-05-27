@@ -10,6 +10,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ "${RELEASE_LOCK_HELD:-0}" != "1" ]]; then
+  RELEASE_LOCK_FILE="${RELEASE_LOCK_FILE:-/tmp/infra-release.lock}"
+  exec 9>"$RELEASE_LOCK_FILE"
+  if ! flock -n 9; then
+    echo "[release:audit] erro: outro pipeline de release esta em execucao (lock: $RELEASE_LOCK_FILE)" >&2
+    exit 1
+  fi
+  export RELEASE_LOCK_HELD=1
+  export RELEASE_LOCK_FILE
+fi
+
 BOLD='\033[1m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -35,16 +46,18 @@ ZIP_MAIN="dist/infra.zip"
 ZIP_RELEASE="dist/infra-release.zip"
 AUDIT_VALIDATE_SKIP_CONTENT_SCAN="${RELEASE_AUDIT_SKIP_CONTENT_SCAN:-1}"
 
-# ── Bootstrap dos artefatos (resiliência) ───────────────────────────────────
-if [[ ! -f "$ZIP_MAIN" ]]; then
-  _info "infra.zip ausente; gerando com 'npm run zip'"
-  npm run zip
-fi
+ensure_zip_exists() {
+  local zip_path="$1"
+  local build_cmd="$2"
+  if [[ ! -f "$zip_path" ]]; then
+    _info "Artefato ausente durante auditoria: $zip_path; regenerando com '$build_cmd'"
+    eval "$build_cmd"
+  fi
+}
 
-if [[ ! -f "$ZIP_RELEASE" ]]; then
-  _info "infra-release.zip ausente; gerando com 'npm run zip:release'"
-  npm run zip:release
-fi
+# ── Bootstrap dos artefatos (resiliência) ───────────────────────────────────
+ensure_zip_exists "$ZIP_MAIN" "npm run zip"
+ensure_zip_exists "$ZIP_RELEASE" "npm run zip:release"
 
 # ── Seção 1: Presença dos artefatos ──────────────────────────────────────────
 _section "1/6  PRESENÇA DOS ARTEFATOS"
@@ -66,6 +79,11 @@ fi
 # ── Seção 2: Validação completa via validate-zip.sh ──────────────────────────
 _section "2/6  VALIDAÇÃO COMPLETA (validate-zip.sh)"
 for z in "$ZIP_MAIN" "$ZIP_RELEASE"; do
+  if [[ "$z" == "$ZIP_MAIN" ]]; then
+    ensure_zip_exists "$ZIP_MAIN" "npm run zip"
+  else
+    ensure_zip_exists "$ZIP_RELEASE" "npm run zip:release"
+  fi
   VLOG="$TMPD/validate-$(basename "$z" .zip).log"
   set +e
   if [[ "$AUDIT_VALIDATE_SKIP_CONTENT_SCAN" == "1" ]]; then
@@ -86,6 +104,11 @@ done
 # ── Seção 3: Contagem de arquivos ────────────────────────────────────────────
 _section "3/6  CONTAGEM DE ARQUIVOS"
 for z in "$ZIP_MAIN" "$ZIP_RELEASE"; do
+  if [[ "$z" == "$ZIP_MAIN" ]]; then
+    ensure_zip_exists "$ZIP_MAIN" "npm run zip"
+  else
+    ensure_zip_exists "$ZIP_RELEASE" "npm run zip:release"
+  fi
   COUNT="$(unzip -Z -1 "$z" | wc -l | tr -d ' ')"
   if [[ "$COUNT" -ge 500 ]]; then
     _pass "Quantidade: $z  ($COUNT arquivos ≥ 500)"

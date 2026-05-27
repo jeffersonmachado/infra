@@ -21,3 +21,11 @@ tmp/
 *.log
 *.pem
 *.key
+
+# Discovery Enterprise payload must never be filtered from release packages.
+!r-observe/discovery/src/passive/**
+!r-observe/discovery/src/scanners/**
+!r-observe/discovery/src/topology/**
+!r-observe/discovery/tests/unit/**
+!scripts/discovery/**
+!docs/observe/**

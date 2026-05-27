@@ -36,6 +36,15 @@ else
   echo "[observe-init] ICINGA_ROOT_PASSWORD não definido — usuário root omitido."
 fi
 
+# A API precisa aceitar comandos e objetos criados pela R-Observe API
+# (registerHost, reschedule-check e ações de remediação).
+API_CONF="/etc/icinga2/features-enabled/api.conf"
+if [ -f "${API_CONF}" ]; then
+  sed -i 's/accept_config = false/accept_config = true/' "${API_CONF}"
+  sed -i 's/accept_commands = false/accept_commands = true/' "${API_CONF}"
+  echo "[observe-init] API habilitada para config e commands."
+fi
+
 # Valida antes de iniciar
 icinga2 daemon -C
 echo "[observe-init] Configuração validada. Iniciando daemon..."

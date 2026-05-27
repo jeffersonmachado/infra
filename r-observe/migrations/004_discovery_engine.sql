@@ -211,5 +211,5 @@ CREATE INDEX IF NOT EXISTS idx_observe_asset_history_asset ON observe_asset_hist
 INSERT INTO observe_discovery_policies
   (tenant_id, site_id, edge_id, name, scan_profile, active_enabled, passive_enabled, allowed_ranges, blocked_ranges, max_rate_per_minute, auto_prometheus_sd, auto_icinga_sync, is_default, metadata)
 VALUES
-  ('default', 'default-site', 'central', 'default-safe', 'safe', true, true, '["10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31.","192.168."]', '[]', 300, true, false, true, '{"note":"safe by default"}')
+  ('default', 'default-site', 'central', 'default-safe', 'safe', true, true, '["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]', '[]', 300, true, false, true, '{"note":"safe by default"}')
 ON CONFLICT DO NOTHING;

@@ -4,7 +4,7 @@ const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3080';
 const ICINGA_USER = process.env.ICINGAWEB_ADMIN_USER || 'admin';
-const ICINGA_PASS = process.env.ICINGAWEB_ADMIN_PASS || 'admin';
+const ICINGA_PASS = process.env.ICINGAWEB_ADMIN_PASS || 'CHANGE_ME';
 
 test('IcingaWeb2 — login admin e acesso ao dashboard', async ({ page }) => {
   // Acessa a página de login

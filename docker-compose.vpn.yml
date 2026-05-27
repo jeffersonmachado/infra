@@ -11,7 +11,8 @@
 #   1194/tcp  → OpenVPN
 #   500/udp, 4500/udp, 1701/udp → L2TP/IPsec (opcional)
 #
-# Esta stack espelha a estrutura em produção em /root/vpn/docker-compose.yml.
+# Diretório operacional obrigatório: /opt/results/infra.
+# Use somente /opt/results/infra como diretório de trabalho e fonte de deploy.
 # O container deve permanecer como "rvpn" e o volume como "vpn_softetherdata"
 # para não trocar a identidade/configuração do SoftEther em uma recriação.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ services:
   softether-vpn-server:
     image: softethervpn/vpnserver:stable
     container_name: rvpn
-    restart: unless-stopped
+    restart: always
     cap_add:
       - NET_ADMIN
     ports:

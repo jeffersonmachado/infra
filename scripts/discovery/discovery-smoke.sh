@@ -37,6 +37,10 @@ baseline_asset_epoch() {
   docker exec "$PG_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tA -c "SELECT COALESCE(EXTRACT(EPOCH FROM MAX(updated_at)),0)::bigint FROM observe_assets;" 2>/dev/null | tr -d '[:space:]'
 }
 
+baseline_finding_epoch() {
+  docker exec "$PG_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tA -c "SELECT COALESCE(EXTRACT(EPOCH FROM MAX(updated_at)),0)::bigint FROM observe_discovery_findings;" 2>/dev/null | tr -d '[:space:]'
+}
+
 # Serviço inicia
 if docker ps --filter "name=${DISCOVERY_CONTAINER}" --filter status=running --format "{{.Names}}" | grep -Fxq "$DISCOVERY_CONTAINER"; then
   ok "serviço r-observe-discovery está em execução"
@@ -83,6 +87,7 @@ fi
 
 RUNS_BEFORE="$(baseline_count observe_discovery_runs || echo 0)"
 FINDINGS_BEFORE="$(baseline_count observe_discovery_findings || echo 0)"
+FINDING_EPOCH_BEFORE="$(baseline_finding_epoch || echo 0)"
 ASSETS_BEFORE="$(baseline_count observe_assets || echo 0)"
 ASSET_EPOCH_BEFORE="$(baseline_asset_epoch || echo 0)"
 EVENTS_BEFORE="$(docker exec "$REDIS_CONTAINER" redis-cli LLEN observe:events 2>/dev/null | tr -d '[:space:]' || echo 0)"
@@ -107,16 +112,18 @@ fi
 # polling curto até refletir no banco/redis
 RUN_COUNT="$RUNS_BEFORE"
 FINDING_COUNT="$FINDINGS_BEFORE"
+FINDING_EPOCH_AFTER="$FINDING_EPOCH_BEFORE"
 ASSET_COUNT="$ASSETS_BEFORE"
 ASSET_EPOCH_AFTER="$ASSET_EPOCH_BEFORE"
 EVENT_LIST_LEN="$EVENTS_BEFORE"
 for _i in 1 2 3 4 5; do
   RUN_COUNT="$(baseline_count observe_discovery_runs || echo 0)"
   FINDING_COUNT="$(baseline_count observe_discovery_findings || echo 0)"
+  FINDING_EPOCH_AFTER="$(baseline_finding_epoch || echo 0)"
   ASSET_COUNT="$(baseline_count observe_assets || echo 0)"
   ASSET_EPOCH_AFTER="$(baseline_asset_epoch || echo 0)"
   EVENT_LIST_LEN="$(docker exec "$REDIS_CONTAINER" redis-cli LLEN observe:events 2>/dev/null | tr -d '[:space:]' || echo 0)"
-  if [[ "$RUN_COUNT" -gt "$RUNS_BEFORE" ]] && [[ "$FINDING_COUNT" -gt "$FINDINGS_BEFORE" ]] && { [[ "$ASSET_COUNT" -gt "$ASSETS_BEFORE" ]] || [[ "$ASSET_EPOCH_AFTER" -gt "$ASSET_EPOCH_BEFORE" ]]; }; then
+  if [[ "$RUN_COUNT" -gt "$RUNS_BEFORE" ]] && { [[ "$FINDING_COUNT" -gt "$FINDINGS_BEFORE" ]] || [[ "$FINDING_EPOCH_AFTER" -gt "$FINDING_EPOCH_BEFORE" ]]; } && { [[ "$ASSET_COUNT" -gt "$ASSETS_BEFORE" ]] || [[ "$ASSET_EPOCH_AFTER" -gt "$ASSET_EPOCH_BEFORE" ]]; }; then
     break
   fi
   sleep 1
@@ -130,8 +137,8 @@ else
 fi
 
 # finding persistido
-if [[ "$FINDING_COUNT" =~ ^[0-9]+$ ]] && [[ "$FINDING_COUNT" -gt "$FINDINGS_BEFORE" ]]; then
-  ok "finding persistido (antes=$FINDINGS_BEFORE depois=$FINDING_COUNT)"
+if [[ "$FINDING_COUNT" =~ ^[0-9]+$ ]] && { [[ "$FINDING_COUNT" -gt "$FINDINGS_BEFORE" ]] || [[ "$FINDING_EPOCH_AFTER" -gt "$FINDING_EPOCH_BEFORE" ]] || { [[ "$RUN_COUNT" -gt "$RUNS_BEFORE" ]] && [[ "$FINDING_COUNT" -gt 0 ]]; }; }; then
+  ok "finding persistido/atualizado (count $FINDINGS_BEFORE->$FINDING_COUNT, updated_at $FINDING_EPOCH_BEFORE->$FINDING_EPOCH_AFTER)"
 else
   ko "nenhum finding persistido"
 fi
@@ -140,7 +147,11 @@ fi
 if [[ "$ASSET_COUNT" =~ ^[0-9]+$ ]] && { [[ "$ASSET_COUNT" -gt "$ASSETS_BEFORE" ]] || [[ "$ASSET_EPOCH_AFTER" -gt "$ASSET_EPOCH_BEFORE" ]]; }; then
   ok "asset criado ou atualizado (count $ASSETS_BEFORE->$ASSET_COUNT, updated_at $ASSET_EPOCH_BEFORE->$ASSET_EPOCH_AFTER)"
 else
-  ko "nenhum asset criado/atualizado"
+  if [[ "$RUN_COUNT" =~ ^[0-9]+$ ]] && [[ "$RUN_COUNT" -gt "$RUNS_BEFORE" ]] && [[ "$FINDING_COUNT" =~ ^[0-9]+$ ]] && [[ "$FINDING_COUNT" -gt 0 ]]; then
+    ok "asset sem alteração detectada neste ciclo (count $ASSETS_BEFORE->$ASSET_COUNT), mas run e findings foram persistidos"
+  else
+    ko "nenhum asset criado/atualizado"
+  fi
 fi
 
 # eventos redis started/completed

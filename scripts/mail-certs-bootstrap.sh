@@ -11,7 +11,8 @@ BOOTSTRAP_DAYS="${MAIL_BOOTSTRAP_CERT_DAYS:-7}"
 mkdir -p "$CERT_DIR"
 
 if ! command -v openssl >/dev/null 2>&1; then
-  apk add --no-cache openssl >/dev/null
+  echo "openssl nao encontrado na imagem do bootstrap de certificados" >&2
+  exit 1
 fi
 
 raw_domains="${MAIL_ACME_DOMAINS:-${MAIL_HOSTNAME:-} ${MAIL_MX2_HOSTNAME:-} ${MAIL_IMAP_HOSTNAME:-}}"

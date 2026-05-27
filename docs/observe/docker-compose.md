@@ -8,9 +8,9 @@
 
 | Profile              | Serviços incluídos                                          |
 |----------------------|-------------------------------------------------------------|
-| `observe-core`       | postgres, redis, observe-api, observe-worker                |
-| `observe-ai`         | observe-ai                                                  |
-| `observe-agent`      | observe-agent                                               |
+| `observe-core`       | postgres, redis, r-observe-api, r-observe-worker, r-observe-discovery |
+| `observe-ai`         | r-observe-ai                                                |
+| `observe-agent`      | r-observe-agent                                             |
 | `observe-icinga`     | icinga-redis, icinga2, icingadb, icingaweb2                |
 | `observe-monitoring` | prometheus, loki, grafana, otel-collector                  |
 | `observe-proxy`      | observe-proxy (Nginx)                                       |
@@ -54,16 +54,16 @@ COMPOSE="docker compose -f docker-compose.observe.yml --env-file .env.observe"
 $COMPOSE --profile observe-core up -d
 
 # Ver logs de um serviço
-$COMPOSE logs -f observe-api
+$COMPOSE logs -f r-observe-api
 
 # Escalar worker (futuro)
-$COMPOSE up -d --scale observe-worker=2
+$COMPOSE up -d --scale r-observe-worker=2
 
 # Restart de um serviço
-$COMPOSE restart observe-api
+$COMPOSE restart r-observe-api
 
 # Exec no container da API
-$COMPOSE exec observe-api sh
+$COMPOSE exec r-observe-api sh
 ```
 
 ## Variáveis de ambiente

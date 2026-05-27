@@ -103,7 +103,7 @@ async function fetchProviderModels(provider) {
         headers: { Authorization: `Bearer ${runtimeConfig.apiKey}` },
         signal: AbortSignal.timeout(8000),
       });
-      if (!resp.ok) return { models: STATIC_MODELS.openai, source: 'static' };
+      if (!resp.ok) return { models: sortModelsByRecency(STATIC_MODELS.openai), source: 'static' };
       const { data } = await resp.json();
       return {
         models: sortModelsByRecency(
@@ -496,6 +496,93 @@ app.post('/ai/summarize', requireAuth, limiter, async (req, res) => {
     res.status(502).json({ error: e.message });
   }
 });
+
+// POST /ai/fingerprint — identifica dispositivos desconhecidos por sinais passivos
+app.post('/ai/fingerprint', requireAuth, limiter, async (req, res) => {
+  const { signals } = req.body;
+  if (!signals) return res.status(400).json({ error: 'signals é obrigatório' });
+
+  try {
+    const result = await fingerprintDevice(signals);
+    res.json(result);
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+/** Prompt para identificação de dispositivo de rede por sinais passivos. */
+function buildFingerprintPrompt(signals) {
+  const lines = [
+    'Você é um especialista em segurança de redes. Identifique o dispositivo de rede com base nos sinais passivos abaixo.',
+    '',
+    '## Sinais Observados',
+  ];
+  if (signals.mac)          lines.push(`MAC: ${signals.mac}`);
+  if (signals.mac_vendor)   lines.push(`Fabricante pelo OUI: ${signals.mac_vendor}`);
+  if (signals.hostname)     lines.push(`Hostname: ${signals.hostname}`);
+  if (signals.ip)           lines.push(`IP: ${signals.ip}`);
+  if (signals.open_ports?.length) lines.push(`Portas abertas: ${signals.open_ports.join(', ')}`);
+  if (signals.mdns_services?.length) lines.push(`Serviços mDNS: ${signals.mdns_services.join(', ')}`);
+  if (signals.ssdp_server)  lines.push(`SSDP Server: ${signals.ssdp_server}`);
+  if (signals.txt_manufacturer) lines.push(`Fabricante (TXT): ${signals.txt_manufacturer}`);
+  if (signals.txt_model)    lines.push(`Modelo (TXT): ${signals.txt_model}`);
+  if (signals.txt_friendly_name) lines.push(`Nome amigável: ${signals.txt_friendly_name}`);
+  if (signals.raw_mdns)     lines.push(`mDNS raw (trecho): ${String(signals.raw_mdns).slice(0, 300)}`);
+  if (signals.raw_ssdp)     lines.push(`SSDP raw (trecho): ${String(signals.raw_ssdp).slice(0, 300)}`);
+
+  lines.push(
+    '',
+    'Responda SOMENTE com JSON válido contendo:',
+    '- vendor (string): fabricante do dispositivo, ou null se desconhecido',
+    '- product (string): nome do produto/modelo, ou null se desconhecido',
+    '- category (string): uma de: mobile, media, iot, host, router, switch, ap, printer, camera, voice, unknown',
+    '- technology (string): tecnologia principal (ex: android, ios, linux, windows, upnp-media, etc.), ou null',
+    '- asset_type (string): uma de: mobile, media_device, iot, host, network_device',
+    '- confidence (number): 0.0 a 1.0 — sua confiança na classificação',
+    '- reasoning (string): explicação em 1 frase do que levou à identificação',
+  );
+  return lines.join('\n');
+}
+
+/** Mock para quando provider = mock. */
+function mockFingerprintDevice(signals) {
+  const raw = [
+    signals.ssdp_server, signals.txt_manufacturer, signals.txt_model,
+    signals.hostname, (signals.mdns_services || []).join(' '), signals.raw_mdns,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (raw.includes('hisense') || raw.includes('smarttv') || raw.includes('airplay')) {
+    return { vendor: signals.txt_manufacturer || 'Hisense', product: signals.txt_model || 'Smart TV', category: 'media', technology: 'upnp-media', asset_type: 'media_device', confidence: 0.85, reasoning: '[MOCK] Detectado por AirPlay/Hisense', provider: 'mock', model: 'mock-v1' };
+  }
+  if (raw.includes('linux') || raw.includes('avahi')) {
+    return { vendor: 'Linux', product: 'Linux Host', category: 'host', technology: 'linux', asset_type: 'host', confidence: 0.80, reasoning: '[MOCK] Detectado por stack Linux/Avahi', provider: 'mock', model: 'mock-v1' };
+  }
+  if (raw.includes('googlecast') || raw.includes('motorola') || raw.includes('android')) {
+    return { vendor: signals.txt_manufacturer || 'Motorola', product: signals.txt_model || 'Smartphone Android', category: 'mobile', technology: 'android', asset_type: 'mobile', confidence: 0.82, reasoning: '[MOCK] Detectado por Google Cast/Android', provider: 'mock', model: 'mock-v1' };
+  }
+  return { vendor: null, product: null, category: 'unknown', technology: null, asset_type: 'iot', confidence: 0.2, reasoning: '[MOCK] Sinais insuficientes para identificação', provider: 'mock', model: 'mock-v1' };
+}
+
+async function fingerprintDevice(signals) {
+  if (runtimeConfig.provider === 'mock') return mockFingerprintDevice(signals);
+
+  const prompt = buildFingerprintPrompt(signals);
+  const effectiveModel = resolveModel(runtimeConfig.provider, runtimeConfig.model);
+  let raw = '';
+
+  if (runtimeConfig.provider === 'openai')         raw = await callOpenAI(prompt);
+  else if (runtimeConfig.provider === 'deepseek')  raw = await callDeepSeek(prompt);
+  else if (runtimeConfig.provider === 'anthropic') raw = await callAnthropic(prompt);
+  else return mockFingerprintDevice(signals);
+
+  try {
+    const match  = raw.match(/\{[\s\S]*\}/);
+    const parsed = match ? JSON.parse(match[0]) : {};
+    return { ...parsed, provider: runtimeConfig.provider, model: effectiveModel };
+  } catch {
+    return { summary: raw, provider: runtimeConfig.provider, model: effectiveModel };
+  }
+}
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 

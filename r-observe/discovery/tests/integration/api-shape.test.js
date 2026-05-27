@@ -24,3 +24,10 @@ test('index da API discovery contem endpoints obrigatorios', () => {
     assert.ok(code.includes(endpoint), `endpoint ausente: ${endpoint}`);
   }
 });
+
+test('endpoints de dados da UI discovery exigem autenticação interna', () => {
+  const p = path.resolve(__dirname, '../../src/index.js');
+  const code = fs.readFileSync(p, 'utf8');
+  assert.match(code, /app\.get\('\/observe\/discovery\/data\/summary', requireAuth,/);
+  assert.match(code, /app\.get\('\/observe\/discovery\/data\/scopes', requireAuth,/);
+});

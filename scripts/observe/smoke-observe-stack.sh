@@ -145,7 +145,7 @@ if [ -n "$INCIDENT_ID" ]; then
   pass "Incidente criado pelo worker: $INCIDENT_ID"
 else
   fail "Worker não criou incidente no tempo esperado (${MAX_WAIT}s)"
-  warn "Verifique se observe-worker está rodando: docker logs r-observe-worker"
+  warn "Verifique se r-observe-worker está rodando: docker logs r-observe-worker"
 fi
 
 # ─── Step 5: IA gerou análise ────────────────────────────────────────────────

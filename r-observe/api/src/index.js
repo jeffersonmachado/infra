@@ -1,26 +1,87 @@
 'use strict';
 
 const path = require('path');
+const crypto = require('crypto');
+const { Readable } = require('stream');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
-const { Pool } = require('pg');
 const Redis = require('ioredis');
 const client = require('prom-client');
 const { v4: uuidv4 } = require('uuid');
 const icinga = require('./icinga');
+const { createDbClient } = require('./db');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const BASE = process.env.BASE_PATH || '/observe/api';
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN || '';
+const SESSION_COOKIE = process.env.OBSERVE_SESSION_COOKIE || 'observe_session';
+const SESSION_TTL_HOURS = parseInt(process.env.OBSERVE_SESSION_TTL_HOURS || '12', 10);
+const AI_SETTINGS_RECONCILE_INTERVAL_MS = parseInt(process.env.AI_SETTINGS_RECONCILE_INTERVAL_MS || '60000', 10);
+const IS_DEV = process.env.NODE_ENV === 'development';
+const VITE_DEV_ORIGIN = (process.env.VITE_DEV_ORIGIN || 'http://127.0.0.1:5177').replace(/\/+$/, '');
+const AI_SETTINGS_RECONCILE_STRICT = String(
+  process.env.AI_SETTINGS_RECONCILE_STRICT || (IS_DEV ? 'false' : 'true')
+).toLowerCase() === 'true';
+const OBSERVE_PROXY_ORIGIN = (process.env.OBSERVE_PROXY_ORIGIN || 'http://127.0.0.1:3080').replace(/\/+$/, '');
+const DISCOVERY_PROXY_ORIGIN = (
+  process.env.DISCOVERY_PROXY_ORIGIN ||
+  process.env.DISCOVERY_SERVICE_URL ||
+  (IS_DEV ? 'http://127.0.0.1:3010' : OBSERVE_PROXY_ORIGIN)
+).replace(/\/+$/, '');
+const GRAFANA_URL = process.env.GRAFANA_PUBLIC_URL || '/grafana/';
+const ICINGA_WEB_URL = process.env.ICINGA_WEB_PUBLIC_URL || '/icinga/';
+const DISCOVERY_UI_URL = process.env.DISCOVERY_UI_PUBLIC_URL || '/observe/discovery';
+const VALID_AI_PROVIDERS = ['openai', 'deepseek', 'anthropic', 'mock'];
+const AI_AUTO_MODELS = {
+  openai: 'gpt-4o-mini',
+  deepseek: 'deepseek-chat',
+  anthropic: 'claude-haiku-4-5-20251001',
+  mock: '',
+};
+const AI_STATIC_MODELS = {
+  openai: [
+    'chatgpt-4o-latest',
+    'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5-pro',
+    'gpt-5.1', 'gpt-5.2', 'gpt-5.4', 'gpt-5.5',
+    'gpt-4.5-preview',
+    'gpt-4o', 'gpt-4o-mini', 'gpt-4o-search-preview',
+    'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
+    'gpt-4-turbo', 'gpt-4',
+    'gpt-3.5-turbo',
+    'o1', 'o1-pro', 'o1-mini', 'o1-preview',
+    'o3', 'o3-mini',
+    'o4-mini',
+  ],
+  anthropic: [
+    'claude-opus-4-7',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5-20251001',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229',
+    'claude-3-sonnet-20240229',
+    'claude-3-haiku-20240307',
+  ],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  mock: [],
+};
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
 function log(level, msg, extra = {}) {
   if (level === 'debug' && LOG_LEVEL !== 'debug') return;
   process.stdout.write(JSON.stringify({ level, service: 'r-observe-api', msg, ts: new Date().toISOString(), ...extra }) + '\n');
+}
+
+function logAIReconcileIssue(msg, extra = {}) {
+  const err = new Error(msg);
+  err.details = extra;
+  const level = AI_SETTINGS_RECONCILE_STRICT ? 'error' : (extra.reason === 'interval' ? 'debug' : 'warn');
+  log(level, msg, extra);
+  if (AI_SETTINGS_RECONCILE_STRICT) throw err;
 }
 
 // ─── Metrics ─────────────────────────────────────────────────────────────────
@@ -40,18 +101,7 @@ const eventsReceivedTotal = new client.Counter({
 });
 
 // ─── Database ────────────────────────────────────────────────────────────────
-const db = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
-
-db.on('error', (err) => log('error', 'Database pool error', { err: err.message }));
+const db = createDbClient(process.env);
 
 // ─── Redis ────────────────────────────────────────────────────────────────────
 const redis = process.env.REDIS_URL
@@ -66,7 +116,68 @@ if (redis) {
 // ─── Express ──────────────────────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1);
-app.use('/observe/api/ui', express.static(path.join(__dirname, '../public')));
+
+// Dev: Vite CLI serve os assets com HMR. Prod: express.static.
+if (!IS_DEV) {
+  app.use('/observe/api/ui', express.static(path.join(__dirname, '../public')));
+}
+
+function collectRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(chunks.length ? Buffer.concat(chunks) : undefined));
+    req.on('error', reject);
+  });
+}
+
+function rewriteProxyLocation(value = '') {
+  if (!value) return value;
+  return value.replace(OBSERVE_PROXY_ORIGIN, '');
+}
+
+function rewriteDiscoveryDevPath(pathname) {
+  return pathname.replace(/^\/observe\/discovery\/api\/discovery(?=\/|$)/, '/api/discovery');
+}
+
+async function devProxyToOrigin(req, res, origin, rewritePath = (pathValue) => pathValue) {
+  const upstreamPath = rewritePath(req.originalUrl);
+  const target = `${origin}${upstreamPath}`;
+  try {
+    const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await collectRequestBody(req);
+    const headers = { ...req.headers, host: new URL(origin).host };
+    delete headers.connection;
+    delete headers['content-length'];
+
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers,
+      body,
+      redirect: 'manual',
+    });
+
+    res.status(upstream.status);
+    upstream.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (['connection', 'keep-alive', 'transfer-encoding', 'content-encoding', 'content-length'].includes(lower)) return;
+      const location = lower === 'location' ? rewriteProxyLocation(value).replace(origin, '') : value;
+      res.setHeader(key, location);
+    });
+
+    if (!upstream.body) return res.end();
+    Readable.fromWeb(upstream.body).pipe(res);
+  } catch (e) {
+    log('warn', 'Dev proxy failed', { path: req.originalUrl, target, err: e.message });
+    res.status(502).json({ error: 'Dev proxy unavailable', detail: e.message });
+  }
+}
+
+if (IS_DEV) {
+  app.use(['/grafana', '/icinga'], (req, res) => devProxyToOrigin(req, res, OBSERVE_PROXY_ORIGIN));
+  app.use(['/src', '/@vite', '/public', '/node_modules'], (req, res) => devProxyToOrigin(req, res, DISCOVERY_PROXY_ORIGIN));
+  app.use('/observe/discovery', (req, res) => devProxyToOrigin(req, res, DISCOVERY_PROXY_ORIGIN, rewriteDiscoveryDevPath));
+}
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : false,
@@ -84,20 +195,185 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Auth middleware ──────────────────────────────────────────────────────────
-const requireAuth = (req, res, next) => {
-  if (!INTERNAL_TOKEN) return next(); // sem token configurado = dev mode
+// ─── Auth + RBAC ─────────────────────────────────────────────────────────────
+function parseCookies(header = '') {
+  return Object.fromEntries(String(header || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const idx = part.indexOf('=');
+      const key = idx >= 0 ? part.slice(0, idx) : part;
+      const val = idx >= 0 ? part.slice(idx + 1) : '';
+      return [decodeURIComponent(key), decodeURIComponent(val)];
+    }));
+}
+
+function sessionHash(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+function isHttpsRequest(req) {
+  return req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+}
+
+function setSessionCookie(req, res, token, expiresAt) {
+  const secure = isHttpsRequest(req);
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+    path: '/',
+    expires: expiresAt,
+  });
+}
+
+function clearSessionCookie(req, res) {
+  res.clearCookie(SESSION_COOKIE, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isHttpsRequest(req),
+    path: '/',
+  });
+}
+
+async function getContactRole(username) {
+  const groupById = await db.query(`
+    SELECT 1
+    FROM icingaweb_group_membership gm
+    JOIN icingaweb_group g ON g.id = gm.group_id
+    WHERE lower(g.name) = lower('Administrators')
+      AND lower(gm.username) = lower($1::text)
+    LIMIT 1
+  `, [username]).catch(() => ({ rowCount: 0 }));
+  if (groupById.rowCount) return 'admin';
+
+  const groupByName = await db.query(`
+    SELECT 1
+    FROM icingaweb_group_membership gm
+    WHERE lower(gm.group_name) = lower('Administrators')
+      AND lower(gm.username) = lower($1::text)
+    LIMIT 1
+  `, [username]).catch(() => ({ rowCount: 0 }));
+  return groupByName.rowCount ? 'admin' : 'operator';
+}
+
+async function authenticateSession(req) {
+  const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+  if (!token) return null;
+
+  const r = await db.query(`
+    SELECT username, role, expires_at
+    FROM observe_sessions
+    WHERE token_hash = $1 AND expires_at > NOW()
+    LIMIT 1
+  `, [sessionHash(token)]);
+  if (!r.rowCount) return null;
+
+  const session = r.rows[0];
+  await db.query(
+    `UPDATE observe_sessions SET last_seen_at = NOW() WHERE token_hash = $1`,
+    [sessionHash(token)]
+  ).catch(() => {});
+  return {
+    type: 'session',
+    user: session.username,
+    role: session.role || await getContactRole(session.username),
+  };
+}
+
+async function authenticateRequest(req) {
+  if (!INTERNAL_TOKEN) return { type: 'dev', user: 'dev', role: 'admin' };
   const provided = req.headers['x-internal-token'] ||
     (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
-  if (provided !== INTERNAL_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (provided && provided === INTERNAL_TOKEN) {
+    return { type: 'token', user: 'internal', role: 'admin' };
   }
-  next();
-};
+  return authenticateSession(req);
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const auth = await authenticateRequest(req);
+    if (!auth) return res.status(401).json({ error: 'Unauthorized' });
+    req.auth = auth;
+    next();
+  } catch (e) {
+    log('warn', 'Auth failed', { err: e.message });
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
+function requireRole(role) {
+  const allowed = role === 'admin' ? ['admin'] : ['admin', 'operator'];
+  return (req, res, next) => {
+    if (!req.auth || !allowed.includes(req.auth.role)) {
+      return res.status(403).json({ error: 'Forbidden', required_role: role });
+    }
+    next();
+  };
+}
+
+const requireAdmin = requireRole('admin');
 
 // ─── Rate limiters ────────────────────────────────────────────────────────────
 const eventLimiter = rateLimit({ windowMs: 60_000, max: 100, standardHeaders: true, legacyHeaders: false });
 const apiLimiter  = rateLimit({ windowMs: 60_000, max: 300, standardHeaders: true, legacyHeaders: false });
+
+// ─── Auth endpoints ─────────────────────────────────────────────────────────
+app.post(`${BASE}/auth/login`, apiLimiter, async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
+  if (!username || !password) return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
+
+  try {
+    const r = await db.query(`
+      SELECT "name", "active"
+      FROM icingaweb_user
+      WHERE lower("name") = lower($1::text)
+        AND "active" = 1
+        AND "password_hash" = convert_to(crypt($2::text, convert_from("password_hash", 'UTF8')), 'UTF8')
+      LIMIT 1
+    `, [username, password]);
+    if (!r.rowCount) return res.status(401).json({ error: 'Credenciais inválidas' });
+
+    const user = r.rows[0].name;
+    const role = await getContactRole(user);
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+
+    await db.query(`
+      INSERT INTO observe_sessions (token_hash, username, role, user_agent, ip, expires_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      sessionHash(token),
+      user,
+      role,
+      String(req.headers['user-agent'] || '').slice(0, 512),
+      req.ip || req.socket?.remoteAddress || null,
+      expiresAt,
+    ]);
+
+    setSessionCookie(req, res, token, expiresAt);
+    res.json({ ok: true, user: { name: user, role }, expires_at: expiresAt.toISOString() });
+  } catch (e) {
+    log('warn', 'Login failed', { user: username, err: e.message });
+    res.status(500).json({ error: 'Falha ao autenticar' });
+  }
+});
+
+app.post(`${BASE}/auth/logout`, requireAuth, async (req, res) => {
+  const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+  if (token) {
+    await db.query(`DELETE FROM observe_sessions WHERE token_hash = $1`, [sessionHash(token)]).catch(() => {});
+  }
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+});
+
+app.get(`${BASE}/auth/me`, requireAuth, async (req, res) => {
+  res.json({ user: { name: req.auth.user, role: req.auth.role, auth_type: req.auth.type } });
+});
 
 // ─── Helper: proxy para o serviço AI ─────────────────────────────────────────
 async function proxyToAI(path, options = {}) {
@@ -113,11 +389,25 @@ async function proxyToAI(path, options = {}) {
     });
     return { ok: true, status: resp.status, data: await resp.json() };
   } catch (e) {
-    if (e.name === 'AbortError') return { ok: false, status: 504, data: { error: 'AI service timeout' } };
-    return { ok: false, status: 502, data: { error: 'AI service unavailable', detail: e.message } };
+    if (e.name === 'AbortError') {
+      return { ok: false, status: 504, data: { error: 'AI service timeout', detail: `Timeout after ${timeout}ms`, upstream: aiUrl, path } };
+    }
+    return { ok: false, status: 502, data: { error: 'AI service unavailable', detail: e.message, upstream: aiUrl, path } };
   } finally {
     clearTimeout(timer);
   }
+}
+
+function aiProxyFailureExtra(result, extra = {}) {
+  const data = result?.data || {};
+  return {
+    ...extra,
+    status: result?.status,
+    ai_error: data.error,
+    detail: data.detail,
+    upstream: data.upstream,
+    path: data.path,
+  };
 }
 
 async function proxyToDiscovery(path, options = {}) {
@@ -194,10 +484,51 @@ async function applyPersistedAISettingsOnStartup() {
 
   const result = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(payload) });
   if (!result.ok || result.status >= 400) {
-    log('warn', 'Failed to apply persisted AI settings on startup', { status: result.status });
+    logAIReconcileIssue('Failed to apply persisted AI settings on startup', aiProxyFailureExtra(result));
     return;
   }
   log('info', 'Persisted AI settings applied on startup', { provider: persisted.provider, model: persisted.model });
+}
+
+async function reconcilePersistedAISettings(reason = 'manual') {
+  const persisted = await getPersistedAISettings();
+  if (!persisted) return { synced: false, reason: 'no_persisted_settings' };
+
+  const payload = {
+    provider: persisted.provider,
+    model: persisted.model,
+  };
+  if (persisted.api_key) payload.api_key = persisted.api_key;
+
+  const current = await proxyToAI('/ai/settings');
+  if (!current.ok || current.status >= 400) {
+    const applied = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(payload) });
+    if (!applied.ok || applied.status >= 400) {
+      logAIReconcileIssue('Failed to reconcile persisted AI settings', aiProxyFailureExtra(applied, { reason }));
+      return { synced: false, reason: 'apply_failed' };
+    }
+    log('info', 'Persisted AI settings reconciled', { reason, provider: persisted.provider, model: persisted.model, mode: 'recover' });
+    return { synced: true, changed: true };
+  }
+
+  const currentData = current.data || {};
+  const driftDetected =
+    currentData.provider !== persisted.provider ||
+    currentData.model !== persisted.model ||
+    (!!currentData.has_api_key) !== (!!persisted.api_key);
+
+  if (!driftDetected) {
+    return { synced: true, changed: false };
+  }
+
+  const applied = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(payload) });
+  if (!applied.ok || applied.status >= 400) {
+    logAIReconcileIssue('Failed to apply drift correction for AI settings', aiProxyFailureExtra(applied, { reason }));
+    return { synced: false, reason: 'drift_apply_failed' };
+  }
+
+  log('info', 'AI settings drift corrected from persisted DB state', { reason, provider: persisted.provider, model: persisted.model });
+  return { synced: true, changed: true };
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -229,30 +560,70 @@ app.get(`${BASE}/status`, requireAuth, async (_req, res) => {
 function explainTacticalVsAI(tactical, aiMetrics) {
   const reasons = [];
 
-  reasons.push('Tactical mostra estado atual (snapshot) de hosts/servicos; IA mostra historico de incidentes e remediacoes acumuladas.');
+  reasons.push('Tactical mostra estado atual (snapshot) de hosts/serviços; IA mostra histórico de incidentes e remediações acumuladas.');
 
   if ((tactical.services.critical || 0) === 0 && (aiMetrics.pending_approval || 0) > 0) {
-    reasons.push('Mesmo sem servicos criticos agora, ha remediacoes pendentes de analises anteriores aguardando aprovacao.');
+    reasons.push('Mesmo sem serviços críticos agora, há remediações pendentes de análises anteriores aguardando aprovação.');
   }
 
   if ((aiMetrics.failed || 0) > 0) {
-    reasons.push('Falhas em IA/remediacao sao acumuladas no tempo e nao refletem somente o estado operacional instantaneo do Tactical.');
+    reasons.push('Falhas em IA/remediação são acumuladas no tempo e não refletem somente o estado operacional instantâneo do Tactical.');
   }
 
   if ((aiMetrics.total_analyzed || 0) > (tactical.services.total || 0)) {
-    reasons.push('Total analisado pela IA conta eventos/incidentes ao longo do tempo, por isso pode ser maior que o total de servicos monitorados.');
+    reasons.push('Total analisado pela IA conta eventos/incidentes ao longo do tempo, por isso pode ser maior que o total de serviços monitorados.');
   }
 
   return reasons;
 }
 
+async function getAIActivitySnapshot() {
+  const [incidents, remediations, feedback, catalog] = await Promise.all([
+    db.query(`
+      SELECT i.id, i.title, i.severity, i.status, i.source,
+             i.ai_summary, i.ai_cause, i.ai_suggestion, i.ai_pattern,
+             h.name AS host_name, i.created_at, i.updated_at
+      FROM observe_incidents i
+      LEFT JOIN observe_hosts h ON i.host_id = h.id
+      WHERE i.ai_summary IS NOT NULL
+      ORDER BY i.updated_at DESC LIMIT 20`),
+    db.query(`
+      SELECT action, status, confidence_score, auto_executed, execution_output, requested_at
+      FROM observe_remediations
+      ORDER BY requested_at DESC LIMIT 20`),
+    db.query(`
+      SELECT rating, COUNT(*) AS count
+      FROM observe_ai_feedback GROUP BY rating`),
+    db.query(`
+      SELECT action, description, risk, enabled, auto_ok, max_severity
+      FROM observe_ai_catalog ORDER BY risk, action`),
+  ]);
+
+  const remRows = remediations.rows;
+  const fbPos = feedback.rows.find(r => r.rating == 1)?.count || 0;
+  const fbNeg = feedback.rows.find(r => r.rating == -1)?.count || 0;
+
+  return {
+    metrics: {
+      total_analyzed: incidents.rowCount,
+      auto_executed: remRows.filter(r => r.auto_executed).length,
+      pending_approval: remRows.filter(r => r.status === 'pending_approval').length,
+      succeeded: remRows.filter(r => r.status === 'executed').length,
+      failed: remRows.filter(r => r.status === 'failed').length,
+      feedback_positive: Number(fbPos),
+      feedback_negative: Number(fbNeg),
+    },
+    recent_analyses: incidents.rows,
+    recent_remediations: remRows,
+    catalog: catalog.rows,
+  };
+}
+
 app.get(`${BASE}/comparison/tactical-ai`, requireAuth, async (_req, res) => {
   try {
     const tactical = await icinga.getTacticalSummary();
-    const aiResult = await proxyToAI('/ai/activity');
-    const aiMetrics = aiResult.ok && aiResult.status < 400
-      ? (aiResult.data.metrics || {})
-      : { total_analyzed: 0, auto_executed: 0, pending_approval: 0, succeeded: 0, failed: 0, feedback_positive: 0, feedback_negative: 0 };
+    const aiActivity = await getAIActivitySnapshot();
+    const aiMetrics = aiActivity.metrics;
 
     res.json({
       tactical,
@@ -263,6 +634,124 @@ app.get(`${BASE}/comparison/tactical-ai`, requireAuth, async (_req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+async function ensureAdministratorsGroup() {
+  await db.query(`
+    INSERT INTO icingaweb_group ("name", "ctime", "mtime")
+    SELECT 'Administrators', NOW(), NOW()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM icingaweb_group WHERE lower("name") = lower('Administrators')
+    )
+  `);
+  const r = await db.query(`SELECT id FROM icingaweb_group WHERE lower("name") = lower('Administrators') LIMIT 1`)
+    .catch(() => ({ rows: [] }));
+  return r.rows[0]?.id ?? null;
+}
+
+async function setContactAdmin(username, admin) {
+  const groupId = await ensureAdministratorsGroup();
+  if (groupId === null) return;
+  if (admin) {
+    await db.query(`
+      INSERT INTO icingaweb_group_membership ("group_id", "username", "ctime", "mtime")
+      SELECT $1::integer, $2::varchar, NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM icingaweb_group_membership
+        WHERE "group_id" = $1::integer AND lower("username") = lower($2::text)
+      )
+    `, [groupId, username]);
+  } else {
+    await db.query(
+      `DELETE FROM icingaweb_group_membership WHERE "group_id" = $1::integer AND lower("username") = lower($2::text)`,
+      [groupId, username]
+    );
+  }
+}
+
+// Contacts — usuários operacionais compartilhados com IcingaWeb2
+app.get(`${BASE}/contacts`, requireAuth, apiLimiter, async (_req, res) => {
+  try {
+    let r = await db.query(`
+      SELECT u.name, u.active, u.ctime, u.mtime,
+             EXISTS (
+               SELECT 1
+               FROM icingaweb_group_membership gm
+               JOIN icingaweb_group g ON g.id = gm.group_id
+               WHERE lower(g.name) = lower('Administrators')
+                 AND lower(gm.username) = lower(u.name)
+             ) AS admin
+      FROM icingaweb_user u
+      ORDER BY lower(u.name)
+      LIMIT 200
+    `).catch(async () => db.query(`
+      SELECT u.name, u.active, u.ctime, u.mtime,
+             EXISTS (
+               SELECT 1
+               FROM icingaweb_group_membership gm
+               WHERE lower(gm.group_name) = lower('Administrators')
+                 AND lower(gm.username) = lower(u.name)
+             ) AS admin
+      FROM icingaweb_user u
+      ORDER BY lower(u.name)
+      LIMIT 200
+    `));
+    res.json({ contacts: r.rows, total: r.rowCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post(`${BASE}/contacts`, requireAuth, requireAdmin, async (req, res) => {
+  const { name, password, active, admin } = req.body || {};
+  const username = String(name || '').trim();
+  if (!/^[a-zA-Z0-9_.@-]{2,128}$/.test(username)) {
+    return res.status(400).json({ error: 'name inválido' });
+  }
+  if (!password || String(password).length < 8) {
+    return res.status(400).json({ error: 'password deve ter pelo menos 8 caracteres' });
+  }
+  try {
+    const exists = await db.query(
+      `SELECT 1 FROM icingaweb_user WHERE lower("name") = lower($1::text) LIMIT 1`,
+      [username]
+    );
+    if (exists.rowCount) return res.status(409).json({ error: 'contato já existe' });
+    await db.query(`
+      INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
+      VALUES ($1::varchar, $2::smallint, convert_to(crypt($3::text, gen_salt('bf')), 'UTF8'), NOW(), NOW())
+    `, [username, active === false ? 0 : 1, String(password)]);
+    await setContactAdmin(username, admin === true);
+    res.status(201).json({ contact: { name: username, active: active === false ? 0 : 1, admin: admin === true } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch(`${BASE}/contacts/:name`, requireAuth, requireAdmin, async (req, res) => {
+  const username = String(req.params.name || '').trim();
+  const { password, active, admin } = req.body || {};
+  try {
+    const updates = [];
+    const vals = [];
+    let i = 1;
+    if (active !== undefined) { updates.push(`"active" = $${i++}::smallint`); vals.push(active === false ? 0 : 1); }
+    if (password) {
+      if (String(password).length < 8) return res.status(400).json({ error: 'password deve ter pelo menos 8 caracteres' });
+      updates.push(`"password_hash" = convert_to(crypt($${i++}::text, gen_salt('bf')), 'UTF8')`);
+      vals.push(String(password));
+    }
+    if (updates.length) {
+      updates.push('"mtime" = NOW()');
+      vals.push(username);
+      const r = await db.query(
+        `UPDATE icingaweb_user SET ${updates.join(', ')} WHERE lower("name") = lower($${i}::text) RETURNING "name", "active", "mtime"`,
+        vals
+      );
+      if (!r.rowCount) return res.status(404).json({ error: 'contato não encontrado' });
+    } else {
+      const exists = await db.query(`SELECT 1 FROM icingaweb_user WHERE lower("name") = lower($1::text) LIMIT 1`, [username]);
+      if (!exists.rowCount) return res.status(404).json({ error: 'contato não encontrado' });
+    }
+    if (admin !== undefined) await setContactAdmin(username, admin === true);
+    res.json({ updated: true, name: username });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Hosts — listagem
@@ -283,7 +772,7 @@ app.get(`${BASE}/hosts/:name`, requireAuth, async (req, res) => {
 });
 
 // Hosts — criação/upsert manual (registra em DB + Icinga2)
-app.post(`${BASE}/hosts`, requireAuth, async (req, res) => {
+app.post(`${BASE}/hosts`, requireAuth, requireAdmin, async (req, res) => {
   const { name, address, display_name, vars } = req.body;
   if (!name || !address) return res.status(400).json({ error: '"name" e "address" são obrigatórios' });
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(name))
@@ -311,7 +800,7 @@ app.post(`${BASE}/hosts`, requireAuth, async (req, res) => {
 });
 
 // Inventory — Docker local agent bulk upsert
-app.post(`${BASE}/inventory/docker`, requireAuth, async (req, res) => {
+app.post(`${BASE}/inventory/docker`, requireAuth, requireAdmin, async (req, res) => {
   const { agent_id, host, address, containers } = req.body || {};
   const hostName = host || agent_id;
   if (!hostName) return res.status(400).json({ error: '"agent_id" ou "host" é obrigatório' });
@@ -393,7 +882,7 @@ app.post(`${BASE}/inventory/docker`, requireAuth, async (req, res) => {
 });
 
 // Hosts — remoção (remove de DB + Icinga2)
-app.delete(`${BASE}/hosts/:name`, requireAuth, async (req, res) => {
+app.delete(`${BASE}/hosts/:name`, requireAuth, requireAdmin, async (req, res) => {
   const { name } = req.params;
   try {
     const r = await db.query('DELETE FROM observe_hosts WHERE name = $1 RETURNING id', [name]);
@@ -410,7 +899,7 @@ app.delete(`${BASE}/hosts/:name`, requireAuth, async (req, res) => {
 });
 
 // Hosts — dispara scan de rede (enfileira para o agente/script externo processar)
-app.post(`${BASE}/hosts/scan`, requireAuth, async (req, res) => {
+app.post(`${BASE}/hosts/scan`, requireAuth, requireAdmin, async (req, res) => {
   const { subnet } = req.body;
   const task = JSON.stringify({ type: 'scan:requested', subnet: subnet || null, requested_at: new Date().toISOString() });
   try {
@@ -466,18 +955,57 @@ app.get(`${BASE}/discovery/policies`, requireAuth, async (req, res) => {
   res.status(out.status).json(out.data);
 });
 
-app.post(`${BASE}/discovery/policies`, requireAuth, async (req, res) => {
+app.post(`${BASE}/discovery/policies`, requireAuth, requireAdmin, async (req, res) => {
   const out = await proxyToDiscovery('/api/discovery/policies', { method: 'POST', body: JSON.stringify(req.body || {}) });
   res.status(out.status).json(out.data);
 });
 
-app.post(`${BASE}/discovery/scan`, requireAuth, async (req, res) => {
+app.post(`${BASE}/discovery/scan`, requireAuth, requireAdmin, async (req, res) => {
   const out = await proxyToDiscovery('/api/discovery/scan', { method: 'POST', body: JSON.stringify(req.body || {}) });
   res.status(out.status).json(out.data);
 });
 
 app.get(`${BASE}/discovery/history`, requireAuth, async (req, res) => {
   const out = await proxyToDiscovery(`/api/discovery/history${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+
+app.get(`${BASE}/discovery/progress`, requireAuth, async (_req, res) => {
+  const out = await proxyToDiscovery('/api/discovery/progress');
+  res.status(out.status).json(out.data);
+});
+
+// Policies — PATCH e DELETE
+app.patch(`${BASE}/discovery/policies/:id`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/policies/${req.params.id}`, { method: 'PATCH', body: JSON.stringify(req.body || {}) });
+  res.status(out.status).json(out.data);
+});
+app.delete(`${BASE}/discovery/policies/:id`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/policies/${req.params.id}`, { method: 'DELETE' });
+  res.status(out.status).json(out.data);
+});
+
+// Targets — CRUD completo
+app.get(`${BASE}/discovery/targets`, requireAuth, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/targets${discoveryQuery(req)}`);
+  res.status(out.status).json(out.data);
+});
+app.post(`${BASE}/discovery/targets`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery('/api/discovery/targets', { method: 'POST', body: JSON.stringify(req.body || {}) });
+  res.status(out.status).json(out.data);
+});
+app.patch(`${BASE}/discovery/targets/:id`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/targets/${req.params.id}`, { method: 'PATCH', body: JSON.stringify(req.body || {}) });
+  res.status(out.status).json(out.data);
+});
+app.delete(`${BASE}/discovery/targets/:id`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/targets/${req.params.id}`, { method: 'DELETE' });
+  res.status(out.status).json(out.data);
+});
+
+// Assets — atualizar ciclo de vida
+app.patch(`${BASE}/discovery/assets/:id`, requireAuth, requireAdmin, async (req, res) => {
+  const out = await proxyToDiscovery(`/api/discovery/assets/${req.params.id}`, { method: 'PATCH', body: JSON.stringify(req.body || {}) });
   res.status(out.status).json(out.data);
 });
 
@@ -554,13 +1082,33 @@ app.post(`${BASE}/ai/explain`, requireAuth, async (req, res) => {
 
 // AI models — lista modelos do provider (real ou fallback estático)
 app.get(`${BASE}/ai/models`, requireAuth, async (req, res) => {
-  const qs = req.query.provider ? `?provider=${encodeURIComponent(req.query.provider)}` : '';
+  const provider = String(req.query.provider || 'openai').toLowerCase();
+  if (!VALID_AI_PROVIDERS.includes(provider)) {
+    return res.status(400).json({ error: 'provider inválido' });
+  }
+  const qs = `?provider=${encodeURIComponent(provider)}`;
   const result = await proxyToAI(`/ai/models${qs}`);
-  res.status(result.status).json(result.data);
+  if (result.ok && result.status < 400) {
+    return res.status(result.status).json(result.data);
+  }
+  res.json({
+    provider,
+    models: AI_STATIC_MODELS[provider] || [],
+    auto: AI_AUTO_MODELS[provider] || null,
+    source: 'static',
+    degraded: true,
+    ai_status: result.status,
+  });
 });
 
 // AI settings — lê configuração atual do provider
 app.get(`${BASE}/ai/settings`, requireAuth, async (_req, res) => {
+  try {
+    await reconcilePersistedAISettings('api_get_settings');
+  } catch (e) {
+    log('warn', 'Best-effort reconcile on GET /ai/settings failed', { err: e.message });
+  }
+
   const [result, persisted] = await Promise.all([
     proxyToAI('/ai/settings'),
     getPersistedAISettings(),
@@ -584,31 +1132,58 @@ app.get(`${BASE}/ai/settings`, requireAuth, async (_req, res) => {
 });
 
 // AI settings — atualiza provider/model/api_key em runtime
-app.post(`${BASE}/ai/settings`, requireAuth, async (req, res) => {
-  const result = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(req.body) });
-  if (!result.ok || result.status >= 400) {
-    return res.status(result.status).json(result.data);
+app.post(`${BASE}/ai/settings`, requireAuth, requireAdmin, async (req, res) => {
+  const body = req.body || {};
+  const provider = Object.prototype.hasOwnProperty.call(body, 'provider')
+    ? String(body.provider || '').toLowerCase()
+    : undefined;
+  if (provider !== undefined && !VALID_AI_PROVIDERS.includes(provider)) {
+    return res.status(400).json({ error: 'provider inválido' });
   }
 
-  const body = req.body || {};
+  // Validar formato da API key antes de persistir
+  if (body.api_key) {
+    const key = String(body.api_key);
+    if (key.startsWith('http://') || key.startsWith('https://')) {
+      return res.status(400).json({ error: 'api_key inválida: não pode ser uma URL' });
+    }
+    if (key === 'CHANGE_ME' || key.length < 20) {
+      return res.status(400).json({ error: 'api_key inválida: muito curta ou placeholder' });
+    }
+    const p = provider || body.provider;
+    if (p === 'openai'    && !key.startsWith('sk-'))     return res.status(400).json({ error: 'Chaves OpenAI devem começar com "sk-"' });
+    if (p === 'anthropic' && !key.startsWith('sk-ant-')) return res.status(400).json({ error: 'Chaves Anthropic devem começar com "sk-ant-"' });
+  }
+
   const persisted = await upsertPersistedAISettings({
-    ...(Object.prototype.hasOwnProperty.call(body, 'provider') ? { provider: body.provider } : {}),
+    ...(provider !== undefined ? { provider } : {}),
     ...(Object.prototype.hasOwnProperty.call(body, 'model') ? { model: body.model } : {}),
     ...(Object.prototype.hasOwnProperty.call(body, 'api_key') ? { api_key: body.api_key } : {}),
   });
 
-  res.status(result.status).json({
-    ...(result.data || {}),
+  const payload = { ...body, provider: provider ?? body.provider };
+  const result = await proxyToAI('/ai/settings', { method: 'POST', body: JSON.stringify(payload) });
+  const serviceUnavailable = !result.ok || result.status >= 500;
+  if (result.status >= 400 && !serviceUnavailable) {
+    return res.status(result.status).json(result.data);
+  }
+
+  res.status(200).json({
+    ...(serviceUnavailable ? {} : (result.data || {})),
+    ok: true,
     persisted_in_db: true,
+    degraded: serviceUnavailable,
+    ai_status: serviceUnavailable ? result.status : undefined,
     updated_at: new Date().toISOString(),
     provider: persisted.provider,
     model: persisted.model,
     has_api_key: !!persisted.api_key,
+    effective_model: persisted.model === 'auto' ? (AI_AUTO_MODELS[persisted.provider] || '') : persisted.model,
   });
 });
 
 // Remediation request (manual)
-app.post(`${BASE}/remediation/request`, requireAuth, async (req, res) => {
+app.post(`${BASE}/remediation/request`, requireAuth, requireAdmin, async (req, res) => {
   const { incident_id, action, params, reason } = req.body;
   if (!incident_id || !action) return res.status(400).json({ error: 'incident_id e action são obrigatórios' });
   try {
@@ -639,7 +1214,7 @@ app.get(`${BASE}/remediation/pending`, requireAuth, apiLimiter, async (_req, res
 });
 
 // Aprova e enfileira remediação para execução pelo worker
-app.post(`${BASE}/remediation/:id/approve`, requireAuth, async (req, res) => {
+app.post(`${BASE}/remediation/:id/approve`, requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { approved_by } = req.body;
   try {
@@ -666,7 +1241,7 @@ app.post(`${BASE}/remediation/:id/approve`, requireAuth, async (req, res) => {
 });
 
 // Rejeita remediação
-app.post(`${BASE}/remediation/:id/reject`, requireAuth, async (req, res) => {
+app.post(`${BASE}/remediation/:id/reject`, requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { rejected_by, reason } = req.body;
   try {
@@ -789,44 +1364,7 @@ app.post(`${BASE}/ai/feedback`, requireAuth, async (req, res) => {
 // ─── AI Activity ─────────────────────────────────────────────────────────────
 app.get(`${BASE}/ai/activity`, requireAuth, apiLimiter, async (_req, res) => {
   try {
-    const [incidents, remediations, feedback, catalog] = await Promise.all([
-      db.query(`
-        SELECT i.id, i.title, i.severity, i.status, i.source,
-               i.ai_summary, i.ai_cause, i.ai_suggestion, i.ai_pattern,
-               h.name AS host_name, i.created_at, i.updated_at
-        FROM observe_incidents i
-        LEFT JOIN observe_hosts h ON i.host_id = h.id
-        WHERE i.ai_summary IS NOT NULL
-        ORDER BY i.updated_at DESC LIMIT 20`),
-      db.query(`
-        SELECT action, status, confidence_score, auto_executed, requested_at
-        FROM observe_remediations
-        ORDER BY requested_at DESC LIMIT 20`),
-      db.query(`
-        SELECT rating, COUNT(*) AS count
-        FROM observe_ai_feedback GROUP BY rating`),
-      db.query(`
-        SELECT action, description, risk, enabled, auto_ok, max_severity
-        FROM observe_ai_catalog ORDER BY risk, action`),
-    ]);
-
-    const totalAnalyzed  = incidents.rowCount;
-    const remRows        = remediations.rows;
-    const autoExecuted   = remRows.filter(r => r.auto_executed).length;
-    const pendingApproval= remRows.filter(r => r.status === 'pending_approval').length;
-    const succeeded      = remRows.filter(r => r.status === 'executed').length;
-    const failed         = remRows.filter(r => r.status === 'failed').length;
-    const fbPos = feedback.rows.find(r => r.rating == 1)?.count || 0;
-    const fbNeg = feedback.rows.find(r => r.rating == -1)?.count || 0;
-
-    res.json({
-      metrics: { total_analyzed: totalAnalyzed, auto_executed: autoExecuted,
-                 pending_approval: pendingApproval, succeeded, failed,
-                 feedback_positive: Number(fbPos), feedback_negative: Number(fbNeg) },
-      recent_analyses:    incidents.rows,
-      recent_remediations:remRows,
-      catalog:            catalog.rows,
-    });
+    res.json(await getAIActivitySnapshot());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -838,7 +1376,7 @@ app.get(`${BASE}/ai/catalog`, requireAuth, async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post(`${BASE}/ai/catalog`, requireAuth, async (req, res) => {
+app.post(`${BASE}/ai/catalog`, requireAuth, requireAdmin, async (req, res) => {
   const { action, description, risk, params, auto_ok, max_severity } = req.body;
   if (!action || !description) return res.status(400).json({ error: 'action e description são obrigatórios' });
   try {
@@ -852,7 +1390,7 @@ app.post(`${BASE}/ai/catalog`, requireAuth, async (req, res) => {
   } catch (e) { res.status(e.message.includes('unique') ? 409 : 500).json({ error: e.message }); }
 });
 
-app.patch(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
+app.patch(`${BASE}/ai/catalog/:action`, requireAuth, requireAdmin, async (req, res) => {
   const { action } = req.params;
   const { description, risk, params, auto_ok, max_severity, enabled } = req.body;
   try {
@@ -874,7 +1412,7 @@ app.patch(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
+app.delete(`${BASE}/ai/catalog/:action`, requireAuth, requireAdmin, async (req, res) => {
   try {
     const r = await db.query(
       `UPDATE observe_ai_catalog SET enabled = false, updated_at = NOW()
@@ -884,6 +1422,12 @@ app.delete(`${BASE}/ai/catalog/:action`, requireAuth, async (req, res) => {
     if (!r.rowCount) return res.status(404).json({ error: 'Ação não encontrada' });
     res.json({ disabled: true, action: req.params.action });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── UI: login web ──────────────────────────────────────────────────────────
+app.get('/observe/login', (_req, res) => {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.end(LOGIN_HTML);
 });
 
 // ─── UI: página de configuração do provider de IA ─────────────────────────────
@@ -921,7 +1465,15 @@ const { bootstrapInitialUsers } = require('./bootstrap');
   try {
     await runMigrations(db);
     await bootstrapInitialUsers(db, process.env, { log: (line) => process.stdout.write(line + '\n') });
-    await applyPersistedAISettingsOnStartup();
+    await reconcilePersistedAISettings('startup');
+
+    const timer = setInterval(() => {
+      reconcilePersistedAISettings('interval').catch((e) => {
+        log(AI_SETTINGS_RECONCILE_STRICT ? 'error' : 'debug', 'Periodic AI settings reconcile failed', { err: e.message });
+        if (AI_SETTINGS_RECONCILE_STRICT) process.exit(1);
+      });
+    }, AI_SETTINGS_RECONCILE_INTERVAL_MS);
+    timer.unref();
   } catch (e) {
     log('error', 'Startup bootstrap failed', { err: e.message });
     await db.end().catch(() => {});
@@ -935,7 +1487,89 @@ const { bootstrapInitialUsers } = require('./bootstrap');
 
 module.exports = app;
 
+// ─── Dev helpers ─────────────────────────────────────────────────────────────
+// Em dev: Vite serve os CSS com HMR via /src/ui/main.js.
+// Em prod: <link> estático servido por express.static.
+const DEV_SCRIPT = IS_DEV
+  ? `<script type="module" src="${VITE_DEV_ORIGIN}/src/ui/main.js"></script>`
+  : '';
+
 // ─── HTML da UI inicial ──────────────────────────────────────────────────────
+const LOGIN_HTML = /* html */`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R-Observe · Login</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --brand:#cc1212; --err:#f85149; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:14px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; display:grid; place-items:center; }
+    .login { width:min(420px, calc(100vw - 32px)); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 24px 60px rgba(0,0,0,.35); }
+    .brand { display:flex; gap:12px; align-items:center; margin-bottom:22px; }
+    .logo { width:36px; height:36px; border-radius:8px; background:var(--brand); display:grid; place-items:center; font:900 20px Arial,sans-serif; }
+    h1 { margin:0; font-size:1.15rem; }
+    p { margin:2px 0 0; color:var(--muted); }
+    label { display:block; color:var(--muted); font-size:.82rem; margin:14px 0 6px; }
+    input { width:100%; border:1px solid var(--border); border-radius:6px; background:#0d1117; color:var(--text); padding:11px 12px; font:inherit; }
+    button { width:100%; margin-top:18px; border:0; border-radius:6px; background:var(--brand); color:#fff; padding:11px 14px; font-weight:800; cursor:pointer; }
+    button:disabled { opacity:.65; cursor:not-allowed; }
+    .error { min-height:1.3em; margin-top:12px; color:var(--err); font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <form class="login" onsubmit="login(event)">
+    <div class="brand">
+      <div class="logo">R</div>
+      <div>
+        <h1>R-Observe</h1>
+        <p>Acesso operacional</p>
+      </div>
+    </div>
+    <label for="username">Usuário</label>
+    <input id="username" name="username" autocomplete="username" autofocus>
+    <label for="password">Senha</label>
+    <input id="password" name="password" type="password" autocomplete="current-password">
+    <button id="submit" type="submit">Entrar</button>
+    <div id="error" class="error"></div>
+  </form>
+  <script>
+    const API = '/observe/api';
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next') || '/observe/home';
+
+    async function login(event) {
+      event.preventDefault();
+      const btn = document.getElementById('submit');
+      const err = document.getElementById('error');
+      btn.disabled = true;
+      err.textContent = '';
+      try {
+        const response = await fetch(API + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          err.textContent = body.error || 'Falha no login.';
+          return;
+        }
+        sessionStorage.removeItem('observe_token');
+        location.href = next.startsWith('/observe/') ? next : '/observe/home';
+      } catch (e) {
+        err.textContent = 'Não foi possível autenticar agora.';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>`;
+
 const HOME_HTML = /* html */`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -944,43 +1578,27 @@ const HOME_HTML = /* html */`<!DOCTYPE html>
   <title>Results · R-Observe</title>
   <style>
     :root {
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --brand: #cc1212;
-      --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+      --bg: #0d1117;
+      --surface: #161b22;
+      --card: #161b22;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --border: #30363d;
+      --brand: #CC1212;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Segoe UI", Arial, sans-serif;
       color: var(--text);
-      background:
-        radial-gradient(1200px 500px at 10% -10%, #ffe5e5 0%, transparent 60%),
-        radial-gradient(1000px 450px at 90% -20%, #e9eefc 0%, transparent 60%),
-        var(--bg);
+      background: var(--bg);
       min-height: 100vh;
     }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 34px 20px 24px; }
-    .hero {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 20px;
-    }
-    .logo {
-      width: 46px;
-      height: 46px;
-      border-radius: 12px;
-      background: var(--brand);
-      display: grid;
-      place-items: center;
-      color: #fff;
-      font-weight: 900;
-      font-size: 26px;
-      box-shadow: 0 8px 24px rgba(204, 18, 18, 0.25);
-    }
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 10px; }
+    .topbar-brand { font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); }
+    .topbar-title { font-size: .85rem; color: var(--muted); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 24px; }
     h1 { margin: 0; font-size: clamp(1.4rem, 2vw, 1.9rem); }
     .sub { margin: 2px 0 0; color: var(--muted); }
     .grid {
@@ -993,46 +1611,87 @@ const HOME_HTML = /* html */`<!DOCTYPE html>
       background: var(--card);
       border-radius: 14px;
       padding: 16px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border);
       box-shadow: var(--shadow);
       text-decoration: none;
       color: inherit;
-      transition: transform .15s ease, box-shadow .15s ease;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
     .card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 16px 30px rgba(17, 24, 39, 0.12);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.4);
+      border-color: var(--brand);
     }
-    .card h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .card h2 { margin: 0 0 8px; font-size: 1.05rem; color: var(--text); }
     .card p { margin: 0; color: var(--muted); font-size: .94rem; }
-    .tag {
-      display: inline-block;
-      margin-bottom: 8px;
+	    .tag {
+	      display: inline-block;
+	      margin-bottom: 8px;
       font-size: .76rem;
-      color: #991b1b;
-      background: #fee2e2;
-      border: 1px solid #fecaca;
+      color: var(--brand);
+      background: rgba(204, 18, 18, 0.15);
+      border: 1px solid rgba(204, 18, 18, 0.3);
       border-radius: 999px;
       padding: 3px 9px;
       font-weight: 700;
-      letter-spacing: .01em;
-      text-transform: uppercase;
-    }
-  </style>
-</head>
-<body>
+	      letter-spacing: .01em;
+	      text-transform: uppercase;
+	    }
+	    .token-panel {
+	      margin: 20px auto 0;
+	      background: var(--surface);
+	      border: 1px solid var(--border);
+	      border-radius: 8px;
+	      padding: 18px;
+	      max-width: 520px;
+	      box-shadow: var(--shadow);
+	    }
+	    .token-panel h2 { margin: 0 0 8px; font-size: 1.05rem; }
+	    .token-panel p { margin: 0 0 14px; color: var(--muted); }
+	    .token-row { display: flex; gap: 8px; align-items: center; }
+	    .token-row input {
+	      flex: 1;
+	      min-width: 0;
+	      background: var(--bg);
+	      border: 1px solid var(--border);
+	      border-radius: 6px;
+	      color: var(--text);
+	      font: .9rem Consolas, monospace;
+	      padding: 10px 12px;
+	    }
+	    .token-row button {
+	      background: var(--brand);
+	      border: 0;
+	      border-radius: 6px;
+	      color: #fff;
+	      cursor: pointer;
+	      font-weight: 700;
+	      padding: 10px 14px;
+	    }
+	    .token-row button:disabled { opacity: .6; cursor: not-allowed; }
+	    .token-error { color: #f85149; font-size: .86rem; margin-top: 10px; min-height: 1.2em; }
+	    .is-hidden { display: none; }
+	    @media (max-width: 560px) {
+	      .token-row { align-items: stretch; flex-direction: column; }
+	    }
+	  </style>
+	</head>
+	<body>
+<div class="topbar">
+  <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" width="28" height="28" style="flex-shrink:0"><rect width="28" height="28" rx="6" fill="#CC1212"/><text x="14" y="20" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="16" fill="white" text-anchor="middle">R</text></svg>
+  <span class="topbar-brand">Results · Sistemas de Informática</span>
+  <span class="topbar-title">/ R-Observe Home</span>
+</div>
   <main class="wrap">
-    <header class="hero">
-      <div class="logo">R</div>
-      <div>
-        <h1>R-Observe · Painel de Opções</h1>
-        <p class="sub">Acesso rápido às interfaces principais do ambiente.</p>
-      </div>
-    </header>
+	    <section id="token-panel" class="token-panel">
+	      <h2>Validando sessão</h2>
+	      <p>Aguarde enquanto confirmamos seu acesso.</p>
+	      <div id="home-token-error" class="token-error"></div>
+	    </section>
 
-    <section class="grid">
-      <a class="card" href="/observe/ai">
-        <span class="tag">IA</span>
+	    <section id="home-options" class="grid is-hidden">
+	      <a class="card" href="/observe/ai">
+	        <span class="tag">IA</span>
         <h2>IA Dashboard</h2>
         <p>Atividade, análises, catálogo e remediações com feedback.</p>
       </a>
@@ -1043,27 +1702,47 @@ const HOME_HTML = /* html */`<!DOCTYPE html>
         <p>Seleção de provider, modelo e token interno.</p>
       </a>
 
-      <a class="card" href="/grafana/">
+	      <a class="card" href="${GRAFANA_URL}">
         <span class="tag">Métricas</span>
         <h2>Grafana</h2>
         <p>Dashboards e visualização de indicadores do stack.</p>
       </a>
 
-      <a class="card" href="/icinga/">
+	      <a class="card" href="${ICINGA_WEB_URL}">
         <span class="tag">Monitoramento</span>
         <h2>Icinga Web 2</h2>
         <p>Status de hosts e serviços com navegação web.</p>
       </a>
 
-      <a class="card" href="/observe/discovery">
+	      <a class="card" href="${DISCOVERY_UI_URL}">
         <span class="tag">Discovery</span>
         <h2>Discovery UI</h2>
         <p>Descoberta de ativos e inspeção de varreduras.</p>
-      </a>
-    </section>
-  </main>
-</body>
-</html>`;
+	      </a>
+	    </section>
+	  </main>
+	  <script>
+	    const tokenPanel = document.getElementById('token-panel');
+	    const homeOptions = document.getElementById('home-options');
+	    const tokenError = document.getElementById('home-token-error');
+
+	    function showOptions() {
+	      tokenPanel.classList.add('is-hidden');
+	      homeOptions.classList.remove('is-hidden');
+	    }
+
+	    (async () => {
+	      try {
+	        const response = await fetch('/observe/api/auth/me');
+	        if (response.ok) showOptions();
+	        else location.href = '/observe/login?next=/observe/home';
+	      } catch (_error) {
+	        tokenError.textContent = 'Não foi possível validar a sessão agora.';
+	      }
+	    })();
+	  </script>
+	</body>
+	</html>`;
 
 // ─── HTML da UI de configuração ───────────────────────────────────────────────
 const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
@@ -1072,67 +1751,98 @@ const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Results · R-Observe IA</title>
-  <link rel="stylesheet" href="/observe/api/ui/observe-ai.css">
+  ${IS_DEV ? DEV_SCRIPT : '<link rel="stylesheet" href="/observe/api/ui/observe-ai.css">'}
 </head>
 <body>
-<div class="header">
-  <svg class="logo" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="36" rx="8" fill="#CC1212"/><text x="18" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="21" fill="white" text-anchor="middle">R</text></svg>
-  <div>
-    <div class="brand-name">Results · Sistemas de Informática</div>
-    <h1>R-Observe · IA Dashboard</h1>
-    <div class="sub">Atividade, catálogo de remediações e feedback</div>
-  </div>
+<div class="topbar">
+  <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" width="28" height="28" style="flex-shrink:0"><rect width="28" height="28" rx="6" fill="#CC1212"/><text x="14" y="20" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="16" fill="white" text-anchor="middle">R</text></svg>
+  <span class="topbar-brand">Results · Sistemas de Informática</span>
+  <span class="topbar-title">/ R-Observe IA</span>
   <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;">
-    <span style="color:var(--muted);font-size:.8rem;">TOKEN</span>
-    <input type="password" id="token" class="token-field" style="max-width:200px" placeholder="OBSERVE_INTERNAL_TOKEN">
-    <button class="btn btn-primary btn-sm" onclick="loadAll()">↺ Atualizar</button>
+    <a href="/observe/home" class="topbar-link">⌂ Home</a>
+    <a href="/observe/settings" class="topbar-link">⚙ Config</a>
   </div>
 </div>
+<div class="header-controls">
+  <button class="btn btn-primary btn-sm" onclick="loadAll()" style="flex-shrink:0">↺ Atualizar</button>
+  <button class="btn btn-sm" onclick="logout()" style="flex-shrink:0">Sair</button>
+  <span id="last-refresh" style="color:var(--muted);font-size:.75rem;margin-left:.25rem"></span>
+</div>
 
-<nav>
-  <div class="tab active" onclick="showTab('overview')">Visão Geral</div>
-  <div class="tab" onclick="showTab('analyses')">Análises</div>
-  <div class="tab" onclick="showTab('catalog')">Catálogo</div>
-  <div class="tab" onclick="showTab('remediations')">Remediações</div>
+<nav role="tablist">
+  <button class="tab active" role="tab" aria-selected="true"  onclick="showTab('overview')">Visão Geral</button>
+  <button class="tab" role="tab" aria-selected="false" onclick="showTab('analyses')">Análises</button>
+  <button class="tab" role="tab" aria-selected="false" onclick="showTab('catalog')">Catálogo</button>
+  <button class="tab" role="tab" aria-selected="false" onclick="showTab('remediations')">Remediações</button>
+  <button class="tab" role="tab" aria-selected="false" onclick="showTab('contacts')">Contatos</button>
 </nav>
 
 <div id="overview" class="page active">
   <div class="metrics" id="metrics-grid">
     <div class="metric"><div class="val">—</div><div class="lbl">Analisados</div></div>
   </div>
-  <div class="section-title">Comparacao Tactical x IA</div>
-  <div id="compare-box" style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;color:#e2e8f0;margin-bottom:12px">
-    Carregando comparacao...
+  <div class="section-title">Comparação Tactical x IA</div>
+  <div id="compare-box" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);margin-bottom:12px">
+    Carregando comparação Tactical x IA.
   </div>
-  <div class="section-title">Análises Recentes com IA</div>
+  <div class="section-title">Análises Recentes com IA <span style="font-weight:400;color:var(--muted);font-size:.8rem">— últimas 20</span></div>
+  <div class="table-wrap">
   <table id="overview-table">
     <thead><tr><th>Incidente</th><th>Severidade</th><th>Resumo IA</th><th>Status</th><th>Data</th></tr></thead>
-    <tbody><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+    <tbody><tr><td colspan="5" class="empty">Carregando dados.</td></tr></tbody>
   </table>
+  </div>
 </div>
 
 <div id="analyses" class="page">
-  <div class="section-title">Todas as Análises</div>
+  <div class="section-title">Todas as Análises <span style="font-weight:400;color:var(--muted);font-size:.8rem">— últimas 20</span></div>
+  <div class="table-wrap">
   <table id="analyses-table">
     <thead><tr><th>Título</th><th>Host</th><th>Causa</th><th>Sugestão</th><th>Feedback</th></tr></thead>
-    <tbody><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+    <tbody><tr><td colspan="5" class="empty">Carregando dados.</td></tr></tbody>
   </table>
+  </div>
 </div>
 
 <div id="catalog" class="page">
   <div class="section-title">Catálogo de Remediações</div>
+  <div class="table-wrap">
   <table id="catalog-table">
     <thead><tr><th>Ação</th><th>Descrição</th><th>Risco</th><th>Auto</th><th>Max Sev.</th><th>Status</th><th></th></tr></thead>
-    <tbody><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
+    <tbody><tr><td colspan="7" class="empty">Carregando dados.</td></tr></tbody>
   </table>
+  </div>
 </div>
 
 <div id="remediations" class="page">
-  <div class="section-title">Remediações Recentes</div>
+  <div class="section-title">Remediações Recentes <span style="font-weight:400;color:var(--muted);font-size:.8rem">— últimas 20</span></div>
+  <div class="table-wrap">
   <table id="rem-table">
     <thead><tr><th>Ação</th><th>Status</th><th>Score</th><th>Auto</th><th>Output</th><th>Data</th></tr></thead>
-    <tbody><tr><td colspan="6" class="empty">Carregando…</td></tr></tbody>
+    <tbody><tr><td colspan="6" class="empty">Carregando dados.</td></tr></tbody>
   </table>
+  </div>
+</div>
+
+<div id="contacts" class="page">
+  <div class="section-title">Contatos Operacionais</div>
+  <div style="display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:14px;align-items:start">
+    <form onsubmit="createContact(event)" style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+      <div style="font-weight:700;margin-bottom:10px">Novo contato</div>
+      <label style="display:block;color:var(--muted);font-size:.8rem;margin-bottom:4px">Usuário</label>
+      <input id="contact-name" style="width:100%;margin-bottom:8px" placeholder="operador@results">
+      <label style="display:block;color:var(--muted);font-size:.8rem;margin-bottom:4px">Senha inicial</label>
+      <input id="contact-password" type="password" style="width:100%;margin-bottom:8px" placeholder="mínimo 8 caracteres">
+      <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="contact-admin" type="checkbox"> Administrador</label>
+      <button class="btn btn-primary btn-sm" type="submit">Criar</button>
+    </form>
+    <div class="table-wrap">
+      <table id="contacts-table">
+        <thead><tr><th>Contato</th><th>Ativo</th><th>Admin</th><th>Atualizado</th><th></th></tr></thead>
+        <tbody><tr><td colspan="5" class="empty">Carregando dados.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -1141,26 +1851,26 @@ const AI_DASHBOARD_HTML = /* html */`<!DOCTYPE html>
 const API = '/observe/api';
 let _data = {};
 
-const tokenEl = document.getElementById('token');
-tokenEl.value = sessionStorage.getItem('observe_token') || '';
-tokenEl.addEventListener('input', () => {
-  const v = tokenEl.value.trim();
-  if (v) sessionStorage.setItem('observe_token', v);
-  else   sessionStorage.removeItem('observe_token');
-});
-
 function getHeaders() {
-  const h = { 'Content-Type': 'application/json' };
-  const t = tokenEl.value.trim();
-  if (t) h['x-internal-token'] = t;
-  return h;
+  return { 'Content-Type': 'application/json' };
+}
+
+function redirectLogin() {
+  location.href = '/observe/login?next=' + encodeURIComponent(location.pathname);
+}
+
+async function logout() {
+  await fetch(API + '/auth/logout', { method: 'POST', headers: getHeaders() }).catch(() => {});
+  location.href = '/observe/login?next=/observe/ai';
 }
 
 function showTab(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
   document.getElementById(id).classList.add('active');
-  document.querySelector('[onclick="showTab(\\''+id+'\\')"]').classList.add('active');
+  const activeTab = document.querySelector('[onclick="showTab(\\''+id+'\\')"]');
+  activeTab.classList.add('active');
+  activeTab.setAttribute('aria-selected', 'true');
 }
 
 function toast(msg, ok) {
@@ -1168,26 +1878,38 @@ function toast(msg, ok) {
   el.textContent = msg;
   el.className = ok ? 'ok' : 'err';
   el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3000);
+  setTimeout(() => { el.style.display = 'none'; }, ok ? 3000 : 7000);
 }
 
 function badge(cls, text) { return '<span class="badge ' + cls + '">' + text + '</span>'; }
 function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function dt(s) { return s ? new Date(s).toLocaleString('pt-BR', {dateStyle:'short',timeStyle:'short'}) : '—'; }
+function showMissingTokenState() {
+  const msg = 'Faça login para carregar os dados.';
+  document.getElementById('metrics-grid').innerHTML =
+    '<div style="color:var(--muted);grid-column:1/-1;padding:1rem">' + msg + '</div>';
+  document.getElementById('compare-box').innerHTML = msg;
+  [
+    ['#overview-table tbody', 5],
+    ['#analyses-table tbody', 5],
+    ['#catalog-table tbody', 7],
+    ['#rem-table tbody', 6],
+    ['#contacts-table tbody', 5],
+  ].forEach(([selector, colspan]) => {
+    const tbody = document.querySelector(selector);
+    if (tbody) tbody.innerHTML = '<tr><td colspan="' + colspan + '" class="empty">' + msg + '</td></tr>';
+  });
+}
 
 async function loadAll() {
-  if (!tokenEl.value.trim()) {
-    document.getElementById('metrics-grid').innerHTML =
-      '<div style="color:var(--muted);grid-column:1/-1;padding:1rem">Cole o OBSERVE_INTERNAL_TOKEN no campo acima e clique em ↺ Atualizar.</div>';
-    document.getElementById('compare-box').innerHTML = 'Cole o token para carregar a comparacao Tactical x IA.';
-    return;
-  }
   try {
-    const [r, c] = await Promise.all([
+    const [r, c, contactsResp] = await Promise.all([
       fetch(API + '/ai/activity', { headers: getHeaders() }),
       fetch(API + '/comparison/tactical-ai', { headers: getHeaders() }),
+      fetch(API + '/contacts', { headers: getHeaders() }),
     ]);
-    if (!r.ok) { toast('Erro ' + r.status + ' — verifique o token', false); return; }
+    if (r.status === 401) { redirectLogin(); return; }
+    if (!r.ok) { toast('Erro ' + r.status, false); return; }
     _data = await r.json();
     renderMetrics(_data.metrics);
     renderOverview(_data.recent_analyses);
@@ -1197,8 +1919,11 @@ async function loadAll() {
     if (c.ok) {
       renderComparison(await c.json());
     } else {
-      document.getElementById('compare-box').innerHTML = 'Nao foi possivel carregar comparacao Tactical x IA.';
+      document.getElementById('compare-box').innerHTML = 'Não foi possível carregar comparação Tactical x IA.';
     }
+    renderContacts(contactsResp.ok ? (await contactsResp.json()).contacts || [] : []);
+    document.getElementById('last-refresh').textContent =
+      'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   } catch(e) { toast('Falha: ' + e.message, false); }
 }
 
@@ -1207,20 +1932,66 @@ function renderComparison(data) {
   const a = data.ai || {};
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
 
-  const lines = [
-    'Hosts: total ' + (t.hosts.total ?? 0) + ' | up ' + (t.hosts.up ?? 0) + ' | down ' + (t.hosts.down ?? 0),
-    'Servicos: total ' + (t.services.total ?? 0) + ' | ok ' + (t.services.ok ?? 0) + ' | warning ' + (t.services.warning ?? 0) + ' | critical ' + (t.services.critical ?? 0) + ' | unknown ' + (t.services.unknown ?? 0),
-    'IA: analisados ' + (a.total_analyzed ?? 0) + ' | auto ' + (a.auto_executed ?? 0) + ' | pendentes ' + (a.pending_approval ?? 0) + ' | falhas ' + (a.failed ?? 0),
-  ];
+  function chip(val, label, color, bg, border) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';border-radius:4px;padding:2px 8px;font-size:.78rem;font-weight:600">' +
+      val + '<span style="font-weight:400;opacity:.8">' + label + '</span></span>';
+  }
+  function chipNeutral(val, label) { return chip(val, label, '#8b949e', '#161b22', '#30363d'); }
+  function chipGreen(val, label)   { return chip(val, label, '#3fb950', '#0d2316', '#1f5c2e'); }
+  function chipYellow(val, label)  { return chip(val, label, '#d29922', '#2d1f00', '#6e4c00'); }
+  function chipRed(val, label)     { return chip(val, label, '#f85149', '#2d0e0e', '#6e1b1b'); }
+
+  function row(label, chips) {
+    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">' +
+      '<span style="min-width:68px;font-size:.72rem;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">' + label + '</span>' +
+      chips.join('') + '</div>';
+  }
+
+  const hTotal = t.hosts.total ?? 0;
+  const hUp    = t.hosts.up ?? 0;
+  const hDown  = t.hosts.down ?? 0;
+
+  const sTotal = t.services.total ?? 0;
+  const sOk    = t.services.ok ?? 0;
+  const sWarn  = t.services.warning ?? 0;
+  const sCrit  = t.services.critical ?? 0;
+  const sUnk   = t.services.unknown ?? 0;
+
+  const aiTotal = a.total_analyzed ?? 0;
+  const aiAuto  = a.auto_executed ?? 0;
+  const aiPend  = a.pending_approval ?? 0;
+  const aiFail  = a.failed ?? 0;
+
+  const hostsRow = row('Hosts', [
+    chipNeutral(hTotal, ' total'),
+    hUp   > 0 ? chipGreen('↑ ' + hUp, ' up')     : chipNeutral('↑ ' + hUp, ' up'),
+    hDown > 0 ? chipRed('↓ ' + hDown, ' down')   : chipNeutral('↓ ' + hDown, ' down'),
+  ]);
+  const svcRow = row('Serviços', [
+    chipNeutral(sTotal, ' total'),
+    sOk   > 0 ? chipGreen(sOk, ' ok')             : chipNeutral(sOk, ' ok'),
+    sWarn > 0 ? chipYellow(sWarn, ' warning')      : chipNeutral(sWarn, ' warning'),
+    sCrit > 0 ? chipRed(sCrit, ' critical')        : chipNeutral(sCrit, ' critical'),
+    chipNeutral(sUnk, ' unknown'),
+  ]);
+  const iaRow = row('IA', [
+    chipNeutral(aiTotal, ' analisados'),
+    aiAuto > 0 ? chipGreen(aiAuto, ' auto')        : chipNeutral(aiAuto, ' auto'),
+    aiPend > 0 ? chipYellow(aiPend, ' pendentes')  : chipNeutral(aiPend, ' pendentes'),
+    aiFail > 0 ? chipRed(aiFail, ' falhas')        : chipNeutral(aiFail, ' falhas'),
+  ]);
 
   const reasonHtml = reasons.length
-    ? '<ul style="margin:8px 0 0 16px">' + reasons.map((r) => '<li style="margin:4px 0">' + esc(r) + '</li>').join('') + '</ul>'
-    : '<div style="margin-top:8px">Sem diferencas relevantes detectadas agora.</div>';
+    ? '<ul style="margin:8px 0 0 16px;color:#c9d1d9">' + reasons.map((r) => '<li style="margin:4px 0;font-size:.82rem">' + esc(r) + '</li>').join('') + '</ul>'
+    : '<span style="color:#8b949e;font-size:.82rem">Sem diferenças relevantes detectadas agora.</span>';
+
+  const sectionTitle = (t) =>
+    '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:4px">' + t + '</div>';
 
   document.getElementById('compare-box').innerHTML =
-    '<div style="font-weight:600;margin-bottom:6px">Resumo atual</div>' +
-    '<div>' + lines.map((l) => '<div>' + esc(l) + '</div>').join('') + '</div>' +
-    '<div style="font-weight:600;margin-top:10px">Motivos da diferenca</div>' + reasonHtml;
+    sectionTitle('Resumo atual') +
+    '<div style="margin-bottom:12px">' + hostsRow + svcRow + iaRow + '</div>' +
+    sectionTitle('Motivos da diferença') + reasonHtml;
 }
 
 function renderMetrics(m) {
@@ -1293,6 +2064,53 @@ function renderRemediations(rows) {
   '</tr>').join('');
 }
 
+function renderContacts(rows) {
+  const tb = document.querySelector('#contacts-table tbody');
+  if (!tb) return;
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">Nenhum contato encontrado.</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(r => '<tr>' +
+    '<td><code style="color:var(--accent)">' + esc(r.name) + '</code></td>' +
+    '<td>' + (Number(r.active) === 1 ? badge('low','ativo') : badge('disabled','inativo')) + '</td>' +
+    '<td>' + (r.admin ? badge('critical','admin') : badge('disabled','operador')) + '</td>' +
+    '<td style="white-space:nowrap">' + dt(r.mtime || r.ctime) + '</td>' +
+    '<td><button class="btn btn-sm" onclick="toggleContact(\\'' + esc(r.name) + '\\',' + (Number(r.active) === 1 ? 'false' : 'true') + ')">' +
+      (Number(r.active) === 1 ? 'Desativar' : 'Ativar') + '</button></td>' +
+  '</tr>').join('');
+}
+
+async function createContact(ev) {
+  ev.preventDefault();
+  const name = document.getElementById('contact-name').value.trim();
+  const password = document.getElementById('contact-password').value;
+  const admin = document.getElementById('contact-admin').checked;
+  const r = await fetch(API + '/contacts', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ name, password, admin }),
+  });
+  const d = await r.json().catch(() => ({}));
+  toast(r.ok ? 'Contato criado' : (d.error || 'Erro ao criar contato'), r.ok);
+  if (r.ok) {
+    document.getElementById('contact-name').value = '';
+    document.getElementById('contact-password').value = '';
+    document.getElementById('contact-admin').checked = false;
+    loadAll();
+  }
+}
+
+async function toggleContact(name, active) {
+  const r = await fetch(API + '/contacts/' + encodeURIComponent(name), {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify({ active }),
+  });
+  toast(r.ok ? 'Contato atualizado' : 'Erro ao atualizar contato', r.ok);
+  if (r.ok) loadAll();
+}
+
 async function sendFeedback(incidentId, rating) {
   const r = await fetch(API + '/ai/feedback', {
     method: 'POST', headers: getHeaders(),
@@ -1303,6 +2121,7 @@ async function sendFeedback(incidentId, rating) {
 }
 
 async function disableAction(action) {
+  if (!confirm('Desativar a ação "' + action + '"?')) return;
   const r = await fetch(API + '/ai/catalog/' + action, { method: 'DELETE', headers: getHeaders() });
   toast(r.ok ? 'Ação "' + action + '" desativada' : 'Erro', r.ok);
   if (r.ok) loadAll();
@@ -1317,14 +2136,7 @@ async function enableAction(action) {
 }
 
 loadAll();
-// Auto-refresh apenas quando há token
-let _refreshTimer = null;
-function scheduleRefresh() {
-  clearInterval(_refreshTimer);
-  if (tokenEl.value.trim()) _refreshTimer = setInterval(loadAll, 30000);
-}
-tokenEl.addEventListener('change', scheduleRefresh);
-scheduleRefresh();
+setInterval(loadAll, 30000);
 </script>
 </body>
 </html>`;
@@ -1334,134 +2146,87 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Results · R-Observe — Configuração IA</title>
-  <link rel="stylesheet" href="/observe/api/ui/observe-settings.css">
-  <style>
-    .quick-links {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 10px;
-      margin: 12px 0 18px;
-    }
-    .quick-link {
-      display: block;
-      text-decoration: none;
-      border: 1px solid #dbe3f0;
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: #f8fbff;
-      color: #123;
-      transition: .15s ease;
-    }
-    .quick-link:hover {
-      transform: translateY(-1px);
-      background: #f0f7ff;
-      border-color: #c8d8f2;
-    }
-    .quick-link strong {
-      display: block;
-      font-size: .92rem;
-      margin-bottom: 3px;
-    }
-    .quick-link span {
-      color: #5a6578;
-      font-size: .82rem;
-    }
-  </style>
+  <title>R-Observe · Configuração IA</title>
+  ${IS_DEV ? DEV_SCRIPT : '<link rel="stylesheet" href="/observe/api/ui/observe-settings.css">'}
 </head>
 <body>
-  <div class="card">
-    <div class="header">
-      <svg class="logo" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="36" rx="8" fill="#CC1212"/><text x="18" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="21" fill="white" text-anchor="middle">R</text></svg>
-      <div>
-        <div class="brand-name">Results · Sistemas de Informática</div>
-        <h1>R-Observe · Configuração IA</h1>
-        <div class="subtitle">Altere o provider de IA sem reiniciar o serviço</div>
-      </div>
-    </div>
+<div class="topbar">
+  <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" width="28" height="28" style="flex-shrink:0"><rect width="28" height="28" rx="6" fill="#CC1212"/><text x="14" y="20" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="16" fill="white" text-anchor="middle">R</text></svg>
+  <span class="topbar-brand">Results · Sistemas de Informática</span>
+  <span class="topbar-title">/ R-Observe · Configuração IA</span>
+  <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;">
+    <a href="/observe/home" class="topbar-link">⌂ Home</a>
+    <a href="/observe/ai" class="topbar-link">IA Dashboard</a>
+    <button class="topbar-link" onclick="logout()" style="border:1px solid var(--border);background:transparent;cursor:pointer">Sair</button>
+  </div>
+</div>
+<div class="settings-page">
+  <div class="settings-layout">
 
-    <div class="quick-links">
-      <a class="quick-link" href="/observe/ai">
-        <strong>IA Dashboard</strong>
-        <span>Análises e remediações</span>
-      </a>
-      <a class="quick-link" href="/grafana/">
-        <strong>Grafana</strong>
-        <span>Métricas e dashboards</span>
-      </a>
-      <a class="quick-link" href="/icinga/">
-        <strong>Icinga Web 2</strong>
-        <span>Hosts e serviços</span>
-      </a>
-      <a class="quick-link" href="/observe/discovery">
-        <strong>Discovery</strong>
-        <span>Descoberta de ativos</span>
-      </a>
-    </div>
+    <div class="settings-panel">
+      <div class="panel-title">Provider de IA</div>
 
-    <div class="field" style="margin-top:6px">
-      <label>Comparacao Tactical x IA</label>
-      <div id="settings-compare" style="border:1px solid #dbe3f0;border-radius:10px;padding:10px;background:#f8fbff;color:#1f2937">
-        Cole o token e clique em ↺ para carregar os numeros comparativos.
-      </div>
-    </div>
-
-    <div class="status-bar">
-      <span class="dot warn" id="status-dot"></span>
-      <span class="status-text" id="status-text">Carregando…</span>
-      <span class="status-value" id="status-value"></span>
-    </div>
-
-    <div class="field">
-      <label>Provider</label>
-      <div class="providers">
-        <button class="provider-btn" data-provider="openai"     onclick="selectProvider('openai')">
-          <span class="provider-icon">🤖</span>OpenAI
-        </button>
-        <button class="provider-btn" data-provider="anthropic"  onclick="selectProvider('anthropic')">
-          <span class="provider-icon">🟠</span>Anthropic
-        </button>
-        <button class="provider-btn" data-provider="deepseek"   onclick="selectProvider('deepseek')">
-          <span class="provider-icon">🔍</span>DeepSeek
-        </button>
-        <button class="provider-btn" data-provider="mock"       onclick="selectProvider('mock')">
-          <span class="provider-icon">🧪</span>Mock
-        </button>
-      </div>
-    </div>
-
-    <div class="field" id="model-section" style="display:none">
-      <label>Modelo</label>
-      <select id="model" onchange="onModelChange()"></select>
-      <div class="effective-model" id="effective-model"></div>
-    </div>
-
-    <div id="api-key-section" class="field">
-      <label>API Key</label>
-      <div class="key-row">
-        <input type="password" id="api-key" placeholder="Cole a chave aqui" autocomplete="new-password">
-        <button class="toggle-btn" onclick="toggleKey()">👁</button>
-      </div>
-      <div class="hint" id="key-hint"></div>
-    </div>
-
-    <div class="token-section">
       <div class="field">
-        <label>Token de Autenticação (OBSERVE_INTERNAL_TOKEN)</label>
+        <label>Provider</label>
+        <div class="providers">
+          <button class="provider-btn" data-provider="openai"    onclick="selectProvider('openai')">
+            <span class="provider-icon">🤖</span>OpenAI
+          </button>
+          <button class="provider-btn" data-provider="anthropic" onclick="selectProvider('anthropic')">
+            <span class="provider-icon">🟠</span>Anthropic
+          </button>
+          <button class="provider-btn" data-provider="deepseek"  onclick="selectProvider('deepseek')">
+            <span class="provider-icon">🔍</span>DeepSeek
+          </button>
+          <button class="provider-btn" data-provider="mock"      onclick="selectProvider('mock')">
+            <span class="provider-icon">🧪</span>Mock
+          </button>
+        </div>
+      </div>
+
+      <div class="field" id="model-section" style="display:none">
+        <label>Modelo</label>
+        <select id="model" onchange="onModelChange()"></select>
+        <div class="effective-model" id="effective-model"></div>
+      </div>
+
+      <div id="api-key-section" class="field">
+        <label>API Key</label>
         <div class="key-row">
-          <input type="password" id="token" placeholder="Cole o token interno aqui" autocomplete="off">
-          <button class="toggle-btn" onclick="toggleToken()">👁</button>
+          <input type="password" id="api-key" placeholder="Cole a chave aqui" autocomplete="new-password">
+          <button class="toggle-btn" onclick="toggleKey()" aria-label="Mostrar/ocultar chave">👁</button>
+        </div>
+        <div class="hint" id="key-hint"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="loadStatus()">↺ Atualizar</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveSettings()" disabled title="Aguardando resposta do serviço de IA…">Salvar configuração</button>
+      </div>
+
+      <div id="feedback"></div>
+    </div>
+
+    <div class="settings-aside">
+      <div class="aside-panel">
+        <div class="panel-title">Status</div>
+        <div class="status-bar">
+          <span class="dot warn" id="status-dot"></span>
+          <span class="status-text" id="status-text">Carregando…</span>
+          <span class="status-value" id="status-value"></span>
+        </div>
+      </div>
+
+      <div class="aside-panel">
+        <div class="panel-title">Comparação Tactical × IA</div>
+        <div id="settings-compare" class="compare-box">
+          Carregando dados comparativos.
         </div>
       </div>
     </div>
 
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="loadStatus()">↺ Atualizar</button>
-      <button class="btn btn-primary" id="save-btn" onclick="saveSettings()" disabled>Salvar configuração</button>
-    </div>
-
-    <div id="feedback"></div>
   </div>
+</div>
 
   <script>
     const API_BASE = '/observe/api';
@@ -1546,25 +2311,18 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
     }
 
     function toggleKey()   { const e = document.getElementById('api-key'); e.type = e.type === 'password' ? 'text' : 'password'; }
-    function toggleToken() { const e = document.getElementById('token');   e.type = e.type === 'password' ? 'text' : 'password'; }
-
-    // Token guardado em variável JS — não depende do DOM (browsers limpam
-    // input[type=password] no refresh antes do script conseguir ler o valor).
-    let _authToken = sessionStorage.getItem('observe_token') || '';
-
-    const tokenEl = document.getElementById('token');
-    if (_authToken) tokenEl.value = _authToken;
-
-    tokenEl.addEventListener('input', () => {
-      _authToken = tokenEl.value.trim();
-      if (_authToken) sessionStorage.setItem('observe_token', _authToken);
-      else            sessionStorage.removeItem('observe_token');
-    });
 
     function getHeaders() {
-      const h = { 'Content-Type': 'application/json' };
-      if (_authToken) h['x-internal-token'] = _authToken;
-      return h;
+      return { 'Content-Type': 'application/json' };
+    }
+
+    function redirectLogin() {
+      location.href = '/observe/login?next=' + encodeURIComponent(location.pathname);
+    }
+
+    async function logout() {
+      await fetch(API_BASE + '/auth/logout', { method: 'POST', headers: getHeaders() }).catch(() => {});
+      location.href = '/observe/login?next=/observe/settings';
     }
 
     let _statusReady = false; // true após primeiro loadStatus bem-sucedido
@@ -1591,19 +2349,54 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
       const a = data.ai || {};
       const reasons = Array.isArray(data.reasons) ? data.reasons : [];
 
-      const rows = [
-        'Hosts: total ' + (t.hosts.total ?? 0) + ' | up ' + (t.hosts.up ?? 0) + ' | down ' + (t.hosts.down ?? 0),
-        'Servicos: total ' + (t.services.total ?? 0) + ' | ok ' + (t.services.ok ?? 0) + ' | warning ' + (t.services.warning ?? 0) + ' | critical ' + (t.services.critical ?? 0),
-        'IA: analisados ' + (a.total_analyzed ?? 0) + ' | pendentes ' + (a.pending_approval ?? 0) + ' | falhas ' + (a.failed ?? 0),
-      ];
+      function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function chip(val, label, color, bg, border) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';border-radius:4px;padding:2px 8px;font-size:.78rem;font-weight:600">' +
+          val + '<span style="font-weight:400;opacity:.8">' + label + '</span></span>';
+      }
+      function chipNeutral(val, label) { return chip(val, label, '#8b949e', '#0d1117', '#30363d'); }
+      function chipGreen(val, label)   { return chip(val, label, '#3fb950', '#0d2316', '#1f5c2e'); }
+      function chipYellow(val, label)  { return chip(val, label, '#d29922', '#2d1f00', '#6e4c00'); }
+      function chipRed(val, label)     { return chip(val, label, '#f85149', '#2d0e0e', '#6e1b1b'); }
+      function row(label, chips) {
+        return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">' +
+          '<span style="min-width:68px;font-size:.72rem;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">' + label + '</span>' +
+          chips.join('') + '</div>';
+      }
+
+      const hDown = t.hosts.down ?? 0;
+      const sWarn = t.services.warning ?? 0;
+      const sCrit = t.services.critical ?? 0;
+      const aiPend = a.pending_approval ?? 0;
+      const aiFail = a.failed ?? 0;
+
+      const hostsRow = row('Hosts', [
+        chipNeutral(t.hosts.total ?? 0, ' total'),
+        (t.hosts.up ?? 0) > 0 ? chipGreen('↑ ' + (t.hosts.up ?? 0), ' up') : chipNeutral('↑ 0', ' up'),
+        hDown > 0 ? chipRed('↓ ' + hDown, ' down') : chipNeutral('↓ 0', ' down'),
+      ]);
+      const svcRow = row('Serviços', [
+        chipNeutral(t.services.total ?? 0, ' total'),
+        (t.services.ok ?? 0) > 0 ? chipGreen(t.services.ok ?? 0, ' ok') : chipNeutral(0, ' ok'),
+        sWarn > 0 ? chipYellow(sWarn, ' warning') : chipNeutral(0, ' warning'),
+        sCrit > 0 ? chipRed(sCrit, ' critical')   : chipNeutral(0, ' critical'),
+      ]);
+      const iaRow = row('IA', [
+        chipNeutral(a.total_analyzed ?? 0, ' analisados'),
+        aiPend > 0 ? chipYellow(aiPend, ' pendentes') : chipNeutral(0, ' pendentes'),
+        aiFail > 0 ? chipRed(aiFail, ' falhas')       : chipNeutral(0, ' falhas'),
+      ]);
 
       const reasonHtml = reasons.length
-        ? '<ul style="margin:8px 0 0 16px">' + reasons.map((r) => '<li style="margin:4px 0">' + r + '</li>').join('') + '</ul>'
-        : '<div style="margin-top:8px">Sem diferencas relevantes agora.</div>';
+        ? '<ul style="margin:8px 0 0 16px;color:#c9d1d9">' + reasons.map((r) => '<li style="margin:4px 0;font-size:.82rem">' + esc(r) + '</li>').join('') + '</ul>'
+        : '<span style="color:#8b949e;font-size:.82rem">Sem diferenças relevantes agora.</span>';
+
+      const sec = (t) => '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:4px">' + t + '</div>';
 
       box.innerHTML =
-        '<div>' + rows.map((r) => '<div>' + r + '</div>').join('') + '</div>' +
-        '<div style="margin-top:8px;font-weight:600">Motivos</div>' + reasonHtml;
+        sec('Resumo atual') +
+        '<div style="margin-bottom:10px">' + hostsRow + svcRow + iaRow + '</div>' +
+        sec('Motivos') + reasonHtml;
     }
 
     async function loadStatus() {
@@ -1614,37 +2407,66 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
           fetch(API_BASE + '/ai/settings', { headers: getHeaders() }),
           fetch(API_BASE + '/comparison/tactical-ai', { headers: getHeaders() }),
         ]);
-        if (resp.status === 401) { setStatus('err', 'Cole o OBSERVE_INTERNAL_TOKEN abaixo e clique em ↺', ''); return; }
+        if (resp.status === 401) { redirectLogin(); return; }
         if (!resp.ok)            { setStatus('err', 'Serviço AI indisponível.', resp.status); return; }
 
         const d = await resp.json();
         const hasKey = d.has_api_key;
         const effModel = d.effective_model || d.model || '';
 
-        const label = d.provider === 'mock'
-          ? 'Mock ativo — sem custo, sem IA real'
-          : hasKey
-            ? d.provider + ' · ' + effModel
-            : d.provider + ' — chave não configurada';
-
-        _statusReady = true;
-        setStatus(d.provider === 'mock' ? 'warn' : hasKey ? 'ok' : 'err', 'Provider atual:', label);
-
         selectProvider(d.provider, d.model || 'auto');
         updateEffectiveModel(d.model, d.provider);
+        _statusReady = true;
+        if (cmp.ok) {
+          renderSettingsComparison(await cmp.clone().json());
+        } else {
+          document.getElementById('settings-compare').textContent = 'Não foi possível carregar comparação Tactical x IA.';
+        }
 
-        if (hasKey && d.provider !== 'mock') {
-          document.getElementById('key-hint').textContent = 'Chave já configurada. Deixe em branco para mantê-la.';
+        if (d.provider === 'mock') {
+          setStatus('warn', 'Provider atual:', 'Mock ativo — sem custo, sem IA real');
+          return;
+        }
+
+        if (!hasKey) {
+          setStatus('err', 'Provider atual:', d.provider + ' — chave não configurada');
+          return;
+        }
+
+        // Validar se a chave realmente funciona chamando /ai/models
+        setStatus('warn', 'Validando chave…', '');
+        try {
+          const mResp = await fetch(API_BASE + '/ai/models?provider=' + d.provider, { headers: getHeaders() });
+          const mData = await mResp.json();
+          const keyValid = mResp.ok && mData.source !== 'static' && Array.isArray(mData.models) && mData.models.length > 0;
+          if (keyValid) {
+            setStatus('ok', 'Provider atual:', d.provider + ' · ' + effModel);
+            document.getElementById('key-hint').textContent = 'Chave válida. Deixe em branco para mantê-la.';
+          } else {
+            setStatus('err', 'Provider atual:', d.provider + ' — chave inválida ou sem acesso');
+            document.getElementById('key-hint').textContent = 'Chave configurada mas inválida. Insira uma chave válida.';
+          }
+        } catch (_) {
+          setStatus('warn', 'Provider atual:', d.provider + ' · ' + effModel + ' (validação indisponível)');
         }
 
         if (cmp.ok) {
           renderSettingsComparison(await cmp.json());
         } else {
-          document.getElementById('settings-compare').textContent = 'Nao foi possivel carregar comparacao Tactical x IA.';
+          document.getElementById('settings-compare').textContent = 'Não foi possível carregar comparação Tactical x IA.';
         }
       } catch (e) {
         setStatus('err', 'Erro ao consultar API.', e.message);
       }
+    }
+
+    function validateApiKeyFormat(key, provider) {
+      if (!key) return null; // vazio = manter existente
+      if (key.startsWith('http://') || key.startsWith('https://')) return 'A chave não pode ser uma URL.';
+      if (key === 'CHANGE_ME' || key.length < 20) return 'Chave inválida ou muito curta.';
+      if (provider === 'openai'    && !key.startsWith('sk-')) return 'Chaves OpenAI começam com "sk-".';
+      if (provider === 'anthropic' && !key.startsWith('sk-ant-')) return 'Chaves Anthropic começam com "sk-ant-".';
+      return null;
     }
 
     async function saveSettings() {
@@ -1653,6 +2475,16 @@ const SETTINGS_HTML = /* html */`<!DOCTYPE html>
       btn.textContent = 'Salvando…';
 
       const apiKey = document.getElementById('api-key').value.trim();
+
+      // Validar formato antes de enviar
+      const fmtErr = validateApiKeyFormat(apiKey, selectedProvider);
+      if (fmtErr) {
+        showFeedback(fmtErr, false);
+        btn.disabled = false;
+        btn.textContent = 'Salvar configuração';
+        return;
+      }
+
       const body = { provider: selectedProvider, model: document.getElementById('model').value || 'auto' };
       if (apiKey) body.api_key = apiKey;
 

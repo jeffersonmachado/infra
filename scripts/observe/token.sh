@@ -22,7 +22,14 @@ token_from_file() {
 }
 
 token_from_container() {
-  docker inspect "$CONTAINER" &>/dev/null || die "Container '$CONTAINER' não está em execução."
+  local inspect_err
+  inspect_err="$(docker inspect "$CONTAINER" 2>&1 >/dev/null || true)"
+  if [[ -n "$inspect_err" ]]; then
+    if grep -qiE 'permission denied|operation not permitted' <<<"$inspect_err"; then
+      die "Sem permissão para consultar o Docker daemon. Rode com usuário no grupo docker ou use sudo."
+    fi
+    die "Container '$CONTAINER' não está em execução."
+  fi
   docker exec "$CONTAINER" printenv INTERNAL_TOKEN 2>/dev/null || die "Variável INTERNAL_TOKEN não encontrada no container."
 }
 
@@ -55,11 +62,15 @@ cmd_show() {
 
   echo ""
   bold "─── Token no container ($CONTAINER)"
-  if docker inspect "$CONTAINER" &>/dev/null; then
+  local inspect_err
+  inspect_err="$(docker inspect "$CONTAINER" 2>&1 >/dev/null || true)"
+  if [[ -z "$inspect_err" ]]; then
     local ctoken
     ctoken="$(token_from_container)"
     echo "$ctoken"
     validate_token "$ctoken"
+  elif grep -qiE 'permission denied|operation not permitted' <<<"$inspect_err"; then
+    yellow "Sem permissão para consultar o Docker daemon neste usuário."
   else
     yellow "Container não está em execução."
   fi
@@ -130,7 +141,7 @@ cmd_rotate() {
     --profile observe-ai \
     --profile observe-proxy \
     up -d --no-build \
-    observe-api observe-worker observe-ai observe-proxy 2>&1 | grep -E 'Starting|Started|Recreat|Running|error' || true
+    r-observe-api r-observe-worker r-observe-ai observe-proxy 2>&1 | grep -E 'Starting|Started|Recreat|Running|error' || true
 
   green "✓ Rotate concluído. Novo token:"
   echo "$new_token"

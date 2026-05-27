@@ -66,7 +66,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 25 || exit 1"]
+      test: ["CMD-SHELL", "postfix status >/dev/null 2>&1 || /usr/bin/bash -lc 'exec 3<>/dev/tcp/127.0.0.1/25'"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -139,7 +139,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 25 || exit 1"]
+      test: ["CMD-SHELL", "postfix status >/dev/null 2>&1 || /usr/bin/bash -lc 'exec 3<>/dev/tcp/127.0.0.1/25'"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -195,7 +195,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 143 || nc -z 127.0.0.1 993 || exit 1"]
+      test: ["CMD-SHELL", "/bin/bash -lc 'exec 3<>/dev/tcp/127.0.0.1/143' || /bin/bash -lc 'exec 3<>/dev/tcp/127.0.0.1/993'"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -221,7 +221,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 11334 || exit 1"]
+      test: ["CMD-SHELL", "rspamc -h 127.0.0.1:11334 stat >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -276,14 +276,14 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 389 || exit 1"]
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -s base -b '' dn >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 30s
 
   mail-certs-bootstrap:
-    image: alpine:3.20
+    image: certbot/certbot:v2.11.0
     container_name: results-mail-certs-bootstrap
     restart: "no"
     environment:
@@ -292,7 +292,7 @@ services:
       MAIL_IMAP_HOSTNAME: ${MAIL_IMAP_HOSTNAME:-imap.results.com.br}
       MAIL_ACME_DOMAINS: ${MAIL_ACME_DOMAINS:-}
       MAIL_BOOTSTRAP_CERT_DAYS: ${MAIL_BOOTSTRAP_CERT_DAYS:-7}
-    command: ["/bin/sh", "/scripts/mail-certs-bootstrap.sh"]
+    entrypoint: ["/bin/sh", "/scripts/mail-certs-bootstrap.sh"]
     volumes:
       - mail-certs:/certs
       - ./scripts/mail-certs-bootstrap.sh:/scripts/mail-certs-bootstrap.sh:ro

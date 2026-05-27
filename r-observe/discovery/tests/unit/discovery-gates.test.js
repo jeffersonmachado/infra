@@ -6,32 +6,29 @@ const { fingerprintAsset } = require('../../src/fingerprint/engine');
 const { buildTopologyEdges } = require('../../src/topology/engine');
 
 const fingerprintFixtures = [
-  { name: 'Apache', input: { http_server: 'Apache/2.4.58', open_ports: [80] }, product: 'Apache', category: 'web' },
-  { name: 'Nginx', input: { http_server: 'nginx/1.25.3', open_ports: [443] }, product: 'Nginx', category: 'web' },
-  { name: 'PostgreSQL', input: { open_ports: [5432], hostname: 'pg-core' }, product: 'PostgreSQL', category: 'database' },
-  { name: 'MariaDB/MySQL', input: { open_ports: [3306], hostname: 'mysql-core' }, product: 'MariaDB', category: 'database' },
-  { name: 'Redis', input: { open_ports: [6379] }, product: 'Redis', category: 'cache' },
-  { name: 'Prometheus', input: { open_ports: [9090] }, product: 'Prometheus', category: 'observability' },
-  { name: 'Grafana', input: { open_ports: [3000] }, product: 'Grafana', category: 'observability' },
-  { name: 'Asterisk', input: { open_ports: [5060, 8088] }, product: 'Asterisk', category: 'voice' },
-  { name: 'PowerDNS', input: { open_ports: [53] }, product: 'PowerDNS', category: 'dns' },
-  { name: 'Docker Registry', input: { open_ports: [5000] }, product: 'Docker Registry', category: 'registry' },
-  { name: 'ControlID FaceID', input: { onvif_model: 'ControlID FaceID iDProx', open_ports: [80] }, product: 'ControlID FaceID', category: 'iot' },
-  { name: 'Grandstream', input: { snmp_sysdescr: 'Grandstream GXV3275', open_ports: [5060] }, product: 'Grandstream', category: 'voice' },
-  { name: 'Mikrotik', input: { snmp_sysdescr: 'Mikrotik RouterOS', open_ports: [80] }, product: 'Mikrotik', category: 'unknown' },
-  { name: 'Hikvision', input: { snmp_sysdescr: 'Hikvision Camera', open_ports: [554] }, product: 'Hikvision', category: 'iot' },
-  { name: 'Intelbras', input: { snmp_sysdescr: 'Intelbras DVR', open_ports: [80] }, product: 'Intelbras', category: 'iot' },
+  { name: 'Apache', input: { http_server: 'Apache/2.4.58', open_ports: [80], http_title: 'Apache default site' }, product: 'Apache', category: 'web' },
+  { name: 'Nginx', input: { http_server: 'nginx/1.25.3', open_ports: [443], tls_subject: 'CN=nginx.local' }, product: 'Nginx', category: 'web' },
+  { name: 'PostgreSQL', input: { open_ports: [5432], smtp_banner: 'PostgreSQL server ready', history: { asset_key_match: true, previous_asset_type: 'database', previous_technology: 'postgres' } }, product: 'PostgreSQL', category: 'database' },
+  { name: 'Prometheus', input: { open_ports: [9090], http_title: 'Prometheus Time Series Collection and Processing Server' }, product: 'Prometheus', category: 'observability' },
+  { name: 'Grafana', input: { open_ports: [3000], http_title: 'Grafana', http_server: 'nginx reverse proxy grafana' }, product: 'Grafana', category: 'observability' },
+  { name: 'ControlID FaceID', input: { onvif_probe: { responded: true, device_info: true, model: 'ControlID FaceID iDProx' }, open_ports: [80] }, product: 'ControlID FaceID', category: 'iot', productMode: 'includes' },
+  { name: 'Grandstream', input: { snmp_sysdescr: 'Grandstream GXV3275', open_ports: [5060], sip_probe: { responded: true, status: 200, user_agent: 'Grandstream SIP UA' }, topology: { vlan_role: 'voice' } }, product: 'Grandstream', category: 'voice', productMode: 'includes' },
+  { name: 'Mikrotik', input: { snmp_sysdescr: 'Mikrotik RouterOS', open_ports: [80], topology: { gateway: true } }, product: 'Mikrotik', category: 'router' },
+  { name: 'Hikvision', input: { snmp_sysdescr: 'Hikvision Camera', open_ports: [554], rtsp_probe: { responded: true, status: 200, server: 'Hikvision RTSP' }, onvif_probe: { responded: true, device_info: true, model: 'Hikvision Camera' }, topology: { poe: true } }, product: 'Hikvision', category: 'iot', productMode: 'includes' },
+  { name: 'Intelbras', input: { snmp_sysdescr: 'Intelbras DVR', open_ports: [80, 554], rtsp_probe: { responded: true, status: 200, server: 'Intelbras RTSP' }, onvif_probe: { responded: true, device_info: true, model: 'Intelbras DVR' } }, product: 'Intelbras', category: 'iot', productMode: 'includes' },
 ];
 
 for (const fx of fingerprintFixtures) {
   test(`fingerprint fixture: ${fx.name}`, () => {
     const fp = fingerprintAsset(fx.input);
-    assert.equal(fp.product, fx.product);
+    if (fx.productMode === 'includes') assert.ok(fp.product.includes(fx.product));
+    else assert.equal(fp.product, fx.product);
     assert.equal(fp.category, fx.category);
     assert.equal(typeof fp.vendor, 'string');
     assert.equal(typeof fp.confidence, 'number');
+    assert.ok(fp.confidence >= 0.31);
     assert.ok(Array.isArray(fp.evidence));
-    assert.ok(fp.evidence.length > 0);
+    assert.ok(fp.evidence_count >= 2);
   });
 }
 

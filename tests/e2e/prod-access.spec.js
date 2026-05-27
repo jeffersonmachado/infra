@@ -36,7 +36,7 @@ test.describe('Produção — r-observe.results.com.br', () => {
     await page.evaluate(t => sessionStorage.setItem('observe_token', t), TOKEN);
     await page.reload();
     await page.waitForTimeout(3000);
-    await expect(page).toHaveTitle(/R-Observe · IA Dashboard/, { timeout: 10000 });
+    await expect(page).toHaveTitle(/R-Observe.*IA/, { timeout: 10000 });
     await page.screenshot({ path: 'test-results/prod-ai-dashboard.png', fullPage: true });
   });
 

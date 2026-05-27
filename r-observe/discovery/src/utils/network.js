@@ -38,10 +38,44 @@ async function httpFingerprint(target, tls = false) {
     const resp = await fetch(`${proto}://${target}/`, { signal: AbortSignal.timeout(2500) });
     const headers = {};
     for (const [k, v] of resp.headers.entries()) headers[k.toLowerCase()] = v;
-    return { status: resp.status, headers };
+    const body = await resp.text().catch(() => '');
+    const titleMatch = body.match(/<title[^>]*>([^<]{1,200})<\/title>/i);
+    return { status: resp.status, headers, title: titleMatch ? titleMatch[1].trim() : null };
   } catch {
     return null;
   }
+}
+
+function readTcpBanner(host, port, timeoutMs = 1800) {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    let done = false;
+    let data = '';
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      sock.destroy();
+      resolve(value || null);
+    };
+
+    sock.setTimeout(timeoutMs);
+    sock.once('timeout', () => finish(null));
+    sock.once('error', () => finish(null));
+    sock.once('connect', () => {
+      if (port === 25 || port === 587 || port === 465) {
+        sock.write('EHLO r-observe.local\r\n');
+      }
+    });
+
+    sock.on('data', (chunk) => {
+      data += chunk.toString('utf8');
+      if (data.length > 512 || /\r\n/.test(data)) {
+        finish(data.slice(0, 512).replace(/[\r\n]+/g, ' ').trim());
+      }
+    });
+
+    sock.connect(port, host);
+  });
 }
 
 function tlsCertificateFingerprint(host, port = 443, timeoutMs = 2500) {
@@ -78,4 +112,4 @@ async function faviconHash(host, port = 80, tlsEnabled = false) {
   }
 }
 
-module.exports = { reverseDns, tcpConnect, httpFingerprint, tlsCertificateFingerprint, faviconHash };
+module.exports = { reverseDns, tcpConnect, httpFingerprint, tlsCertificateFingerprint, faviconHash, readTcpBanner };

@@ -98,7 +98,7 @@ async function rescheduleCheck(host, service) {
 
 // Lista todos os hosts registrados no Icinga2.
 async function listHosts() {
-  const r = await request('GET', '/objects/hosts?attrs=address&attrs=display_name&attrs=vars&attrs=state');
+  const r = await request('GET', '/objects/hosts?attrs=address&attrs=display_name&attrs=vars&attrs=state').catch(() => ({ ok: false }));
   if (!r.ok) return [];
   return (r.data.results || []).map(h => ({
     name:         h.name,
@@ -110,7 +110,7 @@ async function listHosts() {
 }
 
 async function listServices() {
-  const r = await request('GET', '/objects/services?attrs=state');
+  const r = await request('GET', '/objects/services?attrs=state').catch(() => ({ ok: false }));
   if (!r.ok) return [];
   return (r.data.results || []).map((s) => ({
     name: s.name,

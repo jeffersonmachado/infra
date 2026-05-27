@@ -226,13 +226,16 @@ curl -sf -o /dev/null \
   -H "x-internal-token: ${TOKEN}" \
   -d "${RECOVERY_PAYLOAD}" 2>/dev/null || true
 
-sleep 3
-
 if [[ -n "${INCIDENT_ID}" ]]; then
-  FINAL_STATUS=$(curl -sf \
-    "${API_BASE}/incidents/${INCIDENT_ID}" \
-    -H "x-internal-token: ${TOKEN}" 2>/dev/null | \
-    python3 -c "import json,sys; print(json.load(sys.stdin)['incident']['status'])" 2>/dev/null || echo "unknown")
+  FINAL_STATUS="unknown"
+  for _ in $(seq 1 15); do
+    FINAL_STATUS=$(curl -sf \
+      "${API_BASE}/incidents/${INCIDENT_ID}" \
+      -H "x-internal-token: ${TOKEN}" 2>/dev/null | \
+      python3 -c "import json,sys; print(json.load(sys.stdin)['incident']['status'])" 2>/dev/null || echo "unknown")
+    [[ "${FINAL_STATUS}" == "resolved" ]] && break
+    sleep 2
+  done
   if [[ "${FINAL_STATUS}" == "resolved" ]]; then
     pass "Incidente fechado (status: resolved)"
   else

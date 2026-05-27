@@ -45,10 +45,14 @@ run_cmd() {
     eval "$cmd"
 }
 
+quote_cmd() {
+    printf '%q ' "$@"
+}
+
 run_ssh_cmd() {
     local remote_cmd="$1"
     local description="$2"
-    local full_cmd="$SSH_CMD ${REMOTE_USER}@${REMOTE_HOST} \"$remote_cmd\""
+    local full_cmd="${SSH_WRAPPER}$SSH_CMD ${REMOTE_USER}@${REMOTE_HOST} \"$remote_cmd\""
 
     show_cmd "COMANDO SSH" "$description" "$full_cmd"
     echo -e "${YELLOW}[COMANDO REMOTO]${NC} $remote_cmd"
@@ -159,7 +163,7 @@ run_local_webmail_public_gate() {
 capture_ssh_cmd() {
     local remote_cmd="$1"
     local description="$2"
-    local full_cmd="$SSH_CMD ${REMOTE_USER}@${REMOTE_HOST} \"$remote_cmd\""
+    local full_cmd="${SSH_WRAPPER}$SSH_CMD ${REMOTE_USER}@${REMOTE_HOST} \"$remote_cmd\""
 
     show_cmd "COMANDO SSH" "$description" "$full_cmd"
     echo -e "${YELLOW}[COMANDO REMOTO]${NC} $remote_cmd"
@@ -199,10 +203,13 @@ DEPLOY_ENV_BASENAME="$(basename "$DEPLOY_ENV_FILE")"
 REMOTE_ENV_FILE="$DEPLOY_ENV_BASENAME"
 DEPLOY_PROJECT_NAME="${DEPLOY_PROJECT_NAME:-infra-httpd}"
 DEPLOY_COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-docker-compose.yml}"
+DEPLOY_SYNC_PATHS="${DEPLOY_SYNC_PATHS:-}"
 USE_SSH_DIRECT="${DEPLOY_USE_SSH_DIRECT:-false}"
 SSH_PASSWORD="${SSH_PASSWORD:-${DEPLOY_SSH_PASSWORD:-}}"
 SSH_PASSWORD_FILE="${DEPLOY_SSH_PASSWORD_FILE:-}"
 SSH_KEY_PATH="${DEPLOY_SSH_KEY:-}"
+SSH_WRAPPER=""
+RSYNC_WRAPPER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -253,6 +260,14 @@ if [ -n "$SSH_PASSWORD" ] && [ -n "$SSH_PASSWORD_FILE" ]; then
     exit 1
 fi
 
+if [ -n "$SSH_PASSWORD_FILE" ]; then
+    if [ ! -r "$SSH_PASSWORD_FILE" ]; then
+        error "Arquivo de senha SSH nao encontrado ou sem leitura: $SSH_PASSWORD_FILE"
+        exit 1
+    fi
+    SSH_PASSWORD="$(cat "$SSH_PASSWORD_FILE")"
+fi
+
 SSH_OPTS="-p $REMOTE_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes"
 
 if [ -n "$SSH_KEY_PATH" ]; then
@@ -264,24 +279,19 @@ if [ "$USE_SSH_DIRECT" = "true" ]; then
     SSH_CMD="ssh $SSH_OPTS"
     RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
 else
-    if [ -z "$SSH_PASSWORD" ] && [ -n "$SSH_PASSWORD" ]; then
-        export SSH_PASSWORD="$SSH_PASSWORD"
-    fi
-
-    if [ -n "$SSH_PASSWORD_FILE" ]; then
-        if ! command -v ssh >/dev/null 2>&1; then
-            error "ssh nao esta instalado. Instale com: apt-get install ssh ou yum install ssh"
-            exit 1
-        fi
-        SSH_CMD="ssh $SSH_OPTS"
-        RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
-    elif [ -n "$SSH_PASSWORD" ]; then
+    if [ -n "$SSH_PASSWORD" ]; then
         if ! command -v ssh >/dev/null 2>&1; then
             error "ssh nao esta instalado. Instale com: apt-get install ssh ou yum install ssh"
             error "Ou use DEPLOY_USE_SSH_DIRECT=true para autenticacao SSH padrao."
             exit 1
         fi
-        export SSH_PASSWORD
+        if ! command -v sshpass >/dev/null 2>&1; then
+            error "sshpass nao esta instalado. Instale-o ou use DEPLOY_SSH_KEY/DEPLOY_USE_SSH_DIRECT=true."
+            exit 1
+        fi
+        export SSHPASS="$SSH_PASSWORD"
+        SSH_WRAPPER="sshpass -e "
+        RSYNC_WRAPPER="sshpass -e "
         SSH_CMD="ssh $SSH_OPTS"
         RSYNC_SSH_TRANSPORT="ssh $SSH_OPTS"
     elif [ -n "$SSH_KEY_PATH" ]; then
@@ -341,8 +351,58 @@ section "Preparando Diretório Remoto"
 run_ssh_cmd "mkdir -p '$REMOTE_DIR'" "Criando diretório remoto"
 
 section "Sincronizando Arquivos"
-RSYNC_CMD="rsync -az --progress --delete --exclude .git/ --exclude node_modules/ --exclude .env --exclude .env.local -e '$RSYNC_SSH_TRANSPORT' '$ROOT_DIR/' '${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/'"
-run_cmd "$RSYNC_CMD" "Sincronizando workspace para o host remoto"
+sync_workspace() {
+    local normalized_paths
+    local seen_paths=""
+    local -a sync_paths=()
+    local -a rsync_cmd=(
+        rsync -az --progress --delete --relative
+        --exclude .git/
+        --exclude node_modules/
+        --exclude .env
+        --exclude .env.local
+        -e "$RSYNC_SSH_TRANSPORT"
+    )
+
+    if [ -z "$DEPLOY_SYNC_PATHS" ]; then
+        local full_cmd="${RSYNC_WRAPPER}rsync -az --progress --delete --exclude .git/ --exclude node_modules/ --exclude .env --exclude .env.local -e '$RSYNC_SSH_TRANSPORT' '$ROOT_DIR/' '${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/'"
+        run_cmd "$full_cmd" "Sincronizando workspace para o host remoto"
+        return 0
+    fi
+
+    normalized_paths="$(printf '%s\n%s\n%s\n' "$DEPLOY_SYNC_PATHS" "$DEPLOY_COMPOSE_FILE" "$DEPLOY_ENV_FILE" | tr ',:' '\n')"
+    while IFS= read -r relpath; do
+        relpath="$(echo "$relpath" | sed 's#^[[:space:]]*##; s#[[:space:]]*$##')"
+        relpath="${relpath#./}"
+        [ -n "$relpath" ] || continue
+        [ -e "$ROOT_DIR/$relpath" ] || { error "Caminho de sync nao encontrado: $relpath"; exit 1; }
+        case "
+$seen_paths
+" in
+            *"
+$relpath
+"*) continue ;;
+        esac
+        seen_paths="${seen_paths}
+$relpath"
+        sync_paths+=("$ROOT_DIR/./$relpath")
+    done <<< "$normalized_paths"
+
+    rsync_cmd+=("${sync_paths[@]}" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/")
+    show_cmd "COMANDO" "Sincronizando escopo seletivo para o host remoto" "$(quote_cmd "${rsync_cmd[@]}")"
+
+    if [ "$DRY_RUN" = "true" ]; then
+        return 0
+    fi
+
+    if [ -n "$RSYNC_WRAPPER" ]; then
+        sshpass -e "${rsync_cmd[@]}"
+    else
+        "${rsync_cmd[@]}"
+    fi
+}
+
+sync_workspace
 
 validate_remote_webmail_config false
 

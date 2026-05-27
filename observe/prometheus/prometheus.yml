@@ -14,7 +14,7 @@ scrape_configs:
   - job_name: 'r-observe-api'
     metrics_path: '/observe/api/metrics'
     static_configs:
-      - targets: ['observe-api:3000']
+      - targets: ['r-observe-api:3000']
         labels:
           service: 'r-observe-api'
 
@@ -22,7 +22,7 @@ scrape_configs:
   - job_name: 'r-observe-worker'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['observe-worker:3000']
+      - targets: ['r-observe-worker:3000']
         labels:
           service: 'r-observe-worker'
 
@@ -30,7 +30,7 @@ scrape_configs:
   - job_name: 'r-observe-ai'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['observe-ai:3000']
+      - targets: ['r-observe-ai:3000']
         labels:
           service: 'r-observe-ai'
 
@@ -38,7 +38,7 @@ scrape_configs:
   - job_name: 'r-observe-agent'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['observe-agent:3000']
+      - targets: ['r-observe-agent:3000']
         labels:
           service: 'r-observe-agent'
 
@@ -46,7 +46,7 @@ scrape_configs:
   - job_name: 'r-observe-discovery'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['observe-discovery:3010']
+      - targets: ['r-observe-discovery:3010']
         labels:
           service: 'r-observe-discovery'
 
@@ -67,7 +67,7 @@ scrape_configs:
   # Atualiza a cada 30s sem restart do Prometheus.
   - job_name: 'discovered-http-sd'
     http_sd_configs:
-      - url: 'http://observe-api:3000/observe/api/sd/targets'
+      - url: 'http://r-observe-api:3000/observe/api/sd/targets'
         refresh_interval: 30s
     relabel_configs:
       # Mantém apenas targets com porta de exporter reconhecida
@@ -80,7 +80,7 @@ scrape_configs:
   # ── HTTP SD Discovery Engine ───────────────────────────────────────────────
   - job_name: 'discovery-engine-http-sd'
     http_sd_configs:
-      - url: 'http://observe-discovery:3010/api/discovery/prometheus/http-sd'
+      - url: 'http://r-observe-discovery:3010/api/discovery/prometheus/http-sd'
         refresh_interval: 30s
     relabel_configs:
       - source_labels: [job]

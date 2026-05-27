@@ -13,7 +13,7 @@ npm run observe:health
 npm run observe:logs
 
 # Log de um serviço específico
-docker compose -f docker-compose.observe.yml --env-file .env.observe logs -f observe-api
+docker compose -f docker-compose.observe.yml --env-file .env.observe logs -f r-observe-api
 ```
 
 ---
@@ -25,8 +25,8 @@ docker compose -f docker-compose.observe.yml --env-file .env.observe logs -f obs
 **Sintoma:** `docker ps` mostra `Restarting`
 
 ```bash
-docker logs observe-api --tail 50
-docker inspect observe-api --format '{{.State.Health}}'
+docker logs r-observe-api --tail 50
+docker inspect r-observe-api --format '{{.State.Health}}'
 ```
 
 **Causas comuns:**
@@ -62,7 +62,7 @@ docker exec observe-redis redis-cli LRANGE observe:events 0 5
 
 **Verificar logs do worker:**
 ```bash
-docker logs observe-worker --tail 100 | grep -E "ERROR|event|incident"
+docker logs r-observe-worker --tail 100 | grep -E "ERROR|event|incident"
 ```
 
 ---
@@ -74,7 +74,7 @@ docker logs observe-worker --tail 100 | grep -E "ERROR|event|incident"
 **Verificar provider:**
 ```bash
 grep R_OBSERVE_AI .env.observe
-docker logs observe-ai --tail 50
+docker logs r-observe-ai --tail 50
 ```
 
 **Usar mock temporariamente:**
@@ -163,8 +163,8 @@ npm run observe:up:full
 {
   echo "=== docker ps ==="; docker ps --filter "name=observe"
   echo "=== API health ==="; curl -sf http://localhost:3080/observe/api/health
-  echo "=== Worker logs ==="; docker logs observe-worker --tail 50 2>&1
-  echo "=== API logs ==="; docker logs observe-api --tail 50 2>&1
+   echo "=== Worker logs ==="; docker logs r-observe-worker --tail 50 2>&1
+   echo "=== API logs ==="; docker logs r-observe-api --tail 50 2>&1
   echo "=== Postgres health ==="; docker inspect observe-postgres --format '{{.State.Health.Status}}'
 } > observe-diag-$(date +%Y%m%d-%H%M%S).txt
 ```

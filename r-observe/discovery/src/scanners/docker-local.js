@@ -1,6 +1,7 @@
 'use strict';
 
 const Docker = require('dockerode');
+const { log } = require('../utils/logger');
 
 async function discoverLocalDocker() {
   try {
@@ -15,7 +16,8 @@ async function discoverLocalDocker() {
       ports: c.Ports || [],
       source: 'docker-local',
     }));
-  } catch {
+  } catch (e) {
+    log('warn', 'Docker local discovery failed', { err: e?.message, code: e?.code });
     return [];
   }
 }

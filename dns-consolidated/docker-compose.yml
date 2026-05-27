@@ -33,9 +33,14 @@ services:
     image: powerdns/pdns-auth-49:${PDNS_AUTH_TAG:-4.9.14}
     container_name: pdns-auth
     volumes:
-      - ./pdns-auth/pdns.conf:/etc/powerdns/pdns.conf:ro
+      - type: bind
+        source: ./rendered/pdns-auth/pdns.conf
+        target: /etc/powerdns/pdns.conf
+        read_only: true
+        bind:
+          create_host_path: false
     extra_hosts:
-      - "srvmysql.results.intranet:10.10.2.99"
+      - "srvmysql.results.intranet:${DNS_DB_HOST:-10.10.2.99}"
     networks:
       dns-internal:
         ipv4_address: 10.53.53.11
@@ -60,7 +65,12 @@ services:
     depends_on:
       - pdns-auth
     volumes:
-      - ./pdns-recursor/recursor.conf:/etc/powerdns/recursor.conf:ro
+      - type: bind
+        source: ./rendered/pdns-recursor/recursor.conf
+        target: /etc/powerdns/recursor.conf
+        read_only: true
+        bind:
+          create_host_path: false
       - ./pdns-recursor/forward-zones.conf:/etc/powerdns/forward-zones.conf:ro
     networks:
       dns-internal:
@@ -88,7 +98,12 @@ services:
       - pdns-auth
       - pdns-recursor
     volumes:
-      - ./dnsdist/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro
+      - type: bind
+        source: ./rendered/dnsdist/dnsdist.conf
+        target: /etc/dnsdist/dnsdist.conf
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       dns-internal:
         ipv4_address: 10.53.53.13

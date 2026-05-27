@@ -106,7 +106,7 @@ run "docker compose -f docker-compose.observe.yml --env-file .env.observe \
   --profile observe-monitoring \
   --profile observe-icinga \
   --profile observe-proxy \
-  up -d 2>&1 | tail -10"
+  up -d --remove-orphans 2>&1 | tail -10"
 ok "Stack iniciada"
 
 # ── Aguarda serviços ficarem healthy ─────────────────────────────────────────

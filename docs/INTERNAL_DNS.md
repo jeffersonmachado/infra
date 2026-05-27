@@ -1,43 +1,67 @@
-# DNS Interno para split-horizon de results.com.br
+# DNS Interno
 
-Esta stack cria dois containers CoreDNS para resolver internamente os nomes criticos de `results.com.br` e `results.intranet`.
+O CoreDNS interno foi totalmente substituido pelo stack PowerDNS consolidado em
+`dns-consolidated/`. Nao use mais os servicos `internal-dns-a` e
+`internal-dns-b` como caminho operacional para resolver `results.com.br` ou
+`results.intranet`.
 
-Objetivo operacional:
+O desenho atual e:
 
-- `results.com.br` e `www.results.com.br` respondem para `10.10.2.60`
-- `mx1.results.com.br` e `imap.results.com.br` respondem para `10.10.2.3`
-- `mx2.results.com.br` responde para `10.10.2.23`
-- nomes internos criticos de `results.intranet` continuam resolvendo para os IPs privados esperados
+- `pdns-auth`: PowerDNS Authoritative, com backend MariaDB em `10.10.2.99`
+- `pdns-recursor`: PowerDNS Recursor para resolucao interna, split-horizon e cache
+- `dns-dnsdist`: entrada unica DNS, roteando consultas para authoritative ou recursor
 
-## Execucao local na stack HTTP
+Portas de diagnostico do stack atual:
 
-Os containers `apache` e `joomla` passam a usar os resolvers internos `results-internal-dns-a` e `results-internal-dns-b` pela rede Docker `dns-internal`.
+- `5353`: `dnsdist` durante migracao ou validacao paralela
+- `5300`: `pdns-auth` direto
+- `5301`: `pdns-recursor` direto
+- `53`: `dnsdist` apos o corte definitivo
 
-Subir ou reaplicar:
+## Observacao operacional
+
+Se o servico Docker for reiniciado no host, reconecte a VPN antes de validar ou
+subir novamente o stack `dns-consolidated/`.
+
+Motivo: o `pdns-auth` depende de acesso ao MariaDB em `10.10.2.99:3306`. Sem a
+VPN ativa, o container pode voltar, mas nao consegue ler as zonas do banco,
+fazendo as consultas autoritativas falharem ou retornarem `SERVFAIL` pelo
+recursor/dnsdist.
+
+## Validacao
+
+No servidor de DNS, valide pelo stack PowerDNS:
 
 ```bash
-cd /opt/results/infra
-docker compose up -d internal-dns-a internal-dns-b joomla apache
+cd /opt/results/infra/dns-consolidated
+NEW_DNS=127.0.0.1 NEW_PORT=5353 bash scripts/validate.sh
 ```
 
-Validar dentro dos containers:
+Se o corte ja foi feito para a porta padrao:
 
 ```bash
-docker exec secure-httpd getent hosts imap.results.com.br mx1.results.com.br results.com.br
-docker exec results-joomla getent hosts imap.results.com.br mx1.results.com.br results.com.br
+cd /opt/results/infra/dns-consolidated
+NEW_DNS=127.0.0.1 NEW_PORT=53 bash scripts/validate.sh
 ```
 
-## Publicacao futura em 10.10.2.1 e 10.10.2.20
-
-O arquivo [docker-compose.dns-internal.yml](/opt/results/infra/docker-compose.dns-internal.yml) publica `53/tcp` e `53/udp` em `10.10.2.1` e `10.10.2.20`.
-
-Use somente depois de retirar esses IPs dos DNS antigos, para evitar conflito de ARP e bind:
+Para testar diretamente o registro da VPN:
 
 ```bash
-cd /opt/results/infra
-docker compose -f docker-compose.yml -f docker-compose.dns-internal.yml up -d internal-dns-a internal-dns-b
+dig @127.0.0.1 -p 5353 rvpn.results.com.br A +short
+dig @127.0.0.1 -p 5300 rvpn.results.com.br A +short
+dig @127.0.0.1 -p 5301 rvpn.results.com.br A +short
 ```
 
-## Observacao importante
+`rvpn.results.com.br` deve existir no PowerDNS Authoritative. O script
+`dns-consolidated/scripts/validate.sh` trata esse registro como item obrigatorio
+da zona `results.com.br`.
 
-Neste momento, `10.10.2.1` e `10.10.2.20` ainda respondem na rede e já estão ouvindo em `53/tcp`. Portanto, a publicacao direta nesses IPs deve ser tratada como etapa de corte, não como mudanca segura imediata.
+## Legado CoreDNS
+
+Os arquivos `dns-internal/`, `internal-dns-a`, `internal-dns-b` e
+`docker-compose.dns-internal.yml` permanecem apenas como historico da fase
+anterior. Nao devem ser usados para novos cortes, correcao de registros ou
+publicacao DNS em producao.
+
+Qualquer ajuste de zona deve ser feito no PowerDNS, validado pelo dnsdist e
+comparado com o legado quando necessario pelos scripts em `dns-consolidated/`.

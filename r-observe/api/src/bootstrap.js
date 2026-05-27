@@ -8,6 +8,10 @@ function parseBool(value, defaultValue = false) {
 async function ensureGrafanaAdminIfNotPersisted(env = process.env, logger = console) {
   const enabled = parseBool(env.OBSERVE_BOOTSTRAP_GRAFANA_ADMIN_ENABLED, true);
   if (!enabled) return { status: 'disabled' };
+  const strictUnreachable = parseBool(
+    env.OBSERVE_BOOTSTRAP_GRAFANA_ADMIN_STRICT,
+    env.NODE_ENV !== 'development'
+  );
 
   const user = String(env.GRAFANA_ADMIN_USER || '').trim();
   const password = String(env.GRAFANA_ADMIN_PASSWORD || '').trim();
@@ -53,21 +57,26 @@ async function ensureGrafanaAdminIfNotPersisted(env = process.env, logger = cons
     }
 
     logger.log?.(JSON.stringify({
-      level: 'warn',
+      level: strictUnreachable ? 'error' : 'warn',
       service: 'r-observe-api',
       msg: 'Grafana bootstrap check returned unexpected status',
       status: loginRes.status,
       ts: new Date().toISOString(),
     }));
+    if (strictUnreachable) {
+      throw new Error(`Grafana bootstrap check returned unexpected status: ${loginRes.status}`);
+    }
     return { status: `unexpected-${loginRes.status}` };
   } catch (error) {
+    const level = strictUnreachable ? 'error' : 'warn';
     logger.log?.(JSON.stringify({
-      level: 'warn',
+      level,
       service: 'r-observe-api',
       msg: 'Grafana bootstrap check failed',
       err: error.message,
       ts: new Date().toISOString(),
     }));
+    if (strictUnreachable) throw error;
     return { status: 'unreachable' };
   }
 }
@@ -119,36 +128,77 @@ async function bootstrapInitialUsers(pool, env = process.env, logger = console) 
       ts: new Date().toISOString(),
     }));
   } else {
+    // Garante grupo Administrators — compatível com schema Icinga (id serial) e schema simplificado (name PK)
     await pool.query(`
       INSERT INTO icingaweb_group ("name", "ctime", "mtime")
-      VALUES ('Administrators', NOW(), NOW())
-      ON CONFLICT ("name") DO NOTHING
+      SELECT 'Administrators', NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM icingaweb_group WHERE lower("name") = lower('Administrators')
+      )
     `);
+
+    // Busca o id do grupo (Icinga usa id integer; schema simplificado pode não ter)
+    const grpRow = await pool.query(
+      `SELECT id FROM icingaweb_group WHERE lower("name") = lower('Administrators') LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+    const groupId = grpRow.rows[0]?.id ?? null;
 
     for (const user of users) {
       if (forcePasswordUpdate) {
-        await pool.query(`
-          INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
-          VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
-          ON CONFLICT ("name") DO UPDATE
-          SET "active" = EXCLUDED."active",
-              "password_hash" = EXCLUDED."password_hash",
-              "mtime" = NOW()
-        `, [user.name, user.active, user.password]);
+        // UPDATE usa SELECT para evitar ON CONFLICT com index de expressão
+        const exists = await pool.query(
+          `SELECT 1 FROM icingaweb_user WHERE lower("name") = lower($1::text) LIMIT 1`,
+          [user.name]
+        );
+        if (exists.rowCount) {
+          await pool.query(`
+            UPDATE icingaweb_user
+            SET "active" = $2, "password_hash" = convert_to(crypt($3, gen_salt('bf')), 'UTF8'), "mtime" = NOW()
+            WHERE lower("name") = lower($1::text)
+          `, [user.name, user.active, user.password]);
+        } else {
+          await pool.query(`
+            INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
+            VALUES ($1::varchar, $2::smallint, convert_to(crypt($3::text, gen_salt('bf')), 'UTF8'), NOW(), NOW())
+          `, [user.name, user.active, user.password]);
+        }
       } else {
-        await pool.query(`
-          INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
-          VALUES ($1, $2, convert_to(crypt($3, gen_salt('bf')), 'UTF8'), NOW(), NOW())
-          ON CONFLICT ("name") DO NOTHING
-        `, [user.name, user.active, user.password]);
+        const exists = await pool.query(
+          `SELECT 1 FROM icingaweb_user WHERE lower("name") = lower($1::text) LIMIT 1`,
+          [user.name]
+        );
+        if (!exists.rowCount) {
+          await pool.query(`
+            INSERT INTO icingaweb_user ("name", "active", "password_hash", "ctime", "mtime")
+            VALUES ($1::varchar, $2::smallint, convert_to(crypt($3::text, gen_salt('bf')), 'UTF8'), NOW(), NOW())
+          `, [user.name, user.active, user.password]);
+        }
       }
 
-      if (user.admin) {
-        await pool.query(`
-          INSERT INTO icingaweb_group_membership ("group_name", "username", "ctime", "mtime")
-          VALUES ('Administrators', $1, NOW(), NOW())
-          ON CONFLICT ("group_name", "username") DO NOTHING
-        `, [user.name]);
+      if (user.admin && groupId !== null) {
+        // Schema Icinga: membership usa group_id (integer)
+        const memExists = await pool.query(
+          `SELECT 1 FROM icingaweb_group_membership WHERE "group_id" = $1::integer AND lower("username") = lower($2::text) LIMIT 1`,
+          [groupId, user.name]
+        );
+        if (!memExists.rowCount) {
+          await pool.query(`
+            INSERT INTO icingaweb_group_membership ("group_id", "username", "ctime", "mtime")
+            VALUES ($1::integer, $2::varchar, NOW(), NOW())
+          `, [groupId, user.name]);
+        }
+      } else if (user.admin && groupId === null) {
+        // Schema simplificado sem id: usa group_name como texto
+        const memExists = await pool.query(
+          `SELECT 1 FROM icingaweb_group_membership WHERE lower("group_name") = lower('Administrators') AND lower("username") = lower($1::text) LIMIT 1`,
+          [user.name]
+        ).catch(() => ({ rowCount: 1 })); // se coluna não existe, pula
+        if (!memExists.rowCount) {
+          await pool.query(`
+            INSERT INTO icingaweb_group_membership ("group_name", "username", "ctime", "mtime")
+            VALUES ('Administrators', $1::varchar, NOW(), NOW())
+          `, [user.name]).catch(() => {});
+        }
       }
     }
 

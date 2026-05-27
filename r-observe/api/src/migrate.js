@@ -1,19 +1,19 @@
 'use strict';
 
-const { Umzug, SequelizeStorage } = require('umzug');
-const { Pool }  = require('pg');
+const { Umzug } = require('umzug');
 const path      = require('path');
 const fs        = require('fs');
+const { createDbClient } = require('./db');
 
-// ─── Custom storage: grava estado no PostgreSQL ───────────────────────────────
-class PgStorage {
-  constructor(pool, table = 'schema_migrations') {
-    this.pool  = pool;
+// ─── Custom storage: grava estado via client Sequelize ────────────────────────
+class MigrationStorage {
+  constructor(db, table = 'schema_migrations') {
+    this.db    = db;
     this.table = table;
   }
 
   async _ensureTable() {
-    await this.pool.query(`
+    await this.db.query(`
       CREATE TABLE IF NOT EXISTS ${this.table} (
         name       TEXT        PRIMARY KEY,
         run_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -23,17 +23,17 @@ class PgStorage {
 
   async logMigration({ name }) {
     await this._ensureTable();
-    await this.pool.query(`INSERT INTO ${this.table} (name) VALUES ($1) ON CONFLICT DO NOTHING`, [name]);
+    await this.db.query(`INSERT INTO ${this.table} (name) VALUES ($1) ON CONFLICT DO NOTHING`, [name]);
   }
 
   async unlogMigration({ name }) {
     await this._ensureTable();
-    await this.pool.query(`DELETE FROM ${this.table} WHERE name = $1`, [name]);
+    await this.db.query(`DELETE FROM ${this.table} WHERE name = $1`, [name]);
   }
 
   async executed() {
     await this._ensureTable();
-    const r = await this.pool.query(`SELECT name FROM ${this.table} ORDER BY name`);
+    const r = await this.db.query(`SELECT name FROM ${this.table} ORDER BY name`);
     return r.rows.map(row => row.name);
   }
 }
@@ -53,7 +53,7 @@ function findMigrationsDir() {
 }
 
 // ─── Cria e executa o Umzug ───────────────────────────────────────────────────
-async function runMigrations(pool) {
+async function runMigrations(db) {
   const migrationsDir = findMigrationsDir();
 
   const umzug = new Umzug({
@@ -63,7 +63,7 @@ async function runMigrations(pool) {
         name,
         up: async () => {
           const sql = fs.readFileSync(filePath, 'utf8');
-          await pool.query(sql);
+          await db.query(sql);
         },
         down: async () => {
           // Down migrations não são suportadas neste stack (SQL DDL idempotente)
@@ -71,7 +71,7 @@ async function runMigrations(pool) {
         },
       }),
     },
-    storage:  new PgStorage(pool),
+    storage:  new MigrationStorage(db),
     logger:   {
       info:  ({ event, name }) => console.log(JSON.stringify({ level: 'info',  service: 'umzug', msg: event, migration: name, ts: new Date().toISOString() })),
       warn:  ({ event, name }) => console.log(JSON.stringify({ level: 'warn',  service: 'umzug', msg: event, migration: name, ts: new Date().toISOString() })),
@@ -92,21 +92,13 @@ async function runMigrations(pool) {
 
 // ─── CLI: node migrate.js [up|pending|list] ───────────────────────────────────
 if (require.main === module) {
-  const pool = new Pool({
-    host:     process.env.DB_HOST,
-    port:     parseInt(process.env.DB_PORT || '5432', 10),
-    database: process.env.DB_NAME,
-    user:     process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-  });
-
-  const cmd = process.argv[2] || 'up';
+  const db = createDbClient(process.env);
 
   (async () => {
     try {
-      await runMigrations(pool);
+      await runMigrations(db);
     } finally {
-      await pool.end();
+      await db.close();
     }
   })().catch(e => { console.error(e.message); process.exit(1); });
 }

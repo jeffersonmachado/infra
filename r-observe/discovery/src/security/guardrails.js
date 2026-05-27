@@ -1,6 +1,14 @@
 'use strict';
 
-const DEFAULT_BLOCKED_PREFIXES = ['127.', '0.', '169.254.', '224.', '239.', '255.255.255.255'];
+const { isIpInRange } = require('../scanners/target-expansion');
+
+const DEFAULT_BLOCKED_RANGES = [
+  '127.0.0.0/8',
+  '0.0.0.0/8',
+  '169.254.0.0/16',
+  '224.0.0.0/4',
+  '255.255.255.255',
+];
 
 function asArray(value) {
   if (Array.isArray(value)) return value;
@@ -17,10 +25,14 @@ function asArray(value) {
 
 function validateTarget(target, policy) {
   const allow = asArray(policy.allowed_ranges);
-  const deny = [...DEFAULT_BLOCKED_PREFIXES, ...asArray(policy.blocked_ranges)];
+  const deny = [...DEFAULT_BLOCKED_RANGES, ...asArray(policy.blocked_ranges)];
 
-  if (deny.some((p) => target.address.startsWith(p))) return { ok: false, reason: 'blocked_range' };
-  if (allow.length > 0 && !allow.some((p) => target.address.startsWith(p))) return { ok: false, reason: 'outside_allowlist' };
+  if (deny.some((p) => isIpInRange(target.address, p))) {
+    return { ok: false, reason: 'blocked_range' };
+  }
+  if (allow.length > 0 && !allow.some((p) => isIpInRange(target.address, p))) {
+    return { ok: false, reason: 'outside_allowlist' };
+  }
   return { ok: true };
 }
 

@@ -22,6 +22,19 @@ Esta stack replica o comportamento HTTP publicamente observável do host `10.10.
 
 ## Estrutura
 
+O diretório de trabalho e deploy deste repositório é sempre `/opt/results/infra`, tanto localmente quanto no servidor. Execute comandos operacionais a partir desse caminho e mantenha a configuração de runtime sincronizada nele.
+
+## Nota operacional da infra
+
+Se o servico Docker do host for reiniciado, reconecte a VPN antes de validar,
+subir novamente ou depurar stacks desta infraestrutura que dependam de servicos
+remotos na rede `10.10.2.x`.
+
+Esse cuidado nao vale so para DNS. Mail, sincronismos, integrações e qualquer
+container que consulte MariaDB, LDAP, DNS legado ou outro backend remoto pode
+subir aparentemente normal, mas falhar em runtime enquanto a VPN nao estiver de
+volta.
+
 - `docker-compose.yml`: sobe Apache e `lsyncd`.
 - `docker-compose.mail.yml`: sobe a nova stack de e-mail em containers separados.
 - `subdomain-sync/`: sincroniza subdomínios dinâmicos via MySQL para arquivos de vhost runtime.
@@ -484,7 +497,9 @@ iface eth0 inet static
 
 ### rvpn: bind explícito em 10.10.2.30
 
-O `rvpn` vem de `/root/vpn/docker-compose.yml` e deve permanecer preso ao IP dedicado `10.10.2.30`, sem publicar `443` em todos os IPs do host:
+O diretório operacional da VPN é sempre `/opt/results/infra`. Faça deploy e manutenção somente a partir desse caminho no host remoto; ele é a única fonte de configuração da stack.
+
+O `rvpn` deve permanecer preso ao IP dedicado `10.10.2.30`, sem publicar `443` em todos os IPs do host:
 
 ```yaml
 ports:
@@ -497,11 +512,95 @@ ports:
 	- "10.10.2.30:1701:1701/udp"
 ```
 
-Na stack versionada em `docker-compose.vpn.yml`, suba sempre com `--project-name vpn` para manter a mesma identidade Compose do container atual:
+Na stack versionada em `/opt/results/infra/docker-compose.vpn.yml`, suba sempre a partir de `/opt/results/infra` e com `--project-name vpn` para manter a mesma identidade Compose do container atual:
 
 ```bash
+cd /opt/results/infra
 docker compose --project-name vpn -f docker-compose.vpn.yml --env-file .env.vpn up -d
 ```
+
+Para recreate remoto, prefira o wrapper [vpn/deploy-rvpn-safe.sh](/opt/results/infra/vpn/deploy-rvpn-safe.sh), que dispara o `docker compose` desacoplado da sessao SSH:
+
+```bash
+cd /opt/results/infra
+DEPLOY_SSH_PASSWORD='***' ./vpn/deploy-rvpn-safe.sh --remote --host 10.10.2.30
+```
+
+Depois do deploy, valide pelo menos:
+
+```bash
+ssh root@10.10.2.30 "docker inspect rvpn --format 'status={{.State.Status}} restart={{.HostConfig.RestartPolicy.Name}}'"
+nc -vz rvpn.results.com.br 443
+nc -vz rvpn.results.com.br 5555
+```
+
+Depois de um `restart` do Docker no host `10.10.2.30`, aguarde pelo menos
+6 minutos antes de concluir que a VPN nao voltou. Esse prazo considera o
+watchdog do `rvpn`, que roda a cada 5 minutos, mais uma pequena margem para
+recomposicao do daemon, dos containers e da borda. Durante esse intervalo,
+`ssh` no host, `rvpn.results.com.br:443` e `rvpn.results.com.br:5555` podem
+passar temporariamente por `timeout`, `connection refused` ou `no route to host`.
+
+Para um deploy completo neste host, a ordem operacional recomendada e:
+
+1. `infra-mail`
+2. `infra-httpd`
+3. `edge-sni`
+4. `dns-consolidated`
+5. `r-observe`
+6. `rvpn` por ultimo, com deploy desacoplado da sessao SSH
+
+Wrapper unico:
+
+```bash
+cd /opt/results/infra
+DEPLOY_SSH_PASSWORD='***' ./scripts/deploy-all-prod.sh
+```
+
+O `scripts/docker-deploy.sh` tambem aceita `DEPLOY_SYNC_PATHS` para sincronizar
+somente os caminhos necessarios da stack alvo, em vez de fazer `rsync` do
+workspace inteiro. O `deploy-all-prod.sh` ja usa esse modo para `infra-mail`
+e `infra-httpd`.
+
+Equivalente manual:
+
+```bash
+cd /opt/results/infra
+
+DEPLOY_SSH_PASSWORD='***' \
+DEPLOY_HOST=10.10.2.30 \
+DEPLOY_ENV_FILE=.env.remote-10.10.2.30-mail \
+DEPLOY_PROJECT_NAME=infra-mail \
+DEPLOY_COMPOSE_FILE=docker-compose.mail.yml \
+DEPLOY_SYNC_PATHS='mail,scripts,docker-compose.mail.yml,.env.remote-10.10.2.30-mail' \
+./scripts/docker-deploy.sh
+
+DEPLOY_SSH_PASSWORD='***' \
+DEPLOY_HOST=10.10.2.30 \
+DEPLOY_ENV_FILE=.env.remote-10.10.2.30-ip60 \
+DEPLOY_PROJECT_NAME=infra-httpd \
+DEPLOY_COMPOSE_FILE=docker-compose.yml \
+DEPLOY_SYNC_PATHS='apache,joomla,lsyncd,subdomain-sync,roundcube,content,joomla-site,scripts,docker-compose.yml,.env.remote-10.10.2.30-ip60' \
+./scripts/docker-deploy.sh
+
+ssh root@10.10.2.30 'cd /opt/results/infra && docker compose -f docker-compose.edge-sni.yml --project-name edge-sni up -d'
+ssh root@10.10.2.30 'cd /opt/results/infra/dns-consolidated && docker compose -f docker-compose.yml --env-file .env up -d'
+ssh root@10.10.2.30 'cd /opt/results/infra && docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-agent --profile observe-monitoring --profile observe-icinga --profile observe-proxy up -d --remove-orphans'
+DEPLOY_SSH_PASSWORD='***' ./vpn/deploy-rvpn-safe.sh --remote --host 10.10.2.30
+```
+
+O container `rvpn` deve usar politica de restart `always`. Como ele faz parte do
+caminho de acesso operacional ao host, ele nao deve depender de `docker start`
+manual depois de reboot, restart do Docker ou recreate da stack.
+
+No host `10.10.2.30`, mantenha tambem um watchdog por cron para o `rvpn`:
+
+```bash
+*/5 * * * * /opt/results/infra/vpn/ensure-rvpn-running.sh
+```
+
+Esse script verifica se o container `rvpn` esta running e executa `docker start
+rvpn` se ele estiver parado.
 
 O bind continua controlado por:
 

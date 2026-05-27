@@ -5,12 +5,14 @@
 # Executa os 6 gates em sequência e gera relatório JSON.
 #
 # Gates em ordem:
-#   1. observe:validate   — configuração Docker Compose + variáveis de ambiente
-#   2. discovery:gate     — gate obrigatório completo do Discovery Engine
-#   3. zip                — empacotamento + validação automática de dist/infra.zip
-#   4. zip:release        — empacotamento + validação de dist/infra-release.zip
-#   5. release:audit      — auditoria de artefato + 4 testes destrutivos auto-comprovantes
-#   6. release:smoke      — extração em dir limpo + unit tests + sondagem de runtime
+#   1. dist:clean:release — limpeza obrigatória de artefatos para build determinístico
+#   2. observe:validate   — configuração Docker Compose + variáveis de ambiente
+#   3. discovery:gate     — gate obrigatório completo do Discovery Engine
+#   4. zip                — empacotamento + validação automática de dist/infra.zip
+#   5. zip:release        — empacotamento + validação de dist/infra-release.zip
+#   6. release:validate:enterprise — validação hardened cruzada dos dois ZIPs
+#   7. release:audit      — auditoria de artefato + 4 testes destrutivos auto-comprovantes
+#   8. release:smoke      — extração em dir limpo + unit tests + sondagem de runtime
 #
 # Sai com exit 1 se qualquer gate falhar.
 #
@@ -18,6 +20,17 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
+
+if [[ "${RELEASE_LOCK_HELD:-0}" != "1" ]]; then
+  RELEASE_LOCK_FILE="${RELEASE_LOCK_FILE:-/tmp/infra-release.lock}"
+  exec 9>"$RELEASE_LOCK_FILE"
+  if ! flock -n 9; then
+    echo "[release:gate] erro: outro pipeline de release esta em execucao (lock: $RELEASE_LOCK_FILE)" >&2
+    exit 1
+  fi
+  export RELEASE_LOCK_HELD=1
+  export RELEASE_LOCK_FILE
+fi
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'
@@ -98,28 +111,34 @@ printf "${BOLD}║   Única fonte de verdade para a integridade do release      
 printf "${BOLD}╚══════════════════════════════════════════════════════════════════╝${NC}\n"
 _info "Workspace: $ROOT_DIR"
 _info "Iniciado: $DATE_UTC"
-_info "6 gates serão executados em sequência"
+_info "8 gates serão executados em sequência"
 
 # ════════════════════════════════════════════════════════════════════════════
-# EXECUÇÃO DOS 6 GATES
+# EXECUÇÃO DOS 8 GATES
 # ════════════════════════════════════════════════════════════════════════════
 
-# Gate 1: observe:validate
+# Gate 1: dist clean obrigatório
+run_gate "dist:clean:release" npm run dist:clean:release
+
+# Gate 2: observe:validate
 run_gate "observe:validate" npm run observe:validate
 
-# Gate 2: discovery:gate
+# Gate 3: discovery:gate
 run_gate "discovery:gate" npm run discovery:gate
 
-# Gate 3: zip (infra.zip)
+# Gate 4: zip (infra.zip)
 run_gate "zip" npm run zip
 
-# Gate 4: zip:release (infra-release.zip)
+# Gate 5: zip:release (infra-release.zip)
 run_gate "zip:release" npm run zip:release
 
-# Gate 5: release:audit (+ 4 testes destrutivos)
+# Gate 6: validação hardened cruzada
+run_gate "release:validate:enterprise" npm run release:validate:enterprise
+
+# Gate 7: release:audit (+ 4 testes destrutivos)
 run_gate "release:audit" npm run release:audit
 
-# Gate 6: release:smoke (extração + runtime probe)
+# Gate 8: release:smoke (extração + runtime probe)
 run_gate "release:smoke" npm run release:smoke
 
 # ════════════════════════════════════════════════════════════════════════════

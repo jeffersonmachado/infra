@@ -57,8 +57,8 @@ section "Serviços esperados"
 
 EXPECTED_SERVICES=(
   "observe-postgres" "observe-redis"
-  "observe-api" "observe-worker"
-  "observe-ai" "observe-agent" "observe-discovery"
+  "r-observe-api" "r-observe-worker"
+  "r-observe-ai" "r-observe-agent" "r-observe-discovery"
   "icinga2" "icingadb" "icingaweb2" "icinga-redis"
   "prometheus" "loki" "grafana" "otel-collector"
   "observe-proxy"
