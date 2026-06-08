@@ -7,20 +7,26 @@ set -euo pipefail
 
 NEW_DNS="${NEW_DNS:-127.0.0.1}"
 NEW_PORT="${NEW_PORT:-5353}"
-OLD_DNS_EXT="${OLD_DNS_EXT:-10.10.2.51}"   # PowerDNS externo legado
+OLD_DNS_EXT="${OLD_DNS_EXT:-10.10.2.30}"   # PowerDNS externo legado
 OLD_DNS_INT="${OLD_DNS_INT:-10.10.2.1}"    # BIND interno legado
 
 PASS=0; FAIL=0; WARN_COUNT=0
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RESET='\033[0m'
-ok()   { ((PASS++));  echo -e "  ${GREEN}✓${RESET} $*"; }
-fail() { ((FAIL++));  echo -e "  ${RED}✗${RESET} $*"; }
-warn() { ((WARN_COUNT++)); echo -e "  ${YELLOW}!${RESET} $*"; }
+ok()   { PASS=$((PASS + 1)); echo -e "  ${GREEN}✓${RESET} $*"; }
+fail() { FAIL=$((FAIL + 1)); echo -e "  ${RED}✗${RESET} $*"; }
+warn() { WARN_COUNT=$((WARN_COUNT + 1)); echo -e "  ${YELLOW}!${RESET} $*"; }
 
 resolve() { dig @$1 -p $2 "$3" "$4" +short +time=3 +tries=1 2>/dev/null | head -1; }
 resolve_new() { resolve "$NEW_DNS" "$NEW_PORT" "$1" "${2:-A}"; }
 resolve_old() { resolve "$OLD_DNS_EXT" 53 "$1" "${2:-A}"; }
 resolve_int() { resolve "$OLD_DNS_INT" 53 "$1" "${2:-A}"; }
+resolve_public() { dig @8.8.8.8 "$1" "${2:-A}" +short +time=3 +tries=1 2>/dev/null | head -1; }
+
+is_private_ipv4() {
+  local ip="$1"
+  [[ "$ip" =~ ^10\. ]] || [[ "$ip" =~ ^192\.168\. ]] || [[ "$ip" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]]
+}
 
 check() {
   local desc="$1" qname="$2" qtype="${3:-A}" expected="${4:-}"
@@ -52,6 +58,35 @@ compare() {
 echo "════════════════════════════════════════════════════════════════"
 echo " Validação DNS: novo stack ($NEW_DNS:$NEW_PORT)"
 echo "════════════════════════════════════════════════════════════════"
+
+echo ""
+echo "── 0. Autoridade Externa / Delegação ───────────────────────────"
+public_ns=$(dig @8.8.8.8 results.com.br NS +short +time=3 +tries=1 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+if [[ -z "$public_ns" ]]; then
+  fail "Delegação pública: results.com.br NS → SEM RESPOSTA via 8.8.8.8"
+else
+  ok "Delegação pública: results.com.br NS → $public_ns"
+fi
+
+for host in ns1.results.com.br ns2.results.com.br; do
+  ns_ip=$(resolve_public "$host" A)
+  if [[ -z "$ns_ip" ]]; then
+    fail "Glue público: $host A → SEM RESPOSTA via 8.8.8.8"
+  elif is_private_ipv4 "$ns_ip"; then
+    fail "Glue público: $host A → $ns_ip (RFC1918 não roteável externamente)"
+  else
+    ok "Glue público: $host A → $ns_ip"
+  fi
+done
+
+public_status=$(dig @"${PUBLIC_DNS_IP:-201.6.110.53}" +norecurse results.com.br SOA +time=3 +tries=1 2>/dev/null | awk '/status: / {gsub(/,/, "", $6); print $6; exit}')
+if [[ -z "$public_status" ]]; then
+  fail "Autoridade pública: ${PUBLIC_DNS_IP:-201.6.110.53} SOA → sem resposta"
+elif [[ "$public_status" != "NOERROR" ]]; then
+  fail "Autoridade pública: ${PUBLIC_DNS_IP:-201.6.110.53} SOA → status=$public_status"
+else
+  ok "Autoridade pública: ${PUBLIC_DNS_IP:-201.6.110.53} SOA → status=NOERROR"
+fi
 
 echo ""
 echo "── 1. Domínios Públicos (results.com.br) ────────────────────────"
