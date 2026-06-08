@@ -7,9 +7,67 @@ O CoreDNS interno foi totalmente substituido pelo stack PowerDNS consolidado em
 
 O desenho atual e:
 
-- `pdns-auth`: PowerDNS Authoritative, com backend MariaDB em `10.10.2.99`
+- `pdns-auth`: PowerDNS Authoritative, com backend MariaDB via ProxySQL
 - `pdns-recursor`: PowerDNS Recursor para resolucao interna, split-horizon e cache
 - `dns-dnsdist`: entrada unica DNS, roteando consultas para authoritative ou recursor
+
+## Dependencia: ProxySQL + MySQL Replication
+
+O `pdns-auth` **depende do cluster MySQL** para armazenar zonas e registros DNS.
+O cluster e composto por 3 nos com replicacao master-slave e um ProxySQL como
+load balancer:
+
+| Componente | Container | IP | Funcao |
+|---|---|---|---|
+| **ProxySQL** | `mysql-proxysql` | `10.10.2.99` | Load balancer SQL (r/w → master, r/o → slaves) |
+| Master | `srvmysql0` | `10.10.2.79` | Leitura e escrita |
+| Slave 1 | `srvmysql1` | `10.10.2.89` | Leitura (read-only) |
+| Slave 2 | `srvmysql2` | `10.10.2.49` | Leitura (read-only) |
+
+> **IMPORTANTE**: O ProxySQL **deve estar ativo** para que `srvmysql.results.intranet`
+> resolva para `10.10.2.99` e o trafego SQL seja balanceado corretamente.
+> Se o ProxySQL estiver parado, `10.10.2.99:3306` nao responde e o `pdns-auth`
+> falha ao conectar.
+
+### Ordem de inicializacao
+
+```bash
+# 1. Subir cluster MySQL (master primeiro, depois slaves)
+cd /opt/results/infra
+docker compose -f docker-compose.mysql-replication.yml --env-file .env.mysql-replication --project-name infra up -d srvmysql0
+docker compose -f docker-compose.mysql-replication.yml --env-file .env.mysql-replication --project-name infra up -d srvmysql1 srvmysql2
+
+# 2. Subir ProxySQL
+docker compose -f docker-compose.proxysql.yml --env-file .env.mysql-replication up -d
+
+# 3. Subir stack DNS (ja deve estar rodando)
+cd dns-consolidated
+docker compose -f docker-compose.yml --env-file .env up -d
+```
+
+### Fallback sem ProxySQL
+
+Se o ProxySQL estiver indisponivel, configure `DNS_DB_HOST=10.10.2.79` no
+`.env` do `dns-consolidated/` para que o `pdns-auth` conecte direto ao master.
+Nesse caso o registro DNS `srvmysql.results.intranet` tambem deve apontar para
+`10.10.2.79` (atualizar via `pdnsutil` ou direto no banco).
+
+## IPs dos nameservers
+
+Os nameservers do dominio `results.com.br` usam IPs virtuais configurados em
+`eth0` no host `10.10.2.30`:
+
+| Nameserver | IP virtual |
+|------------|-----------|
+| `ns1.results.com.br` | `10.10.2.1` |
+| `ns2.results.com.br` | `10.10.2.20` |
+
+IPs adicionais listados na zona (ns3, ns4) resolvem para `201.6.110.53` e sao
+mantidos para compatibilidade com configuracao legada de dominios no registro.br.
+
+O IP publico `201.6.110.53` e gerenciado pelo provedor (NAT/forward para
+`10.10.2.30`). Consultas DNS externas enviadas para `201.6.110.53:53` chegam ao
+`dnsdist` via docker-proxy e sao roteadas para o pool `auth` (`pdns-auth`).
 
 Portas de diagnostico do stack atual:
 

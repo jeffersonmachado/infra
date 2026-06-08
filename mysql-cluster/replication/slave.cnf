@@ -1,0 +1,20 @@
+[mysqld]
+server_id        = 0  # overridden by --server-id CLI arg in docker compose
+log_bin          = /var/lib/mysql/mysql-bin
+binlog_format    = ROW
+expire_logs_days = 7
+max_binlog_size  = 256M
+sync_binlog      = 1
+read_only        = ON
+log_slave_updates = ON
+
+bind-address     = 0.0.0.0
+
+innodb_buffer_pool_size = 256M
+max_connections         = 500
+default_storage_engine  = InnoDB
+
+relay_log        = /var/lib/mysql/relay-bin
+relay_log_purge  = ON
+relay_log_recovery = ON
+slave_net_timeout = 60

@@ -1,0 +1,140 @@
+# ─── MariaDB Galera Cluster ─────────────────────────────────────────────────
+# 3 nós multi-master em host network.
+# Cada nó deve rodar em um host diferente — defina IPs reais em .env.mysql-galera.
+#
+# Variáveis obrigatórias (ver .env.mysql-galera.example):
+#   GALERA_NODE0_IP, GALERA_NODE1_IP, GALERA_NODE2_IP
+#   GALERA_CLUSTER_ADDRESS=gcomm://NODE0_IP,NODE1_IP,NODE2_IP
+#
+# Bootstrap inicial (primeira vez):
+#   1. GALERA_BOOTSTRAP=true docker compose up -d srvmysql0
+#   2. docker compose up -d srvmysql1 srvmysql2
+#
+# Uso normal:
+#   docker compose -f docker-compose.mysql-galera.yml --env-file .env.mysql-galera up -d
+#
+# Verificação:
+#   docker exec srvmysql0 mariadb -u root -p"$MYSQL_ROOT_PASSWORD" -e "SHOW STATUS LIKE 'wsrep%'"
+# ───────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+x-common: &common
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging: *default-logging
+  network_mode: host
+
+x-mysql: &mysql
+  <<: *common
+  image: mariadb-galera:10.11
+  environment:
+    MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+    MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+    TZ: ${TZ:-America/Sao_Paulo}
+  volumes:
+    - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
+    - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
+  tmpfs:
+    - /tmp
+  healthcheck:
+    test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 30s
+
+services:
+
+  # ─── srvmysql0 — bootstrap ────────────────────────────────────────────────
+  srvmysql0:
+    <<: *mysql
+    container_name: srvmysql0
+    hostname: srvmysql0.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      NODE_IP: ${GALERA_NODE0_IP:?GALERA_NODE0_IP obrigatório}
+      NODE_NAME: srvmysql0
+      NODE_ID: 1
+      SST_PORT: 4444
+      CLUSTER_NAME: ${GALERA_CLUSTER_NAME:-mysql}
+      CLUSTER_ADDRESS: ${GALERA_CLUSTER_ADDRESS:?GALERA_CLUSTER_ADDRESS obrigatório}
+      SST_USER: ${GALERA_SST_USER:-galera}
+      SST_PASSWORD: ${GALERA_SST_PASSWORD:?obrigatório}
+      BOOTSTRAP: ${GALERA_BOOTSTRAP:-false}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - galera-data-0:/var/lib/mysql
+      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
+      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
+
+  # ─── srvmysql1 ───────────────────────────────────────────────────────────
+  srvmysql1:
+    <<: *mysql
+    container_name: srvmysql1
+    hostname: srvmysql1.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      NODE_IP: ${GALERA_NODE1_IP:?GALERA_NODE1_IP obrigatório}
+      NODE_NAME: srvmysql1
+      NODE_ID: 2
+      SST_PORT: 4445
+      CLUSTER_NAME: ${GALERA_CLUSTER_NAME:-mysql}
+      CLUSTER_ADDRESS: ${GALERA_CLUSTER_ADDRESS:?GALERA_CLUSTER_ADDRESS obrigatório}
+      SST_USER: ${GALERA_SST_USER:-galera}
+      SST_PASSWORD: ${GALERA_SST_PASSWORD:?obrigatório}
+      BOOTSTRAP: "false"
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - galera-data-1:/var/lib/mysql
+      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
+      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
+    depends_on:
+      srvmysql0:
+        condition: service_healthy
+
+  # ─── srvmysql2 ───────────────────────────────────────────────────────────
+  srvmysql2:
+    <<: *mysql
+    container_name: srvmysql2
+    hostname: srvmysql2.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      NODE_IP: ${GALERA_NODE2_IP:?GALERA_NODE2_IP obrigatório}
+      NODE_NAME: srvmysql2
+      NODE_ID: 3
+      SST_PORT: 4446
+      CLUSTER_NAME: ${GALERA_CLUSTER_NAME:-mysql}
+      CLUSTER_ADDRESS: ${GALERA_CLUSTER_ADDRESS:?GALERA_CLUSTER_ADDRESS obrigatório}
+      SST_USER: ${GALERA_SST_USER:-galera}
+      SST_PASSWORD: ${GALERA_SST_PASSWORD:?obrigatório}
+      BOOTSTRAP: "false"
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - galera-data-2:/var/lib/mysql
+      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
+      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
+    depends_on:
+      srvmysql0:
+        condition: service_healthy
+
+volumes:
+  galera-data-0:
+    name: galera-data-srvmysql0
+  galera-data-1:
+    name: galera-data-srvmysql1
+  galera-data-2:
+    name: galera-data-srvmysql2

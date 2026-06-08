@@ -5,13 +5,21 @@
 // ----------------------------------
 // SQL DATABASE
 // ----------------------------------
-$config['db_dsnw'] = 'mysql://roundcube:' . (getenv('ROUNDCUBE_DB_PASSWORD') ?: 'CHANGE_ME') . '@srvmysql.results.intranet/roundcubemail';
+$roundcubeDbHost = getenv('ROUNDCUBE_DB_HOST') ?: (getenv('JOOMLA_DB_HOST') ?: 'srvmysql.results.intranet');
+$config['db_dsnw'] = 'mysql://roundcube:' . (getenv('ROUNDCUBE_DB_PASSWORD') ?: 'CHANGE_ME') . '@' . $roundcubeDbHost . '/roundcubemail';
 
 // ----------------------------------
 // IMAP
 // ----------------------------------
 $config['default_host'] = getenv('ROUNDCUBE_IMAP_HOST') ?: 'ssl://imap.results.com.br';
-$config['default_port'] = 993;
+$imapPort = getenv('ROUNDCUBE_IMAP_PORT');
+if ($imapPort !== false && $imapPort !== '') {
+	$config['default_port'] = (int) $imapPort;
+} elseif (strpos($config['default_host'], 'tls://') === 0) {
+	$config['default_port'] = 143;
+} else {
+	$config['default_port'] = 993;
+}
 $config['imap_conn_options'] = [
 	'ssl' => [
 		'verify_peer' => false,

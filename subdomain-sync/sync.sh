@@ -2,7 +2,7 @@
 
 set -eu
 
-MYSQL_HOST="${MYSQL_HOST:-10.10.2.99}"
+MYSQL_HOST="${MYSQL_HOST:-srvmysql.results.intranet}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 MYSQL_DATABASE="${MYSQL_DATABASE:-results}"
 MYSQL_USER="${MYSQL_USER:-results}"

@@ -1,0 +1,105 @@
+# ─── MySQL Cluster Stack ────────────────────────────────────────────────────
+# ProxySQL + MariaDB Slave (substitui Piranha LVS)
+#
+# Estratégia:
+#   Fase 1 — ProxySQL como frontend (health check real, r/w split)
+#   Fase 2 — Slave MariaDB com replicação assíncrona
+#   Fase 3 — Migrar apps para usar ProxySQL:6033 (r/w) e :6034 (r/o)
+#   Fase 4 — Desligar Piranha/pulse no piranha0
+#
+# Dependências:
+#   - MariaDB master com binlog ativo (server_id e log_bin configurados)
+#   - Usuário de replicação criado no master
+#   - Rede acessível ao master (10.10.2.79:3306)
+#
+# Uso:
+#   cp .env.mysql-cluster.example .env.mysql-cluster
+#   # editar .env.mysql-cluster com senhas e IPs reais
+#   docker compose -f docker-compose.mysql-cluster.yml --env-file .env.mysql-cluster up -d
+#
+# Verificação:
+#   docker compose -f docker-compose.mysql-cluster.yml --env-file .env.mysql-cluster ps
+#   docker exec mysql-proxysql mysql -u admin -p${PROXYSQL_ADMIN_PASSWORD} -h 127.0.0.1 -P 6032 -e "SELECT * FROM monitor.mysql_server_ping_log ORDER BY time_start_us DESC LIMIT 5"
+#   docker exec mysql-slave mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "SHOW SLAVE STATUS\G"
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+x-common: &common
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging: *default-logging
+
+services:
+
+  # ─── PROXYSQL ──────────────────────────────────────────────────────────────
+  mysql-proxysql:
+    <<: *common
+    image: proxysql/proxysql:2.7.1
+    container_name: mysql-proxysql
+    network_mode: "host"
+    volumes:
+      - proxysql-data:/var/lib/proxysql
+      - ./mysql-cluster/proxysql/proxysql.cnf:/tmp/proxysql.cnf:ro
+    command: ["proxysql", "-f", "-c", "/tmp/proxysql.cnf"]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/6032"]
+
+  # ─── MARIADB SLAVE ─────────────────────────────────────────────────────────
+  mysql-slave:
+    <<: *common
+    image: mariadb:10.11
+    container_name: mysql-slave
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD obrigatório}
+      MYSQL_REPL_USER: ${MYSQL_REPL_USER:-repl}
+      MYSQL_REPL_PASSWORD: ${MYSQL_REPL_PASSWORD:?MYSQL_REPL_PASSWORD obrigatório}
+      MYSQL_MASTER_HOST: ${MYSQL_MASTER_HOST:?MYSQL_MASTER_HOST obrigatório}
+      MYSQL_MASTER_PORT: ${MYSQL_MASTER_PORT:-3306}
+      MYSQL_SERVER_ID: ${MYSQL_SLAVE_SERVER_ID:-2}
+      MYSQL_INNODB_BUFFER_POOL_SIZE: ${MYSQL_SLAVE_BUFFER_POOL:-256M}
+      MYSQL_MAX_CONNECTIONS: ${MYSQL_SLAVE_MAX_CONN:-500}
+      TZ: ${TZ:-America/Sao_Paulo}
+    ports:
+      - "127.0.0.1:${MYSQL_SLAVE_PORT:-3307}:3306"
+    volumes:
+      - mysql-slave-data:/var/lib/mysql
+    command:
+      - "mariadbd"
+      - "--server-id=${MYSQL_SLAVE_SERVER_ID:-2}"
+      - "--log-bin=/var/lib/mysql/mysql-bin"
+      - "--binlog-format=ROW"
+      - "--expire-logs-days=7"
+      - "--innodb-buffer-pool-size=${MYSQL_SLAVE_BUFFER_POOL:-256M}"
+      - "--max-connections=${MYSQL_SLAVE_MAX_CONN:-500}"
+    networks:
+      - mysql-cluster
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-u", "root",
+          "-p${MYSQL_ROOT_PASSWORD}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  proxysql-data:
+    name: mysql-proxysql-data
+  mysql-slave-data:
+    name: mysql-slave-data
+
+networks:
+  mysql-cluster:
+    name: mysql-cluster
+    driver: bridge

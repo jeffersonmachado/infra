@@ -142,7 +142,7 @@ services:
       LSYNC_DELAY: ${LSYNC_DELAY:-5}
       LSYNC_DELETE: ${LSYNC_DELETE:-true}
     volumes:
-      - ${CONTENT_SOURCE_PATH:-./content}:/source:ro
+      - ${CONTENT_SOURCE_PATH:-/opt/results/r-observe/content}:/source:ro
       - site-data:/target
     tmpfs:
       - /tmp

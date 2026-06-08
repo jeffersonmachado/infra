@@ -8,6 +8,7 @@ cd "${ROOT_DIR}"
 DEPLOY_HOST="${DEPLOY_HOST:-10.10.2.30}"
 DEPLOY_USER="${DEPLOY_USER:-root}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/results/infra}"
+OBSERVE_DEPLOY_PATH="${OBSERVE_DEPLOY_PATH:-/opt/results/r-observe}"
 SSH_PASSWORD="${SSH_PASSWORD:-${DEPLOY_SSH_PASSWORD:-}}"
 
 RED="$(printf '\033[0;31m')"
@@ -56,7 +57,6 @@ require_file ".env.remote-10.10.2.30-ip60"
 require_file "docker-compose.mail.yml"
 require_file "docker-compose.yml"
 require_file "docker-compose.edge-sni.yml"
-require_file "docker-compose.observe.yml"
 require_file "docker-compose.vpn.yml"
 require_file "vpn/deploy-rvpn-safe.sh"
 
@@ -79,7 +79,7 @@ DEPLOY_PATH="${DEPLOY_PATH}" \
 DEPLOY_ENV_FILE=".env.remote-10.10.2.30-ip60" \
 DEPLOY_PROJECT_NAME="infra-httpd" \
 DEPLOY_COMPOSE_FILE="docker-compose.yml" \
-DEPLOY_SYNC_PATHS="apache,joomla,lsyncd,subdomain-sync,roundcube,content,joomla-site,scripts,docker-compose.yml,.env.remote-10.10.2.30-ip60" \
+DEPLOY_SYNC_PATHS="apache,joomla,lsyncd,subdomain-sync,roundcube,joomla-site,scripts,docker-compose.yml,.env.remote-10.10.2.30-ip60" \
 ./scripts/docker-deploy.sh
 
 section "Edge SNI"
@@ -89,13 +89,13 @@ section "DNS"
 run_remote "cd '${DEPLOY_PATH}/dns-consolidated' && docker compose -f docker-compose.yml --env-file .env up -d && docker compose -f docker-compose.yml --env-file .env ps"
 
 section "Observe"
-run_remote "cd '${DEPLOY_PATH}' && docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-agent --profile observe-monitoring --profile observe-icinga --profile observe-proxy up -d --remove-orphans"
+run_remote "cd '${OBSERVE_DEPLOY_PATH}' && docker compose -f docker-compose.observe.yml --env-file .env.observe --profile observe-core --profile observe-ai --profile observe-agent --profile observe-monitoring --profile observe-icinga --profile r-observe-proxy up -d --remove-orphans"
 
 section "VPN"
 DEPLOY_SSH_PASSWORD="${SSH_PASSWORD}" ./vpn/deploy-rvpn-safe.sh --remote --host "${DEPLOY_HOST}" --user "${DEPLOY_USER}" --dir "${DEPLOY_PATH}"
 
 section "Checks"
-run_remote "timeout 20 docker inspect rvpn edge-sni pdns-auth pdns-recursor dns-dnsdist secure-httpd results-mail-postfix results-mail-dovecot r-observe-api observe-icingaweb2 --format '{{.Name}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-health{{end}}'"
+run_remote "timeout 20 docker inspect rvpn edge-sni pdns-auth pdns-recursor dns-dnsdist secure-httpd results-mail-postfix results-mail-dovecot r-observe-api r-observe-icingaweb2 --format '{{.Name}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-health{{end}}'"
 run_remote "dig @127.0.0.1 -p 5300 results.com.br A +short | head -1 && echo --- && dig @127.0.0.1 -p 5301 google.com A +short | head -1"
 
 info "Deploy completo concluido em ${DEPLOY_HOST}."

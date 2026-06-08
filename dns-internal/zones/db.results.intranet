@@ -20,7 +20,7 @@ srvldap3        IN A     10.10.2.7
 ripabx          IN A     10.10.2.240
 srvmail0        IN A     10.10.2.3
 srvhttp         IN A     10.10.2.60
-srvmysql        IN A     10.10.2.99
+srvmysql        IN A     10.10.2.99  ; ProxySQL ativo — atualizado de 10.10.2.79
 srvhttp0        IN A     10.10.2.55
 srvhttp1        IN A     10.10.2.65
 rbi             IN A     10.10.2.22

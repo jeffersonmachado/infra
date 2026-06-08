@@ -1,0 +1,69 @@
+services:
+  galera1:
+    image: mariadb-galera:10.6
+    container_name: galera1
+    hostname: galera1
+    environment:
+      MARIADB_ROOT_PASSWORD: "resu100dba"
+    volumes:
+      - galera1-data:/var/lib/mysql
+      - ./conf/galera1.cnf:/etc/mysql/conf.d/galera.cnf:ro
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      galera-cluster:
+        ipv4_address: 172.32.0.11
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "healthcheck.sh",
+          "--connect",
+          "--innodb_initialized",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  galera2:
+    image: mariadb-galera:10.6
+    container_name: galera2
+    hostname: galera2
+    environment:
+      MARIADB_ROOT_PASSWORD: "resu100dba"
+    volumes:
+      - galera2-data:/var/lib/mysql
+      - ./conf/galera2.cnf:/etc/mysql/conf.d/galera.cnf:ro
+    networks:
+      galera-cluster:
+        ipv4_address: 172.32.0.12
+    restart: unless-stopped
+
+  galera3:
+    image: mariadb-galera:10.6
+    container_name: galera3
+    hostname: galera3
+    environment:
+      MARIADB_ROOT_PASSWORD: "resu100dba"
+    volumes:
+      - galera3-data:/var/lib/mysql
+      - ./conf/galera3.cnf:/etc/mysql/conf.d/galera.cnf:ro
+    networks:
+      galera-cluster:
+        ipv4_address: 172.32.0.13
+    restart: unless-stopped
+
+volumes:
+  galera1-data:
+  galera2-data:
+  galera3-data:
+
+networks:
+  galera-cluster:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/16

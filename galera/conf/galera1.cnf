@@ -1,0 +1,49 @@
+[mysqld]
+
+# ============================================
+# Server Identification
+# ============================================
+server_id=1
+bind-address=0.0.0.0
+
+# ============================================
+# Galera Provider Configuration
+# ============================================
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+# ============================================
+# Galera Cluster Configuration
+# ============================================
+wsrep_cluster_name="mysql"
+wsrep_cluster_address="gcomm://galera1,galera2,galera3"
+
+# ============================================
+# Node Configuration
+# ============================================
+wsrep_node_name="galera1"
+wsrep_node_address="172.31.0.11"
+
+# ============================================
+# SST Configuration (mariabackup)
+# ============================================
+wsrep_sst_method=mariabackup
+wsrep_sst_auth="galera:galeraSST@2026"
+
+# ============================================
+# InnoDB Configuration for Galera
+# ============================================
+innodb_autoinc_lock_mode=2
+innodb_flush_log_at_trx_commit=0
+innodb_buffer_pool_size=256M
+
+# ============================================
+# Binlog (required for Galera)
+# ============================================
+binlog_format=ROW
+default_storage_engine=InnoDB
+
+# ============================================
+# Production Tuning
+# ============================================
+max_connections=200

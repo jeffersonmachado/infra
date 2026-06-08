@@ -1,0 +1,47 @@
+# ─── MariaDB Galera Configuration ──────────────────────────────────────────
+# Gerado via envsubst a partir de my.cnf.template
+# ───────────────────────────────────────────────────────────────────────────
+
+[mysqld]
+
+# ─── Identidade ─────────────────────────────────────────────────────────────
+server_id  = ${NODE_ID}
+bind_address = ${NODE_IP}
+report_host = ${NODE_IP}
+
+# ─── Binlog ─────────────────────────────────────────────────────────────────
+log_bin = /var/lib/mysql/mysql-bin
+binlog_format = ROW
+expire_logs_days = 7
+max_binlog_size = 256M
+sync_binlog = 1
+
+# ─── Performance ────────────────────────────────────────────────────────────
+innodb_buffer_pool_size = 256M
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = ON
+innodb_log_file_size = 128M
+max_connections = 500
+default_storage_engine = InnoDB
+
+# ─── Galera ─────────────────────────────────────────────────────────────────
+wsrep_on = ON
+wsrep_provider = /usr/lib/galera/libgalera_smm.so
+wsrep_cluster_name = ${CLUSTER_NAME}
+wsrep_cluster_address = ${CLUSTER_ADDRESS}
+wsrep_node_address = ${NODE_IP}
+wsrep_node_name = ${NODE_NAME}
+wsrep_sst_method = mariabackup
+wsrep_sst_auth = ${SST_USER}:${SST_PASSWORD}
+wsrep_sst_receive_address = ${NODE_IP}:${SST_PORT}
+wsrep_slave_threads = 4
+
+# Tamanhos Galera e bind nos IPs específicos (host network)
+wsrep_provider_options = "gcache.size=256M; gcs.fc_limit=64; gmcast.listen_addr=tcp://${NODE_IP}:4567; ist.recv_addr=${NODE_IP}:4568"
+
+# ─── Segurança ──────────────────────────────────────────────────────────────
+local_infile = OFF
+
+# ─── Timezone ───────────────────────────────────────────────────────────────
+default_time_zone = America/Sao_Paulo

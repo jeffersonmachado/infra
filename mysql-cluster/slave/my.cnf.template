@@ -1,0 +1,39 @@
+# ─── MariaDB Slave — Configuração Customizada ────────────────────────────────
+# Gerado via envsubst a partir de my.cnf.template
+# ────────────────────────────────────────────────────────────────────────────
+
+[mysqld]
+
+# ─── Identidade ─────────────────────────────────────────────────────────────
+server_id = ${MYSQL_SERVER_ID}
+
+# ─── Binlog (necessário para ser promovido a master no futuro) ──────────────
+log_bin = /var/lib/mysql/mysql-bin
+binlog_format = ROW
+expire_logs_days = 7
+sync_binlog = 1
+max_binlog_size = 256M
+
+# ─── Replicação ─────────────────────────────────────────────────────────────
+relay_log = /var/lib/mysql/relay-bin
+relay_log_purge = ON
+relay_log_recovery = ON
+read_only = ON
+log_slave_updates = ON
+slave_net_timeout = 60
+slave_parallel_threads = 4
+slave_parallel_mode = optimistic
+
+# ─── Performance ────────────────────────────────────────────────────────────
+innodb_buffer_pool_size = ${MYSQL_INNODB_BUFFER_POOL_SIZE}
+max_connections = ${MYSQL_MAX_CONNECTIONS}
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = ON
+innodb_log_file_size = 128M
+
+# ─── Timezone ───────────────────────────────────────────────────────────────
+default_time_zone = America/Sao_Paulo
+
+# ─── Segurança ──────────────────────────────────────────────────────────────
+local_infile = OFF

@@ -1,0 +1,40 @@
+# ─── ProxySQL Configuration ────────────────────────────────────────────────
+# Admin credentials pre-configuradas
+# Bootstrap completo é feito via mysql-cluster/scripts/bootstrap-proxysql.sh
+# ───────────────────────────────────────────────────────────────────────────
+
+datadir="/var/lib/proxysql"
+
+admin_variables =
+{
+    admin_credentials="admin:pr0xysql@dm1n2026"
+    mysql_ifaces="0.0.0.0:6032"
+    refresh_interval=2000
+}
+
+mysql_variables =
+{
+    threads=4
+    max_connections=2048
+    default_query_delay=0
+    default_query_timeout=10000
+    have_compress=true
+    poll_timeout=2000
+    interfaces="0.0.0.0:6033;0.0.0.0:6034"
+    default_schema="information_schema"
+    stacksize=1048576
+    server_version="10.11.0-MariaDB"
+    connect_timeout_server=3000
+    monitor_username="resultsdba"
+    monitor_password="resu1@@dba"
+    monitor_history=600000
+    monitor_connect_interval=60000
+    monitor_ping_interval=10000
+    monitor_read_only_interval=15000
+    monitor_read_only_timeout=500
+    ping_interval_server_msec=120000
+    ping_timeout_server=500
+    commands_stats=true
+    sessions_sort=true
+    connect_retries_on_failure=10
+}

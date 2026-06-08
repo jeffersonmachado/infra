@@ -1,0 +1,106 @@
+# ─── MySQL Replication Cluster ─────────────────────────────────────────────
+# 3 nós: master em 10.10.2.79, slaves em 10.10.2.89 e 10.10.2.49
+# network_mode: host — cada container no seu IP
+#
+# Bootstrap:
+#   1. docker compose up -d srvmysql0        (master)
+#   2. zcat /tmp/prod-dump.sql.gz | docker exec -i srvmysql0 mysql -uroot -pXXX
+#   3. docker compose up -d srvmysql1 srvmysql2  (slaves)
+#
+# Verificação:
+#   docker exec srvmysql0 mysql -uroot -pXXX -e "SHOW MASTER STATUS;"
+#   docker exec srvmysql1 mysql -uroot -pXXX -e "SHOW SLAVE STATUS\G"
+# ───────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+x-common: &common
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging: *default-logging
+  network_mode: host
+
+services:
+
+  # ─── MASTER (10.10.2.79) ─────────────────────────────────────────────────
+  srvmysql0:
+    <<: *common
+    image: mariadb:10.6
+    container_name: srvmysql0
+    hostname: srvmysql0.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - mysql-data-0:/var/lib/mysql
+      - ./mysql-cluster/replication/master.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ─── SLAVE 1 (10.10.2.89) ────────────────────────────────────────────────
+  srvmysql1:
+    <<: *common
+    image: mariadb:10.6
+    container_name: srvmysql1
+    hostname: srvmysql1.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - mysql-data-1:/var/lib/mysql
+      - ./mysql-cluster/replication/slave.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    command: ["mariadbd", "--bind-address=10.10.2.89", "--server-id=2", "--log-bin=/var/lib/mysql/mysql-bin", "--binlog-format=ROW", "--read-only=ON", "--log-slave-updates=ON", "--relay-log=/var/lib/mysql/relay-bin", "--max-allowed-packet=256M", "--innodb-buffer-pool-size=256M"]
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      srvmysql0:
+        condition: service_healthy
+
+  # ─── SLAVE 2 (10.10.2.49) ────────────────────────────────────────────────
+  srvmysql2:
+    <<: *common
+    image: mariadb:10.6
+    container_name: srvmysql2
+    hostname: srvmysql2.results.intranet
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - mysql-data-2:/var/lib/mysql
+      - ./mysql-cluster/replication/slave.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    command: ["mariadbd", "--bind-address=10.10.2.49", "--server-id=3", "--log-bin=/var/lib/mysql/mysql-bin", "--binlog-format=ROW", "--read-only=ON", "--log-slave-updates=ON", "--relay-log=/var/lib/mysql/relay-bin", "--max-allowed-packet=256M", "--innodb-buffer-pool-size=256M"]
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      srvmysql0:
+        condition: service_healthy
+
+volumes:
+  mysql-data-0:
+  mysql-data-1:
+  mysql-data-2:

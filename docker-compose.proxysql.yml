@@ -1,0 +1,40 @@
+# ─── ProxySQL para Galera Cluster ──────────────────────────────────────────
+# Load balancer SQL na frente dos 3 nós Galera
+# DNS: srvmysql.results.intranet → 10.10.2.99 (este ProxySQL)
+#
+# Uso:
+#   docker compose -f docker-compose.proxysql.yml up -d
+# ───────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  proxysql:
+    image: proxysql/proxysql:2.7.1
+    container_name: proxysql-galera
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    network_mode: host
+    environment:
+      PROXYSQL_ADMIN_PASSWORD: ${PROXYSQL_ADMIN_PASSWORD:?obrigatório}
+    volumes:
+      - proxysql-galera-data:/var/lib/proxysql
+      - ./mysql-cluster/proxysql/proxysql-galera.cnf:/etc/proxysql.cnf:ro
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -u admin -p${PROXYSQL_ADMIN_PASSWORD:?obrigatório} -h 127.0.0.1 -P 6032 -e 'SELECT 1' 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  proxysql-galera-data:
+    name: proxysql-galera-data

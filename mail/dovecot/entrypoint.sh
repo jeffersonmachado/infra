@@ -11,8 +11,13 @@ CERT_VERSION_FILE="${MAIL_CERT_VERSION_FILE:-/certs/.cert-version}"
 LDAP_SERVER_HOSTS="$(printf '%s' "${LDAP_URI:-}" | sed 's#ldap://##g; s#,# #g')"
 
 DOVECOT_LDAP_PASSDB=""
+DOVECOT_LDAP_USERDB=""
 if [ "${MAIL_ENABLE_LDAP:-true}" = "true" ]; then
   DOVECOT_LDAP_PASSDB="passdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
+}"
+  DOVECOT_LDAP_USERDB="userdb {
   driver = ldap
   args = /etc/dovecot/dovecot-ldap.conf.ext
 }"
@@ -22,7 +27,7 @@ export MAIL_HOSTNAME MAIL_DOMAIN MAIL_UID MAIL_GID MAIL_STORAGE_BASE \
   MAIL_MYSQL_HOST MAIL_MYSQL_PORT MAIL_MYSQL_DATABASE MAIL_MYSQL_USER MAIL_MYSQL_PASSWORD \
   MAIL_MAILBOX_TABLE MAIL_TLS_CERT_FILE MAIL_TLS_KEY_FILE MAIL_ENABLE_LDAP LDAP_URI \
   LDAP_BASE_DN LDAP_BIND_DN LDAP_BIND_PASSWORD LDAP_USERS_BASE_DN LDAP_SERVER_HOSTS \
-  DOVECOT_LDAP_PASSDB
+  DOVECOT_LDAP_PASSDB DOVECOT_LDAP_USERDB
 
 envsubst < /templates/dovecot.conf.template > /etc/dovecot/dovecot.conf
 envsubst < /templates/dovecot-sql.conf.ext.template > /etc/dovecot/dovecot-sql.conf.ext

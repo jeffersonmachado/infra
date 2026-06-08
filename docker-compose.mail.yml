@@ -5,9 +5,8 @@ services:
     container_name: results-mail-postfix
     restart: unless-stopped
     dns:
-      - 10.10.2.1
-      - 10.10.2.20
-      - 8.8.8.8
+      - ${MAIL_DNS_1:-8.8.8.8}
+      - ${MAIL_DNS_2:-1.1.1.1}
     depends_on:
       mail-certs-bootstrap:
         condition: service_completed_successfully
@@ -52,8 +51,9 @@ services:
       MAIL_CLIENT_CONNECTION_COUNT_LIMIT: ${MAIL_CLIENT_CONNECTION_COUNT_LIMIT:-30}
       MAIL_CLIENT_CONNECTION_RATE_LIMIT: ${MAIL_CLIENT_CONNECTION_RATE_LIMIT:-60}
       MAIL_CLIENT_MESSAGE_RATE_LIMIT: ${MAIL_CLIENT_MESSAGE_RATE_LIMIT:-100}
-      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-10}
-      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-20}
+      MAIL_SMTPD_ERROR_SLEEP_TIME: ${MAIL_SMTPD_ERROR_SLEEP_TIME:-2s}
+      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-40}
+      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-100}
       MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
       MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
       MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
@@ -78,9 +78,8 @@ services:
     container_name: results-mail-postfix-mx2
     restart: unless-stopped
     dns:
-      - 10.10.2.1
-      - 10.10.2.20
-      - 8.8.8.8
+      - ${MAIL_DNS_1:-8.8.8.8}
+      - ${MAIL_DNS_2:-1.1.1.1}
     depends_on:
       mail-certs-bootstrap:
         condition: service_completed_successfully
@@ -91,9 +90,9 @@ services:
       ldap:
         condition: service_started
     ports:
-      - "${MAIL_MX2_BIND_IP:-10.10.2.30}:${SMTP_PORT:-25}:25"
-      - "${MAIL_MX2_BIND_IP:-10.10.2.30}:${SUBMISSION_PORT:-587}:587"
-      - "${MAIL_MX2_BIND_IP:-10.10.2.30}:${SMTPS_PORT:-465}:465"
+      - "${MAIL_MX2_BIND_IP:-0.0.0.0}:${SMTP_PORT:-25}:25"
+      - "${MAIL_MX2_BIND_IP:-0.0.0.0}:${SUBMISSION_PORT:-587}:587"
+      - "${MAIL_MX2_BIND_IP:-0.0.0.0}:${SMTPS_PORT:-465}:465"
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
       MAIL_HOSTNAME: ${MAIL_MX2_HOSTNAME:-mx2.results.com.br}
@@ -125,8 +124,9 @@ services:
       MAIL_CLIENT_CONNECTION_COUNT_LIMIT: ${MAIL_CLIENT_CONNECTION_COUNT_LIMIT:-30}
       MAIL_CLIENT_CONNECTION_RATE_LIMIT: ${MAIL_CLIENT_CONNECTION_RATE_LIMIT:-60}
       MAIL_CLIENT_MESSAGE_RATE_LIMIT: ${MAIL_CLIENT_MESSAGE_RATE_LIMIT:-100}
-      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-10}
-      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-20}
+      MAIL_SMTPD_ERROR_SLEEP_TIME: ${MAIL_SMTPD_ERROR_SLEEP_TIME:-2s}
+      MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-40}
+      MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-100}
       MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
       MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
       MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
@@ -151,9 +151,8 @@ services:
     container_name: results-mail-dovecot
     restart: unless-stopped
     dns:
-      - 10.10.2.1
-      - 10.10.2.20
-      - 8.8.8.8
+      - ${MAIL_DNS_1:-8.8.8.8}
+      - ${MAIL_DNS_2:-1.1.1.1}
     depends_on:
       mail-certs-bootstrap:
         condition: service_completed_successfully

@@ -8,12 +8,12 @@ TEST_TARGET="${TEST_TARGET:-10.10.2.30}"
 PING_COUNT="${PING_COUNT:-2}"
 PING_TIMEOUT_SECONDS="${PING_TIMEOUT_SECONDS:-2}"
 PRIMARY_ACCOUNT="${PRIMARY_ACCOUNT:-results}"
-PRIMARY_SERVER="${PRIMARY_SERVER:-rvpn.results.com.br:443}"
-PRIMARY_SERVER_FALLBACK="${PRIMARY_SERVER_FALLBACK:-rvpn.results.com.br:5555}"
+PRIMARY_SERVER="${PRIMARY_SERVER:-rvpn.results.com.br:5555}"
+PRIMARY_SERVER_FALLBACK="${PRIMARY_SERVER_FALLBACK:-rvpn.results.com.br:443}"
 PRIMARY_HUB="${PRIMARY_HUB:-DEFAULT}"
 DIRECT_ACCOUNT="${DIRECT_ACCOUNT:-labrador}"
-DIRECT_SERVER="${DIRECT_SERVER:-rvpn.results.com.br:443}"
-DIRECT_SERVER_FALLBACK="${DIRECT_SERVER_FALLBACK:-rvpn.results.com.br:5555}"
+DIRECT_SERVER="${DIRECT_SERVER:-rvpn.results.com.br:5555}"
+DIRECT_SERVER_FALLBACK="${DIRECT_SERVER_FALLBACK:-rvpn.results.com.br:443}"
 DIRECT_HUB="${DIRECT_HUB:-DEFAULT}"
 DIRECT_USERNAME="${DIRECT_USERNAME:-labrador}"
 DIRECT_AUTH_TYPE="${DIRECT_AUTH_TYPE:-standard}"
@@ -22,6 +22,7 @@ DIRECT_NICNAME="${DIRECT_NICNAME:-vpn1}"
 MODE="${1:-auto}"
 CONNECT_WAIT_SECONDS="${CONNECT_WAIT_SECONDS:-15}"
 ROUTES_TO_CONFIGURE=("10.10.2.0/24" "192.168.1.0/24")
+VPN_MTU="${VPN_MTU:-1200}"
 RESTART_CLIENT_BEFORE_CONNECT="${RESTART_CLIENT_BEFORE_CONNECT:-0}"
 SOFTETHER_CLIENT_SERVICE="${SOFTETHER_CLIENT_SERVICE:-softether-vpnclient.service}"
 AUTO_RESTART_ON_REACHABILITY_FAILURE="${AUTO_RESTART_ON_REACHABILITY_FAILURE:-1}"
@@ -325,6 +326,8 @@ configure_network() {
     if ip link show "${VPN_IF}" >/dev/null 2>&1; then
         sudo ip link set "${VPN_IF}" up
         sudo ip addr replace "${VPN_IP}" dev "${VPN_IF}"
+        sudo ip link set "${VPN_IF}" mtu "${VPN_MTU}"
+        echo "MTU da interface ${VPN_IF} definido como ${VPN_MTU}."
     else
         echo "Interface ${VPN_IF} não encontrada."
         ip link show

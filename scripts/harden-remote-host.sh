@@ -27,6 +27,9 @@ LOCALD_SCRIPT=/etc/local.d/results-firewall.start
 
 TRUSTED_NETWORKS="${TRUSTED_NETWORKS:-127.0.0.1/8 10.10.2.0/24}"
 HTTP_LIMIT_PER_MINUTE="${HTTP_LIMIT_PER_MINUTE:-120}"
+VPN_BIND_IP="${VPN_BIND_IP:-10.10.2.30}"
+VPN_DOCKER_NETWORK="${VPN_DOCKER_NETWORK:-vpn_default}"
+VPN_NETWORK="${VPN_NETWORK:-192.168.30.0/24}"
 SMTP_LIMIT_PER_MINUTE="${SMTP_LIMIT_PER_MINUTE:-25}"
 SSH_BANTIME="${SSH_BANTIME:-1h}"
 SSH_FINDTIME="${SSH_FINDTIME:-10m}"
@@ -93,6 +96,26 @@ ensure_chain() {
 
 ensure_chain
 
+# Marca trafego originado na VPN (mangle PREROUTING) — duas abordagens complementares:
+# 1. -i bridge: precisa, identifica trafego que sai do container VPN pela interface
+# 2. -s rede:   fallback, identifica pelo IP de origem (funciona sem Docker)
+VPN_MARK=0x64
+
+# Remove regras de marca VPN existentes para evitar acumulo de bridges obsoletas
+iptables -t mangle -S PREROUTING 2>/dev/null | grep "MARK.*set-xmark \${VPN_MARK}" | while read -r rule; do
+  clean=\$(echo "\$rule" | sed 's/^-A/-D/')
+  iptables -t mangle \$clean 2>/dev/null || true
+done
+
+# Abordagem 1: marca por interface bridge (dinamica, descobre pelo docker network)
+VPN_BRIDGE_NAME="br-\$(docker network inspect ${VPN_DOCKER_NETWORK} --format '{{.Id}}' 2>/dev/null | cut -c1-12)"
+if [ -n "\$VPN_BRIDGE_NAME" ] && [ "\$VPN_BRIDGE_NAME" != "br-" ] && ip link show "\$VPN_BRIDGE_NAME" >/dev/null 2>&1; then
+  iptables -t mangle -I PREROUTING 1 -i "\$VPN_BRIDGE_NAME" -j MARK --set-mark \${VPN_MARK}
+fi
+
+# Abordagem 2: fallback por IP de origem (funciona mesmo sem Docker disponivel)
+iptables -t mangle -I PREROUTING 1 -s ${VPN_NETWORK} -j MARK --set-mark \${VPN_MARK}
+
 iptables -A "\$CHAIN" -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
 EOF
 
@@ -103,6 +126,8 @@ EOF
   done
 
   cat >> "$FIREWALL_SCRIPT" <<EOF
+iptables -A "\$CHAIN" -m mark --mark \${VPN_MARK} -p tcp -m conntrack --ctstate NEW -d ${VPN_BIND_IP} --dport 443 -j RETURN
+
 iptables -A "\$CHAIN" -p tcp -m conntrack --ctstate NEW -m multiport --dports 80,443 -m recent --name results-http --rsource --update --seconds 60 --hitcount ${HTTP_LIMIT_PER_MINUTE} -j DROP
 iptables -A "\$CHAIN" -p tcp -m conntrack --ctstate NEW -m multiport --dports 80,443 -m recent --name results-http --rsource --set -j RETURN
 iptables -A "\$CHAIN" -p tcp -m conntrack --ctstate NEW -m multiport --dports 25,465,587 -m recent --name results-smtp --rsource --update --seconds 60 --hitcount ${SMTP_LIMIT_PER_MINUTE} -j DROP

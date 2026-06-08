@@ -1,7 +1,7 @@
 ---
 # ─── DNS Consolidado — PowerDNS + dnsdist ────────────────────────────────────
 # Backend: MariaDB existente em 10.10.2.99 (sem container novo)
-# Substitui: CoreDNS (Docker), BIND (10.10.2.1/10.10.2.20), PowerDNS (10.10.2.51)
+# Substitui: CoreDNS (Docker), BIND legado, PowerDNS externo
 #
 # Portas (durante migração — não conflita com BIND na :53):
 #   :5353  TCP/UDP  → dnsdist (teste — mudar para 53 no corte)

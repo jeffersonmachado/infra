@@ -13,15 +13,16 @@ userdb {
   driver = sql
   args = /etc/dovecot/dovecot-sql.conf.ext
 }
+${DOVECOT_LDAP_USERDB}
 service lmtp {
   inet_listener lmtp {
-    address = dovecot
+    address = *
     port = 24
   }
 }
 service auth {
   inet_listener {
-    address = dovecot
+    address = *
     port = 12345
   }
 }

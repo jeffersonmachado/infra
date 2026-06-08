@@ -1,0 +1,14 @@
+[mysqld]
+server_id        = 1
+log_bin          = /var/lib/mysql/mysql-bin
+binlog_format    = ROW
+expire_logs_days = 7
+max_binlog_size  = 256M
+sync_binlog      = 1
+bind-address     = 10.10.2.79
+
+innodb_buffer_pool_size = 256M
+max_connections         = 500
+default_storage_engine  = InnoDB
+
+log_slave_updates = ON
