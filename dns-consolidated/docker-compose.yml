@@ -108,10 +108,16 @@ services:
       dns-internal:
         ipv4_address: 10.53.53.13
     ports:
-      # 0.0.0.0 → portável: funciona em qualquer servidor Docker.
-      # IP virtual (10.10.2.1/10.10.2.20) é responsabilidade do HOST.
-      - "0.0.0.0:${DNS_PORT:-5353}:53/udp"
-      - "0.0.0.0:${DNS_PORT:-5353}:53/tcp"
+      # Binds por IP explícito: com socket vinculado ao IP, o docker-proxy
+      # responde UDP com o IP de origem correto. Bind em 0.0.0.0 faz as
+      # respostas UDP saírem com o IP primário da interface e os clientes
+      # que consultaram 10.10.2.1/10.10.2.20 descartam a resposta.
+      - "10.10.2.1:${DNS_PORT:-5353}:53/udp"
+      - "10.10.2.1:${DNS_PORT:-5353}:53/tcp"
+      - "10.10.2.20:${DNS_PORT:-5353}:53/udp"
+      - "10.10.2.20:${DNS_PORT:-5353}:53/tcp"
+      - "10.10.2.30:${DNS_PORT:-5353}:53/udp"
+      - "10.10.2.30:${DNS_PORT:-5353}:53/tcp"
       - "127.0.0.1:9083:8083"
     healthcheck:
       disable: true
