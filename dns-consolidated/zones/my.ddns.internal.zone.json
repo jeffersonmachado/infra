@@ -1,0 +1,12 @@
+{
+  "_comment": "Zona DDNS interna — registros dinâmicos criados/atualizados em runtime via nsupdate/API. Apenas SOA/NS estáticos aqui.",
+  "name": "my.ddns.internal.zone.",
+  "kind": "Native",
+  "nameservers": ["ns1.results.intranet.", "ns2.results.intranet."],
+  "rrsets": [
+    {"name": "my.ddns.internal.zone.", "type": "SOA", "ttl": 300,
+     "records": ["ns1.results.intranet. infra.results.intranet. 2026060801 300 120 604800 300"]},
+    {"name": "my.ddns.internal.zone.", "type": "NS", "ttl": 300,
+     "records": ["ns1.results.intranet.", "ns2.results.intranet."]}
+  ]
+}

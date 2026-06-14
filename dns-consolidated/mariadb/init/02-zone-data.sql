@@ -6,19 +6,18 @@ INSERT INTO records (domain_id, name, type, content, ttl, prio) VALUES
 (1, 'results.com.br', 'SOA', 'ns1.results.com.br. infra.results.com.br. 2026051801 300 120 604800 300', 300, NULL),
 (1, 'results.com.br', 'NS', 'ns1.results.com.br.', 300, NULL),
 (1, 'results.com.br', 'NS', 'ns2.results.com.br.', 300, NULL),
-(1, 'results.com.br', 'A', '10.10.2.60', 300, NULL),
-(1, 'results.com.br', 'MX', 'srvmail0.results.com.br.', 300, 10),
-(1, 'results.com.br', 'MX', 'srvmail1.results.com.br.', 300, 20),
+(1, 'results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'results.com.br', 'MX', 'mx1.results.com.br.', 300, 10),
+(1, 'results.com.br', 'MX', 'mx2.results.com.br.', 300, 20),
 (1, 'ns1.results.com.br', 'A', '177.68.74.176', 300, NULL),
 (1, 'ns2.results.com.br', 'A', '201.6.110.53', 300, NULL),
-(1, 'www.results.com.br', 'A', '10.10.2.60', 300, NULL),
-(1, 'r-observe.results.com.br', 'A', '10.10.2.60', 300, NULL),
-(1, 'mx1.results.com.br', 'A', '10.10.2.3', 300, NULL),
-(1, 'mx2.results.com.br', 'A', '10.10.2.23', 300, NULL),
-(1, 'imap.results.com.br', 'A', '10.10.2.3', 300, NULL),
-(1, 'smtp.results.com.br', 'A', '10.10.2.3', 300, NULL),
-(1, 'srvmail0.results.com.br', 'A', '10.10.2.3', 300, NULL),
-(1, 'srvmail1.results.com.br', 'A', '10.10.2.23', 300, NULL);
+(1, 'www.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'r-observe.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'mx1.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'mx2.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'imap.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, 'smtp.results.com.br', 'A', '201.6.110.53', 300, NULL),
+(1, '_dmarc.results.com.br', 'TXT', '"v=DMARC1; p=none; rua=mailto:dmarc@results.com.br"', 300, NULL);
 
 -- results.intranet (domain_id = 2)
 INSERT INTO records (domain_id, name, type, content, ttl, prio) VALUES

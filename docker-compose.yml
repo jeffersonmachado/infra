@@ -12,7 +12,7 @@ services:
       subdomain-sync:
         condition: service_healthy
     dns:
-      - ${HTTP_DOCKER_DNS:-172.25.0.1}
+      - ${HTTP_DOCKER_DNS:-127.0.0.11}
     ports:
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:8080"
       - "${EDGE_BIND_IP:-0.0.0.0}:${HTTPS_PORT:-443}:8443"
@@ -39,7 +39,7 @@ services:
       MAIL_CERT_SECONDARY_ACME_UPSTREAM: ${MAIL_CERT_SECONDARY_ACME_UPSTREAM:-10.10.2.23:80}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ACME_CA_URL: ${ACME_CA_URL:-https://acme-v02.api.letsencrypt.org/directory}
-      HTTPS_EXTERNAL_PORT: ${HTTPS_PORT:-443}
+      HTTPS_EXTERNAL_PORT: ${HTTPS_EXTERNAL_PORT:-${HTTPS_PORT:-443}}
       UPSTREAM_HOST_30: ${UPSTREAM_HOST_30:-10.10.2.30}
       UPSTREAM_HOST_22: ${UPSTREAM_HOST_22:-10.10.2.22}
       UPSTREAM_HOST_7: ${UPSTREAM_HOST_7:-10.10.2.7}
@@ -58,7 +58,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "wget -S --spider http://127.0.0.1:8080/ 2>&1 | grep -q 'HTTP/1.1 301' || exit 1"]
+      test: ["CMD-SHELL", "curl -f -s -o /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -73,30 +73,27 @@ services:
       joomla-lsyncd:
         condition: service_healthy
     dns:
-      - ${HTTP_DOCKER_DNS:-172.25.0.1}
+      - ${HTTP_DOCKER_DNS:-127.0.0.11}
     extra_hosts:
       - "srvmysql.results.intranet:10.10.2.79"
+      - "imap.results.com.br:192.168.48.9"
+      - "mx1.results.com.br:192.168.48.7"
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
-      JOOMLA_DB_HOST: ${JOOMLA_DB_HOST:-10.10.2.99}
-      JOOMLA_DB_NAME: ${JOOMLA_DB_NAME:-joomla}
-      JOOMLA_DB_USER: ${JOOMLA_DB_USER:-resultsdba}
-      JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-}
       ROUNDCUBE_DB_HOST: ${ROUNDCUBE_DB_HOST:-}
       ROUNDCUBE_DB_PASSWORD: ${ROUNDCUBE_DB_PASSWORD:-}
       ROUNDCUBE_IMAP_HOST: ${ROUNDCUBE_IMAP_HOST:-ssl://imap.results.com.br}
+      ROUNDCUBE_IMAP_PORT: ${ROUNDCUBE_IMAP_PORT:-993}
       ROUNDCUBE_SMTP_SERVER: ${ROUNDCUBE_SMTP_SERVER:-tls://mx1.results.com.br}
       ROUNDCUBE_MANAGESIEVE_HOST: ${ROUNDCUBE_MANAGESIEVE_HOST:-imap.results.com.br}
     volumes:
       - joomla-site-data:/var/www/html/results
       - joomla-logs:/var/www/html/results/logs
-      - ./roundcube/config.inc.php:/var/www/html/results/webmail/config/config.inc.php:ro
     tmpfs:
       - /var/www/html/results/cache:size=${JOOMLA_CACHE_TMPFS_SIZE:-256m}
       - /tmp
     networks:
       default:
-      mail-backend:
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -169,7 +166,7 @@ services:
       DEST_DIR: /target
       LSYNC_DELAY: ${JOOMLA_LSYNC_DELAY:-5}
       LSYNC_DELETE: ${JOOMLA_LSYNC_DELETE:-true}
-      LSYNC_EXCLUDES: ${JOOMLA_LSYNC_EXCLUDES:-configuration.php,webmail/***}
+      LSYNC_EXCLUDES: ${JOOMLA_LSYNC_EXCLUDES:-}
     volumes:
       - ${JOOMLA_SOURCE_PATH:-./joomla-site}:/source:ro
       - joomla-site-data:/target
@@ -186,13 +183,18 @@ services:
 
 volumes:
   site-data:
+    name: infra_site-data
   md-data:
+    name: infra_md-data
   runtime-conf:
+    name: infra_runtime-conf
   reload-signal:
+    name: infra_reload-signal
   joomla-site-data:
+    name: infra_joomla-site-data
   joomla-logs:
+    name: infra_joomla-logs
 
 networks:
-  mail-backend:
-    external: true
-    name: ${MAIL_BACKEND_NETWORK:-infra-mail_default}
+  default:
+    name: infra-shared

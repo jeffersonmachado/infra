@@ -35,16 +35,27 @@ require_cmd() {
 }
 
 run_ldap_container_cmd() {
-  if ! docker ps --format '{{.Names}}' | grep -Fx "$LDAP_CONTAINER" >/dev/null 2>&1; then
-    error "container $LDAP_CONTAINER indisponivel para operacoes LDAP"
-    exit 1
+  if docker ps --format '{{.Names}}' | grep -Fx "$LDAP_CONTAINER" >/dev/null 2>&1; then
+    docker exec \
+      -e LDAP_TEST_URI="$1" \
+      -e LDAP_BIND_DN="$LDAP_BIND_DN" \
+      -e LDAP_BIND_PASSWORD="$LDAP_BIND_PASSWORD" \
+      -i "$LDAP_CONTAINER" sh -lc "$2"
+    return 0
   fi
 
-  docker exec \
-    -e LDAP_TEST_URI="$1" \
-    -e LDAP_BIND_DN="$LDAP_BIND_DN" \
-    -e LDAP_BIND_PASSWORD="$LDAP_BIND_PASSWORD" \
-    -i "$LDAP_CONTAINER" sh -lc "$2"
+  if command -v ldapwhoami >/dev/null 2>&1 \
+    && command -v ldapadd >/dev/null 2>&1 \
+    && command -v ldapdelete >/dev/null 2>&1; then
+    LDAP_TEST_URI="$1" \
+    LDAP_BIND_DN="$LDAP_BIND_DN" \
+    LDAP_BIND_PASSWORD="$LDAP_BIND_PASSWORD" \
+    sh -lc "$2"
+    return 0
+  fi
+
+  error "container $LDAP_CONTAINER indisponivel e ferramentas LDAP ausentes no host"
+  exit 1
 }
 
 autodetect_mail_env_file() {
@@ -85,6 +96,16 @@ load_mail_env() {
 ensure_maildir_tree() {
   local localpart="$1"
   local mailbox_root="$MAIL_STORAGE_HOST_ROOT/$MAIL_DOMAIN/$localpart/Maildir"
+
+  if [ ! -d "$MAIL_STORAGE_HOST_ROOT" ]; then
+    warn "MAIL_STORAGE_HOST_ROOT inexistente; criacao de Maildir local ignorada: $MAIL_STORAGE_HOST_ROOT"
+    return 0
+  fi
+
+  if [ ! -w "$MAIL_STORAGE_HOST_ROOT" ]; then
+    warn "MAIL_STORAGE_HOST_ROOT sem permissao de escrita; criacao de Maildir local ignorada: $MAIL_STORAGE_HOST_ROOT"
+    return 0
+  fi
 
   mkdir -p "$mailbox_root/cur" "$mailbox_root/new" "$mailbox_root/tmp"
   chown -R "$MAIL_UID:$MAIL_GID" "$MAIL_STORAGE_HOST_ROOT/$MAIL_DOMAIN/$localpart"
@@ -173,12 +194,19 @@ generate_ldap_password_hash() {
     return 0
   fi
 
-  if ! docker ps --format '{{.Names}}' | grep -Fx "$LDAP_CONTAINER" >/dev/null 2>&1; then
-    error "slappasswd ausente no host e container $LDAP_CONTAINER indisponivel para gerar hash LDAP"
-    exit 1
-  fi
+  # Fallback compatível com OpenLDAP: SSHA = SHA1(senha + salt) + salt, em base64.
+  salt_hex=$(openssl rand -hex 4)
+  hash_b64=$(
+    (
+      printf '%s' "$1"
+      printf '%s' "$salt_hex" | xxd -r -p
+    ) | openssl dgst -sha1 -binary | (
+      cat
+      printf '%s' "$salt_hex" | xxd -r -p
+    ) | openssl base64 -A
+  )
 
-  docker exec "$LDAP_CONTAINER" slappasswd -s "$1"
+  printf '{SSHA}%s\n' "$hash_b64"
 }
 
 resolve_ldap_uri() {
@@ -208,17 +236,46 @@ resolve_ldap_uri() {
   printf '%s://%s%s\n' "$scheme" "$ip" "$port"
 }
 
+select_working_ldap_uri() {
+  for uri in $LDAP_URI_LIST; do
+    if run_ldap_container_cmd "$uri" 'ldapwhoami -x -H "$LDAP_TEST_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD"' >/dev/null 2>&1; then
+      printf '%s\n' "$uri"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 ldap_add_entry_primary() {
   local ldif_file="$1"
+  local uri
 
-  info "Adicionando usuario temporario no LDAP $LDAP_PRIMARY_URI_RESOLVED"
-  run_ldap_container_cmd "$LDAP_PRIMARY_URI_RESOLVED" 'ldapadd -x -H "$LDAP_TEST_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD"' < "$ldif_file"
+  for uri in "$LDAP_ACTIVE_URI" $LDAP_URI_LIST; do
+    [ -n "$uri" ] || continue
+    info "Adicionando usuario temporario no LDAP $uri"
+    if run_ldap_container_cmd "$uri" 'ldapadd -x -H "$LDAP_TEST_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD"' < "$ldif_file"; then
+      LDAP_ACTIVE_URI="$uri"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 ldap_delete_entry_primary() {
   local dn="$1"
+  local uri
 
-  run_ldap_container_cmd "$LDAP_PRIMARY_URI_RESOLVED" "ldapdelete -x -H \"\$LDAP_TEST_URI\" -D \"\$LDAP_BIND_DN\" -w \"\$LDAP_BIND_PASSWORD\" '$dn'" >/dev/null 2>&1 || true
+  for uri in "$LDAP_ACTIVE_URI" $LDAP_URI_LIST; do
+    [ -n "$uri" ] || continue
+    if run_ldap_container_cmd "$uri" "ldapdelete -x -H \"\$LDAP_TEST_URI\" -D \"\$LDAP_BIND_DN\" -w \"\$LDAP_BIND_PASSWORD\" '$dn'" >/dev/null 2>&1; then
+      LDAP_ACTIVE_URI="$uri"
+      return 0
+    fi
+  done
+
+  return 0
 }
 
 escape_mysql_string() {
@@ -260,7 +317,6 @@ load_mail_env
 
 LDAP_PRIMARY_URI=$(printf '%s' "$LDAP_URI" | cut -d',' -f1)
 LDAP_URI_LIST=$(printf '%s' "$LDAP_URI" | tr ',' ' ')
-LDAP_PRIMARY_URI_RESOLVED=$(resolve_ldap_uri "$LDAP_PRIMARY_URI")
 LDAP_PEOPLE_BASE_DN="${LDAP_USERS_BASE_DN:-ou=people,dc=results,dc=com,dc=br}"
 TEMP_TOKEN=$(date +%s)
 
@@ -276,40 +332,24 @@ TEMP_LDAP_PASSWORD_HASH=$(generate_ldap_password_hash "$TEMP_LDAP_PASSWORD")
 TEMP_LDAP_DN="uid=$TEMP_LDAP_LOCALPART,$LDAP_PEOPLE_BASE_DN"
 
 info 'Validando bind administrativo no LDAP real'
-run_ldap_container_cmd "$LDAP_PRIMARY_URI" 'ldapwhoami -x -H "$LDAP_TEST_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD"' >/dev/null
+LDAP_ACTIVE_URI=$(select_working_ldap_uri) || {
+  error "nenhum LDAP em '$LDAP_URI' aceitou o bind administrativo"
+  exit 1
+}
+info "Usando LDAP ativo $LDAP_ACTIVE_URI"
 
 info "Criando login temporario SQL $TEMP_SQL_USERNAME"
 run_mail_mysql_sql "
 INSERT INTO $MAIL_MAILBOX_TABLE (
   username,
   password,
-  name,
-  home,
   maildir,
-  quota,
-  domain,
-  create_date,
-  change_date,
-  active,
-  passwd_expire,
-  uid,
-  gid,
-  cod_cliente
+  active
 ) VALUES (
   '$(escape_mysql_string "$TEMP_SQL_USERNAME")',
   '$(escape_mysql_string "$TEMP_SQL_HASH")',
-  'Copilot Webmail Smoke SQL',
-  '/home/postfix/',
   '$(escape_mysql_string "$MAIL_DOMAIN/$TEMP_SQL_LOCALPART/Maildir/")',
-  '100000000S',
-  '$(escape_mysql_string "$MAIL_DOMAIN")',
-  NOW(),
-  NOW(),
-  1,
-  'N',
-  ${MAIL_UID},
-  ${MAIL_GID},
-  '999999'
+  1
 );
 "
 TEMP_SQL_CREATED=1

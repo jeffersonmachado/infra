@@ -1,0 +1,16 @@
+{
+  "name": "lianja.com.br.",
+  "kind": "Native",
+  "nameservers": ["ns1.results.com.br.", "ns2.results.com.br."],
+  "rrsets": [
+    {"name": "lianja.com.br.", "type": "SOA", "ttl": 3600,
+     "records": ["ns1.results.com.br. infra.results.com.br. 2026060801 3600 900 1209600 43200"]},
+    {"name": "lianja.com.br.", "type": "NS", "ttl": 3600,
+     "records": ["ns1.results.com.br.", "ns2.results.com.br."]},
+    {"name": "lianja.com.br.", "type": "MX", "ttl": 3600,
+     "records": ["10 mx1.results.com.br.", "20 mx2.results.com.br."]},
+    {"name": "lianja.com.br.", "type": "A", "ttl": 3600, "records": ["10.10.2.60"]},
+    {"name": "www.lianja.com.br.", "type": "A", "ttl": 3600, "records": ["10.10.2.60"]},
+    {"name": "asp.lianja.com.br.", "type": "CNAME", "ttl": 3600, "records": ["www.lianja.com.br."]}
+  ]
+}

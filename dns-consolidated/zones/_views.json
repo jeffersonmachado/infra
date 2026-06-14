@@ -1,0 +1,6 @@
+{
+  "_comment": "Mapeamento view → variantes de zona, consumido por apply-views-api.sh (POST /views/{view} com {\"name\": \"<zona..variante>\"}). As zonas listadas precisam existir antes (ver apply-zones-api.sh).",
+  "views": {
+    "internal": ["results.com.br..internal"]
+  }
+}

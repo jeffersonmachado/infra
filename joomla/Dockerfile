@@ -1,6 +1,15 @@
-FROM php:7.4-apache
+FROM php:7.2-apache
 
-RUN apt-get update \
+RUN printf '%s\n' \
+        'deb http://archive.debian.org/debian buster main' \
+        'deb http://archive.debian.org/debian-security buster/updates main' \
+        > /etc/apt/sources.list \
+    && printf '%s\n' \
+        'Acquire::Check-Valid-Until "false";' \
+        'Acquire::AllowInsecureRepositories "true";' \
+        'Acquire::AllowDowngradeToInsecureRepositories "true";' \
+        > /etc/apt/apt.conf.d/99archive \
+    && apt-get update -o Acquire::Check-Valid-Until=false \
     && apt-get install -y --no-install-recommends \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
@@ -8,7 +17,7 @@ RUN apt-get update \
         libzip-dev \
         wget \
         unzip \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
     && docker-php-ext-install -j"$(nproc)" gd mysqli pdo_mysql zip \
     && a2enmod rewrite headers expires \
     && rm -rf /var/lib/apt/lists/*

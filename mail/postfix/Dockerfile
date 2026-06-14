@@ -19,6 +19,8 @@ COPY mysql_virtual_mailbox_domains.cf.template /templates/mysql_virtual_mailbox_
 COPY mysql_virtual_alias_maps.cf.template /templates/mysql_virtual_alias_maps.cf.template
 COPY mysql_transport_maps.cf.template /templates/mysql_transport_maps.cf.template
 COPY ldap_virtual_alias_maps.cf.template /templates/ldap_virtual_alias_maps.cf.template
+COPY mysql_client_access.cf.template /templates/mysql_client_access.cf.template
+COPY client_access.cidr /etc/postfix/client_access.cidr
 
 RUN chmod +x /entrypoint.sh
 

@@ -209,6 +209,12 @@ validate_roundcube_imap_runtime
 info 'Validando pagina de login do webmail'
 curl $curl_args -D "$login_headers" -c "$cookie_jar" "$WEBMAIL_URL" -o "$login_page"
 
+if grep -q 'DATABASE ERROR: CONNECTION FAILED!' "$login_page" || grep -q 'Unable to connect to the database!' "$login_page"; then
+  error 'Roundcube carregou a pagina de erro de banco em vez da tela de login'
+  sed -n '1,160p' "$login_page"
+  exit 1
+fi
+
 if ! grep -qi '^set-cookie: roundcube_sessid=' "$login_headers"; then
   error 'cookie de sessao roundcube_sessid nao retornado na pagina de login'
   exit 1
@@ -229,14 +235,12 @@ else
   warn 'atributo Path do roundcube_sessid ausente; verificacao de escopo de cookie nao conclusiva'
 fi
 
-if ! grep -q 'name="_token"' "$login_page"; then
-  error "token de login nao encontrado em $WEBMAIL_URL"
-  exit 1
-fi
-
 token=$(tr '\n' ' ' < "$login_page" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -n 1)
 if [ -z "$token" ]; then
-  error 'nao foi possivel extrair o token de login'
+  token=$(tr '\n' ' ' < "$login_page" | sed -n 's/.*"request_token":"\([^"]*\)".*/\1/p' | head -n 1)
+fi
+if [ -z "$token" ]; then
+  error "token de login nao encontrado em $WEBMAIL_URL"
   exit 1
 fi
 

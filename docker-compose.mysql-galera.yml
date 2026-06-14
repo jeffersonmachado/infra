@@ -32,14 +32,13 @@ x-common: &common
 
 x-mysql: &mysql
   <<: *common
+  build:
+    context: ./mysql-cluster/galera
   image: mariadb-galera:10.11
   environment:
     MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?obrigatório}
     TZ: ${TZ:-America/Sao_Paulo}
-  volumes:
-    - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
-    - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
   tmpfs:
     - /tmp
   healthcheck:
@@ -71,8 +70,6 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - galera-data-0:/var/lib/mysql
-      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
-      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
     entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
 
   # ─── srvmysql1 ───────────────────────────────────────────────────────────
@@ -96,8 +93,6 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - galera-data-1:/var/lib/mysql
-      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
-      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
     entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
     depends_on:
       srvmysql0:
@@ -124,8 +119,6 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - galera-data-2:/var/lib/mysql
-      - ./mysql-cluster/galera/my.cnf.template:/etc/mysql/conf.d/galera.cnf.template:ro
-      - ./mysql-cluster/galera/entrypoint.sh:/entrypoint-galera.sh:ro
     entrypoint: ["/bin/bash", "/entrypoint-galera.sh"]
     depends_on:
       srvmysql0:

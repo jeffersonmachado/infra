@@ -51,20 +51,15 @@ set -euo pipefail
 source /opt/results/infra/dns-consolidated/.env
 CONF_DIR="/opt/results/infra/dns-consolidated"
 RENDERED_DIR="$CONF_DIR/rendered"
-DB_PASS="${DNS_DB_PASSWORD:-}"
 API_KEY="${DNS_API_KEY:-}"
-DB_HOST="${DNS_DB_HOST:-10.10.2.99}"
-DB_PORT="${DNS_DB_PORT:-3306}"
-DB_NAME="${DNS_DB_NAME:-results}"
-DB_USER="${DNS_DB_USER:-resultsdba}"
 
-if [ -z "$DB_PASS" ] || [ -z "$API_KEY" ] || [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ]; then
-  echo "ERRO: DNS_DB_HOST, DNS_DB_PORT, DNS_DB_NAME, DNS_DB_USER, DNS_DB_PASSWORD e DNS_API_KEY devem estar definidos no .env" >&2
+if [ -z "$API_KEY" ]; then
+  echo "ERRO: DNS_API_KEY deve estar definido no .env" >&2
   exit 1
 fi
 
-if [ "$DB_PASS" = "CHANGE_ME_dns_db_password" ] || [ "$API_KEY" = "CHANGE_ME_gerar_com_openssl_rand_hex_32" ]; then
-  echo "ERRO: edite DNS_DB_PASSWORD e DNS_API_KEY no .env antes do deploy" >&2
+if [ "$API_KEY" = "CHANGE_ME_gerar_com_openssl_rand_hex_32" ]; then
+  echo "ERRO: edite DNS_API_KEY no .env antes do deploy" >&2
   exit 1
 fi
 
@@ -79,14 +74,7 @@ cp "$CONF_DIR/pdns-recursor/recursor.conf" "$RENDERED_DIR/pdns-recursor/recursor
 cp "$CONF_DIR/dnsdist/dnsdist.conf" "$RENDERED_DIR/dnsdist/dnsdist.conf"
 
 # pdns-auth: substituir placeholders
-sed -i \
-  "s/DNS_DB_HOST_PLACEHOLDER/$(escape_sed_replacement "$DB_HOST")/g;
-   s/DNS_DB_PORT_PLACEHOLDER/$(escape_sed_replacement "$DB_PORT")/g;
-   s/DNS_DB_NAME_PLACEHOLDER/$(escape_sed_replacement "$DB_NAME")/g;
-   s/DNS_DB_USER_PLACEHOLDER/$(escape_sed_replacement "$DB_USER")/g;
-   s/DNS_DB_PASSWORD_PLACEHOLDER/$(escape_sed_replacement "$DB_PASS")/g;
-   s/PDNS_DB_PASSWORD_PLACEHOLDER/$(escape_sed_replacement "$DB_PASS")/g;
-   s/PDNS_API_KEY_PLACEHOLDER/$(escape_sed_replacement "$API_KEY")/g" \
+sed -i "s/PDNS_API_KEY_PLACEHOLDER/$(escape_sed_replacement "$API_KEY")/g" \
   "$RENDERED_DIR/pdns-auth/pdns.conf"
 
 # pdns-recursor
@@ -140,11 +128,12 @@ echo ""
 echo -e "${GREEN}${BOLD}Stack DNS rodando em $TARGET:5353 (paralelo ao BIND)${RESET}"
 echo ""
 echo "Observação operacional:"
-echo "  - Se o serviço Docker do host for reiniciado, reconecte a VPN antes de validar o DNS novamente."
-echo "  - Sem a VPN, o pdns-auth pode perder acesso ao MariaDB em 10.10.2.99:3306 e as zonas autoritativas falham."
+echo "  - pdns-auth usa backend LMDB local (volume pdns-auth-lmdb) — não depende"
+echo "    mais do MariaDB em 10.10.2.99 nem da VPN para responder zonas."
 echo ""
 echo "Próximos passos:"
-echo "  1. Rodar validate.sh: NEW_DNS=$TARGET NEW_PORT=5353 bash scripts/validate.sh"
-echo "  2. Rodar migrate.sh para importar zonas BIND: bash scripts/migrate.sh"
-echo "  3. Após validação completa: bash scripts/cutover.sh (para ao BIND e move para :53)"
-echo "  4. Ajustar firewall: 10.10.2.51 → $TARGET"
+echo "  1. Popular zonas:  bash scripts/apply-zones-api.sh $TARGET"
+echo "  2. Popular views:  bash scripts/apply-views-api.sh $TARGET"
+echo "  3. Rodar validate.sh: NEW_DNS=$TARGET NEW_PORT=5353 bash scripts/validate.sh"
+echo "  4. Após validação completa: bash scripts/cutover.sh (para o BIND e move para :53)"
+echo "  5. Ajustar firewall: 10.10.2.51 → $TARGET"

@@ -1,0 +1,31 @@
+{
+  "name": "results.intranet.",
+  "kind": "Native",
+  "nameservers": ["ns1.results.intranet.", "ns2.results.intranet."],
+  "rrsets": [
+    {"name": "results.intranet.", "type": "SOA", "ttl": 300,
+     "records": ["ns1.results.intranet. infra.results.intranet. 2026041801 300 120 604800 300"]},
+    {"name": "results.intranet.", "type": "NS", "ttl": 300,
+     "records": ["ns1.results.intranet.", "ns2.results.intranet."]},
+    {"name": "ns1.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.1"]},
+    {"name": "ns2.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.20"]},
+    {"name": "srvldap0.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.10"]},
+    {"name": "srvldap1.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.11"]},
+    {"name": "srvldap2.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.7"]},
+    {"name": "srvldap3.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.7"]},
+    {"name": "ripabx.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.240"]},
+    {"name": "srvmail0.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.3"]},
+    {"name": "srvhttp.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.60"]},
+    {"name": "srvmysql.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.99"]},
+    {"name": "srvhttp0.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "srvhttp1.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "rbi.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "rdelivery.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "mocambique.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "alemanha.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "gana.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "suecia.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.30"]},
+    {"name": "srvvoz.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.240"]},
+    {"name": "zambia.results.intranet.", "type": "A", "ttl": 300, "records": ["10.10.2.3"]}
+  ]
+}

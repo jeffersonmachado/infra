@@ -18,6 +18,8 @@ SLAVE_HOST="${MYSQL_SLAVE_HOST:-mysql-slave}"
 SLAVE_PORT="${MYSQL_SLAVE_PORT:-3306}"
 APP_USER="${MYSQL_APP_USER:-resultsdba}"
 APP_PASS="${MYSQL_APP_PASSWORD:?MYSQL_APP_PASSWORD}"
+ROUNDCUBE_USER="${ROUNDCUBE_DB_USER:-roundcube}"
+ROUNDCUBE_PASS="${ROUNDCUBE_DB_PASSWORD:-}"
 REPL_USER="${MYSQL_REPL_USER:-repl}"
 REPL_PASS="${MYSQL_REPL_PASSWORD:-}"
 
@@ -55,6 +57,9 @@ echo "[bootstrap] Configurando usuários..."
 ${MYSQL_ADMIN} << EOF
 INSERT INTO mysql_users (username, password, default_hostgroup, active)
 VALUES ('${APP_USER}', '${APP_PASS}', 0, 1);
+
+INSERT INTO mysql_users (username, password, default_hostgroup, active)
+VALUES ('${ROUNDCUBE_USER}', '${ROUNDCUBE_PASS}', 0, 1);
 
 LOAD MYSQL USERS TO RUNTIME;
 SAVE MYSQL USERS TO DISK;

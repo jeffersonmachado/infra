@@ -1,0 +1,13 @@
+# ─── Postfix MySQL Client Access (IP whitelist/blacklist) ────────────────
+# Gerado via envsubst
+hosts = ${MAIL_MYSQL_HOST}
+port = ${MAIL_MYSQL_PORT}
+dbname = ${MAIL_MYSQL_DATABASE}
+user = ${MAIL_MYSQL_USER}
+password = ${MAIL_MYSQL_PASSWORD}
+
+# A consulta retorna 'permit', 'REJECT', etc. para um IP
+# 'permit' = bypass total do postscreen (DNSBL inclusive)
+# 'OK'     = prossegue com checks adicionais do postscreen
+# Postfix faz longest-prefix match (suporta CIDR)
+query = SELECT action FROM postfix_client_access WHERE ip=? LIMIT 1

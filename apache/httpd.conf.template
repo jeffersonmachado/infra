@@ -38,7 +38,8 @@ ServerTokens Prod
 ServerSignature Off
 TraceEnable Off
 UseCanonicalName Off
-Timeout 30
+Timeout 120
+ProxyTimeout 120
 KeepAlive On
 MaxKeepAliveRequests 100
 KeepAliveTimeout 2

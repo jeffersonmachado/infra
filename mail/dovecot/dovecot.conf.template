@@ -1,4 +1,4 @@
-disable_plaintext_auth = yes
+disable_plaintext_auth = no
 mail_privileged_group = mail
 mail_location = maildir:${MAIL_STORAGE_BASE}/%d/%n/Maildir
 auth_mechanisms = plain login
@@ -31,6 +31,7 @@ ssl = required
 ssl_cert = <${MAIL_TLS_CERT_FILE}
 ssl_key = <${MAIL_TLS_KEY_FILE}
 protocol imap {
+  ssl = yes
   mail_plugins = quota imap_quota imap_sieve
 }
 protocol pop3 {
@@ -76,4 +77,15 @@ namespace inbox {
   mailbox Virus {
     auto = subscribe
   }
+}
+
+# ─── Plaintext IMAP listener para Roundcube (PHP 7.2 sem suporte TLS moderno) ──
+service imap-login {
+  inet_listener imap-plain {
+    port = 10143
+    ssl = no
+  }
+}
+protocol imap {
+  ssl = yes
 }

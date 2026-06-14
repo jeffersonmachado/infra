@@ -1,0 +1,80 @@
+# ─── LibreNMS — Network Monitoring Stack ────────────────────────────────────
+#
+# Uso:
+#   docker compose -f docker-compose.librenms.yml --env-file .env.librenms up -d
+#
+# Acessos:
+#   https://r-observe.results.com.br/librenms/ (via proxy nginx r-observe)
+#   http://127.0.0.1:8081 (direto, para debug — bind em loopback)
+#
+# Redes:
+#   - observe-egress  → acesso ao MariaDB (10.10.2.79:3306)
+#   - observe-internal → comunicação com r-observe-proxy
+# ───────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+services:
+
+  # ─── LIBRENMS (web + poller + dispatcher) ─────────────────────────────────
+  librenms:
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    image: librenms/librenms:latest
+    container_name: librenms
+    hostname: librenms.results.intranet
+    environment:
+      DB_HOST: ${DB_HOST:-10.10.2.79}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-librenms}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD obrigatorio}
+      DB_NAME: ${DB_NAME:-librenms}
+      TZ: ${TZ:-America/Sao_Paulo}
+      APP_URL: ${LIBRENMS_BASE_URL:-http://localhost}
+      REDIS_HOST: ${REDIS_HOST:-}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      LIBRENMS_USER: ${LIBRENMS_USER:-admin}
+      LIBRENMS_PASSWORD: ${LIBRENMS_PASSWORD:-admin}
+      SNMP_COMMUNITY: ${SNMP_COMMUNITY:-public}
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-256M}
+      PHP_MAX_EXECUTION_TIME: ${PHP_MAX_EXECUTION_TIME:-300}
+      LIBRENMS_BASE_URL: ${LIBRENMS_BASE_URL:-http://localhost}
+    ports:
+      - "${LIBRENMS_BIND_IP:-127.0.0.1}:${LIBRENMS_HTTP_PORT:-8081}:8000"
+    volumes:
+      - librenms-rrd:/opt/librenms/rrd
+      - librenms-storage:/opt/librenms/storage
+      - librenms-config:/opt/librenms/config
+      # Wrapper: artisan/lnms executam como usuario librenms
+      - ./init/03.5-artisan-wrapper.sh:/etc/cont-init.d/03.5-artisan-wrapper.sh
+    tmpfs:
+      - /tmp
+    networks:
+      - observe-internal
+      - observe-egress
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s -o /dev/null http://127.0.0.1:8000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+volumes:
+  librenms-rrd:
+  librenms-storage:
+  librenms-config:
+
+networks:
+  observe-internal:
+    external: true
+    name: infra_observe-internal
+  observe-egress:
+    external: true
+    name: infra_observe-egress

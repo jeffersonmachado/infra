@@ -5,6 +5,8 @@ Este runbook executa o corte final da stack de mail para os IPs historicos do se
 - `10.10.2.3` para o MX principal e servicos de cliente
 - `10.10.2.23` para o MX secundario
 
+> **Politica de IPs**: estes sao VIPs, nao o IP do host. Ver [CONTAINER_IP_POLICY.md](CONTAINER_IP_POLICY.md).
+
 O objetivo aqui nao e redesenhar a stack. A stack ja esta pronta. O foco e assumir os IPs no host novo `10.10.2.30` com uma sequencia curta, repetivel e com rollback simples.
 
 ## Pre-condicoes

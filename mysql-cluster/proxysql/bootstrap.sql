@@ -40,6 +40,10 @@ VALUES ('resultsdba', '${MYSQL_APP_PASSWORD}', 0, 1);
 INSERT INTO mysql_users (username, password, default_hostgroup, active)
 VALUES ('${MYSQL_APP_USER}', '${MYSQL_APP_PASSWORD}', 0, 1);
 
+-- Roundcube/webmail
+INSERT INTO mysql_users (username, password, default_hostgroup, active)
+VALUES ('${ROUNDCUBE_DB_USER}', '${ROUNDCUBE_DB_PASSWORD}', 0, 1);
+
 LOAD MYSQL USERS TO RUNTIME;
 SAVE MYSQL USERS TO DISK;
 

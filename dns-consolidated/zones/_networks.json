@@ -1,0 +1,9 @@
+{
+  "_comment": "Mapeamento sub-rede → view, consumido por apply-views-api.sh (PUT /networks/{network}). Clientes nestas faixas (privadas) recebem a variante '..internal' das zonas associadas à view 'internal' em _views.json.",
+  "networks": [
+    {"network": "10.0.0.0/8", "view": "internal"},
+    {"network": "172.16.0.0/12", "view": "internal"},
+    {"network": "192.168.0.0/16", "view": "internal"},
+    {"network": "127.0.0.0/8", "view": "internal"}
+  ]
+}

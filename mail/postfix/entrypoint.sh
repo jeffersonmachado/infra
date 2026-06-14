@@ -28,6 +28,9 @@ envsubst < /templates/mysql_virtual_mailbox_domains.cf.template > /etc/postfix/m
 envsubst < /templates/mysql_virtual_mailbox_maps.cf.template > /etc/postfix/mysql_virtual_mailbox_maps.cf
 envsubst < /templates/mysql_virtual_alias_maps.cf.template > /etc/postfix/mysql_virtual_alias_maps.cf
 envsubst < /templates/mysql_transport_maps.cf.template > /etc/postfix/mysql_transport_maps.cf
+envsubst < /templates/mysql_client_access.cf.template > /etc/postfix/mysql_client_access.cf
+
+
 
 if [ "${MAIL_ENABLE_LDAP:-true}" = "true" ]; then
   envsubst < /templates/ldap_virtual_alias_maps.cf.template > /etc/postfix/ldap_virtual_alias_maps.cf

@@ -106,10 +106,12 @@ if [ -n "$RVPN_SERVER_NAME" ]; then
 MDomain ${RVPN_SERVER_NAME}"
 fi
 
-if [ -n "$R_OBSERVE_SERVER_NAME" ]; then
-  APACHE_MDOMAIN_LINES="$APACHE_MDOMAIN_LINES
-MDomain ${R_OBSERVE_SERVER_NAME}"
-fi
+# R_OBSERVE: vhost 70-r-observe.conf.template has SSLEngine on + ServerName,
+# which triggers mod_md auto-management. Do NOT add explicit MDomain.
+# if [ -n "$R_OBSERVE_SERVER_NAME" ]; then
+#   APACHE_MDOMAIN_LINES="$APACHE_MDOMAIN_LINES
+# MDomain ${R_OBSERVE_SERVER_NAME}"
+# fi
 
 if [ -n "$MAIL_CERT_MDOMAINS" ]; then
   APACHE_MDOMAIN_LINES="$APACHE_MDOMAIN_LINES

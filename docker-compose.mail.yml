@@ -54,7 +54,7 @@ services:
       MAIL_SMTPD_ERROR_SLEEP_TIME: ${MAIL_SMTPD_ERROR_SLEEP_TIME:-2s}
       MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-40}
       MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-100}
-      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
+      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-enforce}
       MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
       MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
     volumes:
@@ -127,7 +127,7 @@ services:
       MAIL_SMTPD_ERROR_SLEEP_TIME: ${MAIL_SMTPD_ERROR_SLEEP_TIME:-2s}
       MAIL_SMTPD_SOFT_ERROR_LIMIT: ${MAIL_SMTPD_SOFT_ERROR_LIMIT:-40}
       MAIL_SMTPD_HARD_ERROR_LIMIT: ${MAIL_SMTPD_HARD_ERROR_LIMIT:-100}
-      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-ignore}
+      MAIL_POSTSCREEN_DNSBL_ACTION: ${MAIL_POSTSCREEN_DNSBL_ACTION:-enforce}
       MAIL_POSTSCREEN_DNSBL_SITES: ${MAIL_POSTSCREEN_DNSBL_SITES:-zen.spamhaus.org*2 bl.spamcop.net*1 b.barracudacentral.org*1}
       MAIL_POSTSCREEN_DNSBL_THRESHOLD: ${MAIL_POSTSCREEN_DNSBL_THRESHOLD:-2}
     volumes:
@@ -260,7 +260,7 @@ services:
   ldap:
     build:
       context: ./mail/ldap
-    container_name: results-mail-ldap
+    container_name: results-ldap
     restart: unless-stopped
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
@@ -339,14 +339,27 @@ services:
 
 volumes:
   maildata:
+    name: infra_maildata
   mail-certs:
+    name: infra_mail-certs
   httpd-md-data:
     external: true
-    name: ${HTTPD_MD_VOLUME:-infra-httpd_md-data}
+    name: infra_md-data
   mail-state:
+    name: infra_mail-state
   mail-state-mx2:
+    name: infra_mail-state-mx2
   dovecot-state:
+    name: infra_dovecot-state
   rspamd-data:
+    name: infra_rspamd-data
   clamav-db:
+    name: infra_clamav-db
   ldap-data:
+    name: infra_ldap-data
   ldap-config:
+    name: infra_ldap-config
+
+networks:
+  default:
+    name: infra-shared

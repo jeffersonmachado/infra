@@ -1,0 +1,58 @@
+services:
+  # ── MariaDB local para LibreNMS ────────────────────────────────────────
+  librenms-db:
+    image: mariadb:10.11
+    container_name: librenms-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-LibreNMS2026}
+      MARIADB_DATABASE: librenms
+      MARIADB_USER: librenms
+      MARIADB_PASSWORD: ${DB_PASSWORD:-LibreNMS2026}
+    volumes:
+      - librenms-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-LibreNMS2026}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── LibreNMS ───────────────────────────────────────────────────────────
+  librenms:
+    image: librenms/librenms:latest
+    container_name: librenms
+    restart: unless-stopped
+    depends_on:
+      librenms-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: librenms-db
+      DB_PORT: "3306"
+      DB_DATABASE: librenms
+      DB_USERNAME: librenms
+      DB_PASSWORD: ${DB_PASSWORD:-LibreNMS2026}
+      APP_KEY: ${APP_KEY:-base64:sTPI5r+S+2+ll6eXxG8RziGSw/QJr00dR8w2qYjaXmE=}
+      APP_URL: http://localhost:8082
+      TZ: ${TZ:-America/Sao_Paulo}
+      SNMP_COMMUNITY: ${SNMP_COMMUNITY:-public}
+      LIBRENMS_BASE_URL: http://localhost:8082
+    ports:
+      - "8082:8000"
+    volumes:
+      - librenms-rrd:/opt/librenms/rrd
+      - librenms-storage:/opt/librenms/storage
+      - librenms-config:/opt/librenms/config
+    tmpfs:
+      - /tmp:exec
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  librenms-db-data:
+  librenms-rrd:
+  librenms-storage:
+  librenms-config:

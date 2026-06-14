@@ -1,0 +1,26 @@
+{
+  "name": "1.168.192.in-addr.arpa.",
+  "kind": "Native",
+  "nameservers": ["ns1.results.intranet.", "ns2.results.intranet."],
+  "rrsets": [
+    {"name": "1.168.192.in-addr.arpa.", "type": "SOA", "ttl": 10800,
+     "records": ["ns1.results.intranet. infra.results.intranet. 2026060801 10800 3600 604800 3600"]},
+    {"name": "1.168.192.in-addr.arpa.", "type": "NS", "ttl": 10800,
+     "records": ["ns1.results.intranet.", "ns2.results.intranet."]},
+    {"name": "2.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvrecital.results.intranet."]},
+    {"name": "3.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvlianja.results.intranet."]},
+    {"name": "4.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvvozhom.results.intranet."]},
+    {"name": "5.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["camsalatecnica.results.intranet."]},
+    {"name": "6.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["camsalaadm.results.intranet."]},
+    {"name": "7.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvcftv.results.intranet."]},
+    {"name": "10.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvapps.results.intranet."]},
+    {"name": "30.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvwinxp.results.intranet."]},
+    {"name": "90.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["mexico.results.intranet."]},
+    {"name": "101.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["printer1.results.intranet."]},
+    {"name": "198.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvprinter.results.intranet."]},
+    {"name": "199.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvdhcp2.results.intranet."]},
+    {"name": "227.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvvoip1.results.intranet."]},
+    {"name": "247.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["americanorte.results.intranet."]},
+    {"name": "254.1.168.192.in-addr.arpa.", "type": "PTR", "ttl": 10800, "records": ["srvfw2.results.intranet."]}
+  ]
+}

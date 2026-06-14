@@ -1,0 +1,22 @@
+{
+  "name": "escolamaat.com.br.",
+  "kind": "Native",
+  "nameservers": ["ns1.results.com.br.", "ns2.results.com.br."],
+  "rrsets": [
+    {"name": "escolamaat.com.br.", "type": "SOA", "ttl": 3600,
+     "records": ["ns1.results.com.br. infra.results.com.br. 2026060801 3600 900 1209600 43200"]},
+    {"name": "escolamaat.com.br.", "type": "NS", "ttl": 3600,
+     "records": ["ns1.results.com.br.", "ns2.results.com.br."]},
+    {"name": "escolamaat.com.br.", "type": "MX", "ttl": 3600,
+     "records": ["10 mx1.results.com.br.", "20 mx2.results.com.br."]},
+    {"name": "escolamaat.com.br.", "type": "A", "ttl": 3600, "records": ["10.10.2.60"]},
+    {"name": "escolamaat.com.br.", "type": "TXT", "ttl": 1800,
+     "records": ["\"v=spf1 a mx ip4:smtp.results.com.br -all\""]},
+    {"name": "www.escolamaat.com.br.", "type": "A", "ttl": 3600, "records": ["10.10.2.60"]},
+    {"name": "asp.escolamaat.com.br.", "type": "CNAME", "ttl": 3600, "records": ["www.escolamaat.com.br."]},
+    {"name": "mail._domainkey.escolamaat.com.br.", "type": "TXT", "ttl": 1800,
+     "records": ["\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw2+Ikp0Lup+IPbG0OQmy/1kWLDRSHonmLD91PPA1xHaroCJiLrzEEXzLUjfJPWNADbHxYtLPF/U0Qg6Q+AmC6gHgIC/xt9+Yj97/SepYOvp+pt+95lN/w2hHslUR9WAQa1KE1UlxVLc63I8nPC6guTmoJ7wGBqwz6p0+owSLbmkv7FnGnxph3KjqcNwxLtdsx\" \"hae7LygNbM5HSVTtqUYtUnPvM70b3HhgUdADV0m2tV/lqoBA1su70YuLQxJ189QkimLPtJeoKF4jxYo5816h+Xu82Do9INGfP1ZUNlazp1uvawqMiWJdMkVrqXQsdTmHGr5jeqck7gFlfmiUBjvywIDAQAB\""]},
+    {"name": "_dmarc.escolamaat.com.br.", "type": "TXT", "ttl": 1800,
+     "records": ["\"v=DMARC1; p=quarantine; rua=mailto:postmaster@results.com.br; ruf=mailto:postmaster@results.com.br; fo=1\""]}
+  ]
+}

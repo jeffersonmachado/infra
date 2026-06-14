@@ -10,6 +10,11 @@ RUN apt-get update \
         gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
+COPY entrypoint.sh /entrypoint-galera.sh
+COPY my.cnf.template /etc/mysql/conf.d/galera.cnf.template
+
+RUN chmod 0755 /entrypoint-galera.sh
+
 # Verifica suporte wsrep
 RUN mariadbd --help --verbose 2>/dev/null | grep -q wsrep \
     && echo "✅ Galera wsrep suportado" \

@@ -5,7 +5,7 @@
 // ----------------------------------
 // SQL DATABASE
 // ----------------------------------
-$roundcubeDbHost = getenv('ROUNDCUBE_DB_HOST') ?: (getenv('JOOMLA_DB_HOST') ?: 'srvmysql.results.intranet');
+$roundcubeDbHost = getenv('ROUNDCUBE_DB_HOST') ?: 'srvmysql.results.intranet';
 $config['db_dsnw'] = 'mysql://roundcube:' . (getenv('ROUNDCUBE_DB_PASSWORD') ?: 'CHANGE_ME') . '@' . $roundcubeDbHost . '/roundcubemail';
 
 // ----------------------------------
@@ -33,6 +33,13 @@ $config['imap_conn_options'] = [
 // ----------------------------------
 $config['smtp_server'] = getenv('ROUNDCUBE_SMTP_SERVER') ?: 'tls://mx1.results.com.br';
 $config['smtp_user'] = '%u';
+$config['smtp_conn_options'] = [
+	'ssl' => [
+		'verify_peer' => false,
+		'verify_peer_name' => false,
+		'allow_self_signed' => true,
+	],
+];
 $config['username_domain'] = 'results.com.br';
 
 $config['support_url'] = 'https://www.results.com.br/index.php/suporte/suporte-webmail';

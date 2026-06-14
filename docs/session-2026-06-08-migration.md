@@ -236,3 +236,92 @@ docker exec proxysql-galera mysql -h 127.0.0.1 -P 6033 -u resultsdba -presu1@@db
 docker exec results-mail-dovecot doveadm user jefferson
 echo "jcm@1970" | docker exec -i results-mail-dovecot doveadm auth test jefferson
 ```
+
+---
+
+## 8. Correcoes Pos-Sessao (2026-06-11)
+
+### 8.1. SMTP 451 — Temporary Lookup Failure
+
+**Problema**: Ao enviar email pelo webmail, Postfix retornava:
+`Erro SMTP (451): Falha ao adicionar o destinatário (4.3.0 Temporary lookup failure)`
+
+**Causa**: `virtual_alias_maps` incluia LDAP com bind `cn=administrador` sem
+senha. O LDAP recusava o bind, e a falha bloqueava todas as entregas.
+
+**Solucao**: Removido LDAP do `virtual_alias_maps`, mantendo apenas MySQL.
+Corrigido em `mail/postfix/main.cf.template` (linha 14).
+
+Ver `docs/TROUBLESHOOTING_EMAIL.md` e `memories/repo/postfix-ldap-issue.md`.
+
+### 8.2. Consolidacao de Redes Docker (24 → 18 redes)
+
+Todas as stacks (HTTP, Mail, DNS) migradas para rede unica `infra-shared`.
+Isso eliminou a necessidade de `extra_hosts` e permitiu resolucao DNS
+interna entre containers.
+
+DNS alterado de gateways de rede (`172.25.0.1`, `172.28.0.1`) para
+`127.0.0.11` (Docker embedded DNS).
+
+Ver `docs/NETWORK_CONSOLIDATION.md`.
+
+### 8.3. Volumes Docker — Duplicacao por Project Name
+
+**Problema**: Deploys com diferentes project names (`infra-mail`, `infra`,
+`results-mail`) criavam volumes duplicados vazios. 37.835 emails estavam
+no volume `infra-mail_maildata` (16.5GB) mas o container montava
+`infra_maildata` (vazio).
+
+**Solucao**: Todos os volumes nos compose files agora usam `name:` explicito
+para evitar dependencia do project name.
+
+Ver `docs/WEBMAIL_ENVIRONMENT_10.10.2.30.md` secao 18.
+
+### 8.4. Healthcheck Apache — wget → curl
+
+Healthcheck do `secure-httpd` usava `wget` que nao estava instalado na
+imagem `httpd:2.4-alpine`. Adicionado `curl` ao Dockerfile e healthcheck
+alterado para `curl -f -s`.
+
+### 8.5. MongoDB AVX — Rocketchat
+
+`mongo:5.0` requer AVX (nao suportado pelo CPU). Downgrade para `mongo:4.4`.
+
+### 8.6. phpMyAdmin Healthcheck
+
+Healthcheck usava `wget` (ausente na imagem). Alterado para `curl`.
+
+### 8.7. MySQL Galera — SST Failure (pendente)
+
+`srvmysql1` e `srvmysql2` falham no State Snapshot Transfer (SST) —
+volumes vazios. Cluster opera com single node (`srvmysql0`, cluster_size=1).
+Pendente investigacao.
+
+### 8.8. LDAP — Dados de Usuarios Perdidos
+
+O LDAP (`results-mail-ldap`) perdeu os dados de usuarios — so existe
+`ou=people` vazia. Backup em `/opt/docker/ldap/base.ldif` (769 linhas,
+14 usuarios). Bind com `cn=admin` / `resu1@@admin` funciona.
+
+Nao afeta o funcionamento atual porque:
+- Dovecot autentica via SQL (senhas no banco `results`)
+- Postfix `virtual_alias_maps` nao usa mais LDAP
+
+### 8.9. Status Final do Webmail
+
+✅ Login: funcional (`jefferson / jcm@1970`)
+✅ Inbox: 37.835 emails carregados
+✅ Envio: SMTP 587 STARTTLS + AUTH funcional
+✅ Recebimento: entrega local funcional
+
+### 8.10. Documentacao Criada/Atualizada
+
+| Documento | Status |
+|-----------|--------|
+| `docs/WEBMAIL_ENVIRONMENT_10.10.2.30.md` | Atualizado (secoes 17-19) |
+| `docs/NETWORK_CONSOLIDATION.md` | Novo |
+| `docs/TROUBLESHOOTING_EMAIL.md` | Novo |
+| `docs/session-2026-06-08-migration.md` | Atualizado (secao 8) |
+| `docs/README.md` | Atualizado |
+| `README.md` | Atualizado |
+| `memories/repo/postfix-ldap-issue.md` | Novo |

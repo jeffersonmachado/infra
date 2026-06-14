@@ -1,7 +1,8 @@
 ---
 # ─── DNS Consolidado — PowerDNS + dnsdist ────────────────────────────────────
-# Backend: MariaDB existente em 10.10.2.99 (sem container novo)
-# Substitui: CoreDNS (Docker), BIND legado, PowerDNS externo
+# Backend pdns-auth: LMDB local (volume pdns-auth-lmdb) — necessário para
+#   suportar Views (split-horizon nativo), disponível só no backend LMDB.
+# Substitui: CoreDNS (Docker), BIND legado, PowerDNS externo (MariaDB)
 #
 # Portas (durante migração — não conflita com BIND na :53):
 #   :5353  TCP/UDP  → dnsdist (teste — mudar para 53 no corte)
@@ -26,11 +27,14 @@ x-common: &common
 services:
 
   # ── PowerDNS Authoritative ────────────────────────────────────────────────
-  # Backend: MariaDB em 10.10.2.99 (banco 'results', tabela records/domains)
-  # Serve: todas as zonas públicas + split-horizon interno
+  # Backend: LMDB local (única forma de usar Views — split-horizon nativo).
+  # Dados de zona são criados via API REST (ver scripts/apply-zones-api.sh
+  # e scripts/apply-views-api.sh), não via SQL/seed.
+  # Serve: todas as zonas públicas + a view "internal" (mx1/mx2/imap/smtp
+  # com IPs privados para clientes nas redes 10.0.0.0/8 etc.)
   pdns-auth:
     <<: *common
-    image: powerdns/pdns-auth-49:${PDNS_AUTH_TAG:-4.9.14}
+    image: powerdns/pdns-auth-51:${PDNS_AUTH_TAG:-5.1.1}
     container_name: pdns-auth
     volumes:
       - type: bind
@@ -39,8 +43,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
-    extra_hosts:
-      - "srvmysql.results.intranet:${DNS_DB_HOST:-10.10.2.99}"
+      - pdns-auth-lmdb:/var/lib/powerdns
     networks:
       dns-internal:
         ipv4_address: 10.53.53.11
@@ -116,8 +119,6 @@ services:
       - "10.10.2.1:${DNS_PORT:-5353}:53/tcp"
       - "10.10.2.20:${DNS_PORT:-5353}:53/udp"
       - "10.10.2.20:${DNS_PORT:-5353}:53/tcp"
-      - "10.10.2.30:${DNS_PORT:-5353}:53/udp"
-      - "10.10.2.30:${DNS_PORT:-5353}:53/tcp"
       - "127.0.0.1:9083:8083"
     healthcheck:
       disable: true
@@ -129,3 +130,6 @@ networks:
       config:
         - subnet: 10.53.53.0/24
           gateway: 10.53.53.254
+
+volumes:
+  pdns-auth-lmdb:

@@ -1,6 +1,6 @@
 FROM httpd:2.4-alpine
 
-RUN apk add --no-cache gettext
+RUN apk add --no-cache gettext curl
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY httpd.conf.template /usr/local/apache2/conf/httpd.conf.template

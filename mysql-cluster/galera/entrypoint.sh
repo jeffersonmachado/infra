@@ -23,10 +23,27 @@ if [ -f /etc/mysql/conf.d/galera.cnf.template ]; then
     echo "[galera] Config renderizada."
 fi
 
+# Verifica se datadir já tem sistema de banco inicializado
+DATA_INITIALIZED=false
+if [ -d "/var/lib/mysql/mysql" ] && [ -f "/var/lib/mysql/ibdata1" ]; then
+    DATA_INITIALIZED=true
+fi
+
 if [ "${BOOTSTRAP:-false}" = "true" ]; then
     echo "[galera] BOOTSTRAP: iniciando novo cluster..."
     exec docker-entrypoint.sh mariadbd \
         --wsrep-new-cluster \
+        --port="${PORT}" \
+        --bind-address="${NODE_IP}" \
+        --wsrep-node-address="${NODE_IP}" \
+        --wsrep-node-name="${NODE_NAME}" \
+        --wsrep-cluster-name="${CLUSTER_NAME}" \
+        --wsrep-cluster-address="${CLUSTER_ADDRESS}" \
+        --wsrep-sst-auth="${SST_USER}:${SST_PASSWORD}"
+elif [ "$DATA_INITIALIZED" = "false" ]; then
+    # Datadir vazio + joiner: iniciar mariadbd diretamente para SST
+    echo "[galera] Datadir vazio, iniciando mariadbd para SST..."
+    exec gosu mysql mariadbd \
         --port="${PORT}" \
         --bind-address="${NODE_IP}" \
         --wsrep-node-address="${NODE_IP}" \
