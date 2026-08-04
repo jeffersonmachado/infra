@@ -75,6 +75,7 @@ Se `https://r-observe.results.com.br/` falhar, revisar primeiro:
 - `NETWORK_CONSOLIDATION.md` — Consolidacao de redes Docker (novo 2026-06-11)
 - `TROUBLESHOOTING_EMAIL.md` — Troubleshooting de email/webmail (novo 2026-06-11)
 - `FILE_TO_DIRECTORY_PREVENTION.md` — Prevencao: arquivos viram diretorios (novo 2026-06-12)
+- `session-2026-08-04.md` — Recuperação pós-Galera: ProxySQL, rspamd Bayes, treino HAM (novo 2026-08-04)
 - `MAIL_MIGRATION_10.10.2.2.md`
 - `MAIL_DNS_CUTOVER_10.10.2.15.md`
 - `MAIL_IP_CUTOVER_10.10.2.30.md`

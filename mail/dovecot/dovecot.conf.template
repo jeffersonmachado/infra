@@ -68,6 +68,16 @@ plugin {
   imapsieve_mailbox4_causes = COPY
   imapsieve_mailbox4_before = file:/etc/dovecot/sieve/report-ham.sieve
 
+  # Learn via IMAP flag (NonJunk/Junk) set by Roundcube markasjunk plugin.
+  # Allows training ham/spam directly from any mailbox without moving messages.
+  imapsieve_mailbox5_name = *
+  imapsieve_mailbox5_causes = FLAG
+  imapsieve_mailbox5_before = file:/etc/dovecot/sieve/learn-ham-flag.sieve
+
+  imapsieve_mailbox6_name = *
+  imapsieve_mailbox6_causes = FLAG
+  imapsieve_mailbox6_before = file:/etc/dovecot/sieve/learn-spam-flag.sieve
+
   # FTS (Full-Text Search) - Flatcurve (Xapian backend)
   fts = flatcurve
   fts_languages = pt en es

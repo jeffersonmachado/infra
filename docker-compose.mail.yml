@@ -72,8 +72,9 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - default
-      - ldap_default
+      default:
+        ipv4_address: 192.168.48.11
+      ldap_default:
 
   postfix-mx2:
     build:
@@ -148,8 +149,9 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - default
-      - ldap_default
+      default:
+        ipv4_address: 192.168.48.12
+      ldap_default:
 
   dovecot:
     build:
@@ -206,8 +208,9 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - default
-      - ldap_default
+      default:
+        ipv4_address: 192.168.48.14
+      ldap_default:
 
   rspamd:
     image: rspamd/rspamd:3.8

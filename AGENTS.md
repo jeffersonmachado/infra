@@ -89,6 +89,9 @@ npm run host:security:status:remote      # status de hardening do host
 # Operação de mail
 npm run mail:user:create / mail:user:delete
 npm run postfix:ip:list|check|add|block|remove|reload
+
+# Treino anti-spam (rspamd Bayes)
+npm run train:ham      # treino manual de HAM (scripts/train-rspamd-ham.sh)
 ```
 
 Subida manual de qualquer stack (local ou no servidor):
@@ -154,6 +157,31 @@ Regras:
   Endpoints IMAP/SMTP/Sieve do Roundcube vêm das envs `ROUNDCUBE_*` do
   serviço `joomla` no `docker-compose.yml` (nomes de container, ex:
   `ssl://results-mail-dovecot`), nunca de IPs ou `extra_hosts`.
+
+### Treino anti-spam (rspamd Bayes)
+
+O rspamd usa classificador Bayes global com backend Redis. O treino é
+automático e bidirecional:
+
+- **Imapsieve (Dovecot):** detecta `COPY` de/para Spam e chama `rspamc
+  learn_spam`/`learn_ham`. Também detecta flags `NonJunk`/`Junk` setadas pelo
+  Roundcube (regras mailbox5/6).
+- **Plugin markasjunk (Roundcube):** botões "Spam" e "Não é lixo" visíveis em
+  qualquer pasta. Setam flags `Junk`/`NonJunk`; o Dovecot imapsieve detecta e
+  chama o rspamd.
+- **Cron `train-rspamd-ham.sh`:** a cada 10 min, se `BAYES_HAM < 200`,
+  alimenta o rspamd com emails de +60 dias dos Maildirs de usuários ativos
+  (`ACTIVE_USERS=jefferson,wedila`). Cada email treinado recebe flag
+  `NonJunk`. Logs em `/var/log/train-rspamd-ham*.log`.
+- **Bayes (`classifier-bayes.conf`):** `min_learns=200` — só classifica após
+  200 amostras de HAM e SPAM. `backend=redis`, modelo global (`users=1`).
+
+Para resetar o Bayes: parar rspamd, `redis-cli DEL BAYES_HAM_keys
+BAYES_SPAM_keys`, reiniciar rspamd.
+
+Arquivos do plugin markasjunk (`webmail/plugins/markasjunk/`) podem ser
+editados diretamente no container — o diretório `webmail/` é excluído do
+lsyncd.
 
 ### Footgun: arquivos que viram diretórios
 
