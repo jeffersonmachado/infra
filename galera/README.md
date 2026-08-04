@@ -1,30 +1,35 @@
 # MariaDB Galera Cluster — Produção
 
 **Servidor:** `10.10.2.30` (mexico.results.intranet)  
-**Porta:** `3306` (exposta via galera1)  
-**Imagem:** `mariadb-galera:10.6` (custom, base Ubuntu 22.04)  
+**Porta:** `3306` (host network, uma por nó)  
+**Imagem:** `mariadb-galera:10.11` (custom, Dockerfile em `mysql-cluster/galera/`)  
+**Compose:** `docker-compose.mysql-galera.yml` + `.env.mysql-galera`  
 **SST:** `mariabackup` (não bloqueante)  
+
+> **Nota:** A stack `galera/docker-compose.yml` (containers `galera1/2/3`, rede bridge
+> `172.32.0.0/16`, imagem `10.6`) é **legada** e não está em produção. A stack ativa
+> é `docker-compose.mysql-galera.yml` (host network, IPs reais).
 
 ---
 
 ## Topologia
 
 ```
-┌──────────────────────────────────────────────────────┐
-│          galera-cluster (172.32.0.0/16)              │
-│                                                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
-│  │ galera1  │  │ galera2  │  │ galera3  │           │
-│  │ .11      │  │ .12      │  │ .13      │           │
-│  │ server=1 │  │ server=2 │  │ server=3 │           │
-│  │ ✱ PRIMARY│  │ ✱ SYNCED │  │ ✱ SYNCED │           │
-│  │ :3306→   │  │          │  │          │           │
-│  │  host    │  │          │  │          │           │
-│  └──────────┘  └──────────┘  └──────────┘           │
-│                                                      │
-│  Volumes: galera-prod_galera{1,2,3}-data             │
-│  SST auth: galera / galeraSST@2026                   │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    host network (10.10.2.x)                      │
+│                                                                  │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐    │
+│  │   srvmysql0     │ │   srvmysql1     │ │   srvmysql2     │    │
+│  │   10.10.2.79    │ │   10.10.2.89    │ │   10.10.2.49    │    │
+│  │   server_id=1   │ │   server_id=2   │ │   server_id=3   │    │
+│  │   SST port:4444 │ │   SST port:4445 │ │   SST port:4446 │    │
+│  │   ✱ PRIMARY     │ │   ✱ SYNCED     │ │   ✱ SYNCED     │    │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘    │
+│                                                                  │
+│  Volumes: galera-data-srvmysql{0,1,2}                            │
+│  SST auth: galera / galeraSST@2026                               │
+│  Cluster address: gcomm://10.10.2.79,10.10.2.89,10.10.2.49      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -32,128 +37,135 @@
 ## Estrutura de Arquivos
 
 ```
-galera/
-├── docker-compose.yml       # Definição dos 3 serviços
-├── conf/
-│   ├── galera1.cnf          # Configuração nó 1 (172.32.0.11, server_id=1)
-│   ├── galera2.cnf          # Configuração nó 2 (172.32.0.12, server_id=2)
-│   └── galera3.cnf          # Configuração nó 3 (172.32.0.13, server_id=3)
-├── init/
-│   └── 01-sst-user.sql      # Criação do usuário SST (mariabackup)
-├── bin/
-│   └── start-cluster.sh     # Script de subida automatizada
-└── README.md                # Este arquivo
+.
+├── docker-compose.mysql-galera.yml   # Stack ativa (raiz do repo)
+├── .env.mysql-galera                 # Variáveis de ambiente (gitignored)
+├── .env.mysql-galera.example         # Template sem segredos
+├── mysql-cluster/galera/             # Dockerfile + entrypoint
+│   ├── Dockerfile
+│   ├── entrypoint.sh                 # Entrypoint customizado (renderiza config)
+│   ├── entrypoint-ubuntu.sh
+│   └── my.cnf.template
+└── galera/                           # Stack legada (NÃO USAR EM PRODUÇÃO)
+    ├── docker-compose.yml            # Rede bridge 172.32.0.0/16, imagem 10.6
+    ├── conf/                         # Configs dos nós galera1/2/3
+    ├── init/01-sst-user.sql          # Script de criação do usuário SST
+    ├── bin/start-cluster.sh
+    └── README.md                     # Este arquivo
 ```
 
 ---
 
 ## Comandos
 
-### Subir o cluster
+### Subir o cluster (produção)
 
 ```bash
-cd /opt/results/infra/galera
-./bin/start-cluster.sh
-```
+cd /opt/results/infra
 
-O script automaticamente:
-1. Valida ambiente (Docker, portas)
-2. Adiciona `--wsrep-new-cluster` ao galera1
-3. Sobe galera1 e aguarda healthy
-4. Remove o flag de bootstrap
-5. Sobe galera2 e galera3 com `--no-recreate`
-6. Aguarda cluster atingir size=3
-7. Valida replicação
+# Bootstrap inicial (primeira vez, com datadir vazio)
+GALERA_BOOTSTRAP=true docker compose -f docker-compose.mysql-galera.yml \
+    --env-file .env.mysql-galera up -d srvmysql0
+
+# Aguardar healthy, depois subir os demais
+docker compose -f docker-compose.mysql-galera.yml \
+    --env-file .env.mysql-galera up -d srvmysql1 srvmysql2
+
+# Subida normal (todos os nós com datadir existente)
+docker compose -f docker-compose.mysql-galera.yml \
+    --env-file .env.mysql-galera up -d
+```
 
 ### Ver status
 
 ```bash
-./bin/start-cluster.sh --status
+docker exec srvmysql0 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" \
+    -e "SHOW STATUS LIKE 'wsrep%';" | grep -E 'cluster_size|cluster_status|connected|ready|local_state_comment|incoming'
 ```
 
-### Parar o cluster
+### Verificar health dos containers
 
 ```bash
-./bin/start-cluster.sh --stop
-# ou
-docker compose down
-```
-
-### Apenas bootstrap (caso queira subir os demais manualmente)
-
-```bash
-./bin/start-cluster.sh --bootstrap
+docker ps --format 'table {{.Names}}\t{{.Status}}' | grep srvmysql
 ```
 
 ---
 
-## ⚠️ Procedimentos de Emergência
+## Troubleshooting
+
+### Nó não sobe / restart em loop com erro SST
+
+**Sintomas:** `docker ps` mostra `Restarting (139)` ou `unhealthy`, logs com:
+```
+WSREP_SST: [ERROR] xtrabackup_checkpoints missing, failed mariadb-backup/SST on donor
+WSREP_SST: [ERROR] mariadb-backup finished with error: 1
+Access denied for user 'galera'@'localhost'
+```
+
+**Causa:** O usuário `galera@localhost` não existe na tabela `mysql.user` do nó doador.
+O SST usa mariadb-backup que autentica com esse usuário; sem ele, o backup falha
+e o joiner nunca recebe o state transfer.
+
+**Solução:**
+```bash
+# 1. Criar o usuário no nó doador (srvmysql0)
+docker exec srvmysql0 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "
+  CREATE USER IF NOT EXISTS 'galera'@'localhost' IDENTIFIED BY 'galeraSST@2026';
+  GRANT ALL PRIVILEGES ON *.* TO 'galera'@'localhost';
+  FLUSH PRIVILEGES;
+"
+# Nota: GRANT ALL é necessário para mariadb-backup (requer RELOAD, PROCESS,
+# LOCK TABLES, REPLICATION CLIENT, CREATE, INSERT, DROP, etc.)
+
+# 2. Reiniciar os nós joiners
+docker restart srvmysql1 srvmysql2
+```
+
+**Prevenção:** O entrypoint atual (`mysql-cluster/galera/entrypoint.sh`) **não cria**
+o usuário SST automaticamente. Após o primeiro bootstrap, criar o usuário manualmente
+(ver acima). Considerar adicionar um init script no compose que execute a criação
+do usuário em todo restart.
 
 ### Cluster não sobe após parada total
 
-Se todos os containers foram parados (`docker compose down`), é necessário bootstrap:
-
 ```bash
-# 1) Adicionar bootstrap temporário
-sed -i '/hostname: galera1/a\    command: --wsrep-new-cluster' docker-compose.yml
-
-# 2) Subir galera1
-docker compose up -d galera1
-
-# 3) Aguardar healthy, depois remover o bootstrap
-sed -i '/command: --wsrep-new-cluster/d' docker-compose.yml
-
-# 4) Subir os demais
-docker compose up -d --no-recreate galera2 galera3
+# Bootstrap manual no srvmysql0
+GALERA_BOOTSTRAP=true docker compose -f docker-compose.mysql-galera.yml \
+    --env-file .env.mysql-galera up -d srvmysql0
+docker compose -f docker-compose.mysql-galera.yml \
+    --env-file .env.mysql-galera up -d srvmysql1 srvmysql2
 ```
 
 ### Nó com safe_to_bootstrap=0
 
-Se o galera1 não sobe com erro "It may not be safe to bootstrap", editar o grastate.dat:
-
 ```bash
-docker run --rm -v galera-prod_galera1-data:/data alpine \
+docker run --rm -v galera-data-srvmysql0:/data alpine \
     sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/' /data/grastate.dat
 ```
+
+### Donor travado em Donor/Desynced após SST falhar
+
+Se o nó doador ficar preso em `Donor/Desynced` após uma falha de SST e não
+voltar a `Synced`, forçar:
+```bash
+docker exec srvmysql0 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" \
+    -e "SET GLOBAL wsrep_desync=OFF;"
+```
+Se não resolver, restart do container doador (último recurso).
 
 ### Verificar logs
 
 ```bash
-docker logs galera1 --tail 50
-docker logs galera2 --tail 50
-docker logs galera3 --tail 50
+docker logs srvmysql0 --tail 50
+docker logs srvmysql1 --tail 50
+docker logs srvmysql2 --tail 50
 ```
 
 ### Acessar MySQL
 
 ```bash
-docker exec -it galera1 mysql -u root -p'resu100dba'
+docker exec -it srvmysql0 mysql -u root -p"${MYSQL_ROOT_PASSWORD}"
 ```
-
----
-
-## Dados das Aplicações
-
-### Bancos de dados no ambiente
-
-| Container | Imagem | Status | Porta | Volume | Dados |
-|-----------|--------|--------|-------|--------|-------|
-| **galera1/2/3** | mariadb-galera:10.6 | **UP** (cluster) | 3306 | `galera-prod_galera{1,2,3}-data` | Cluster operacional |
-| srvmysql0 | mariadb-galera:10.6 | STOPPED | - | `galera-data-srvmysql0` | Sem dados de app (vazio) |
-| egroupware-db | mariadb:10.6 | UP (standalone) | 3306 (interno) | `egroupware_db` | EGroupware |
-| ripabx-mariadb | mariadb:11.7 | STOPPED | *3306* | `/docker/ripabx/mariadb/data` | RIPABX (conflito porta) |
-
-### ⚠️ ripabx-mariadb
-
-O `ripabx-mariadb` está parado porque a porta 3306 está agora alocada ao cluster Galera.  
-Dados preservados em `/docker/ripabx/mariadb/data` (bind mount).  
-Para restaurar, é necessário migrar os dados para o cluster Galera ou usar outra porta.
-
-### ⚠️ egroupware-db
-
-Continua rodando como standalone na porta 3306 interna (rede bridge `egroupware_default`).  
-Não conflita com o Galera pois usa rede separada.  
-Volume: `egroupware_db`.
 
 ---
 
@@ -161,12 +173,13 @@ Volume: `egroupware_db`.
 
 | Parâmetro | Valor |
 |-----------|-------|
-| MariaDB | 10.6.27 |
-| Galera | 26.4.27 |
+| MariaDB | 10.11 (produção) |
+| Galera | 26.4.x |
 | wsrep_cluster_name | `mysql` |
 | wsrep_sst_method | `mariabackup` |
 | wsrep_sst_auth | `galera:galeraSST@2026` |
-| innodb_buffer_pool_size | 256M |
+| Rede | `host` (IPs reais: 10.10.2.79, .89, .49) |
+| SST ports | 4444, 4445, 4446 |
 | binlog_format | ROW |
 | auto_increment_increment | 3 |
 | max_connections | 200 |
