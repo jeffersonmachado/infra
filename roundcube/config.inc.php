@@ -11,7 +11,7 @@ $config['db_dsnw'] = 'mysql://roundcube:' . (getenv('ROUNDCUBE_DB_PASSWORD') ?: 
 // ----------------------------------
 // IMAP
 // ----------------------------------
-$config['default_host'] = getenv('ROUNDCUBE_IMAP_HOST') ?: 'ssl://imap.results.com.br';
+$config['default_host'] = getenv('ROUNDCUBE_IMAP_HOST') ?: 'ssl://results-mail-dovecot';
 $imapPort = getenv('ROUNDCUBE_IMAP_PORT');
 if ($imapPort !== false && $imapPort !== '') {
 	$config['default_port'] = (int) $imapPort;
@@ -31,7 +31,7 @@ $config['imap_conn_options'] = [
 // ----------------------------------
 // SMTP
 // ----------------------------------
-$config['smtp_server'] = getenv('ROUNDCUBE_SMTP_SERVER') ?: 'tls://mx1.results.com.br';
+$config['smtp_server'] = getenv('ROUNDCUBE_SMTP_SERVER') ?: 'tls://results-mail-postfix';
 $config['smtp_user'] = '%u';
 $config['smtp_conn_options'] = [
 	'ssl' => [
@@ -57,7 +57,7 @@ $config['mime_magic'] = '/usr/share/misc/magic';
 // ----------------------------------
 $config['plugins'] = array('markasjunk', 'managesieve');
 
-$config['managesieve_host'] = getenv('ROUNDCUBE_MANAGESIEVE_HOST') ?: 'imap.results.com.br';
+$config['managesieve_host'] = getenv('ROUNDCUBE_MANAGESIEVE_HOST') ?: 'results-mail-dovecot';
 $config['managesieve_port'] = 4190;
 $config['managesieve_usetls'] = true;
 $config['managesieve_conn_options'] = [

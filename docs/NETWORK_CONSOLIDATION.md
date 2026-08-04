@@ -106,19 +106,14 @@ docker network create infra-shared
 
 ## DNS
 
-Com `infra-shared`, o DNS dos containers deve usar `127.0.0.11` (Docker
-embedded DNS), nao gateways de redes especificas:
+Com `infra-shared`, os containers usam `127.0.0.11` (DNS embutido do Docker),
+injetado automaticamente pelo runtime. Nao declarar `dns: 127.0.0.11` no
+Compose: isso transforma o resolvedor embutido no proprio upstream e pode
+causar loop, quebrando a resolucao de nomes externos.
 
-```yaml
-# docker-compose.yml
-dns:
-  - 127.0.0.11
-```
-
-Ou via env:
-```dotenv
-HTTP_DOCKER_DNS=127.0.0.11
-```
+O bloco `dns:` deve ser omitido, salvo quando houver um resolvedor upstream
+real e explicitamente aprovado. O `/etc/resolv.conf` do container continuara
+mostrando `nameserver 127.0.0.11` automaticamente.
 
 ## Verificacao
 

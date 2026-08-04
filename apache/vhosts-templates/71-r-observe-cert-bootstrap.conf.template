@@ -1,0 +1,7 @@
+<VirtualHost *:8080>
+    ServerName ${R_OBSERVE_CERT_DOMAIN}
+
+    # Vhost HTTP minimo para o mod_md responder ao desafio ACME HTTP-01 antes
+    # de habilitar o vhost TLS definitivo de r-observe.
+    DocumentRoot "/usr/local/apache2/htdocs"
+</VirtualHost>

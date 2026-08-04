@@ -5,7 +5,7 @@
 #
 # Acessos:
 #   https://r-observe.results.com.br/librenms/ (via proxy nginx r-observe)
-#   http://127.0.0.1:8081 (direto, para debug — bind em loopback)
+#   http://127.0.0.1:18081 (direto, para debug — bind em loopback)
 #
 # Redes:
 #   - observe-egress  → acesso ao MariaDB (10.10.2.79:3306)
@@ -47,7 +47,7 @@ services:
       PHP_MAX_EXECUTION_TIME: ${PHP_MAX_EXECUTION_TIME:-300}
       LIBRENMS_BASE_URL: ${LIBRENMS_BASE_URL:-http://localhost}
     ports:
-      - "${LIBRENMS_BIND_IP:-127.0.0.1}:${LIBRENMS_HTTP_PORT:-8081}:8000"
+      - "${LIBRENMS_BIND_IP:-127.0.0.1}:${LIBRENMS_HTTP_PORT:-18081}:8000"
     volumes:
       - librenms-rrd:/opt/librenms/rrd
       - librenms-storage:/opt/librenms/storage

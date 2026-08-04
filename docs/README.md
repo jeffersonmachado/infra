@@ -28,6 +28,7 @@ Documentacao da infraestrutura geral mantida em `/opt/results/infra`.
 
 ### VPN
 - SoftEther/rvpn e scripts operacionais
+- `RVPN_EDGE_SNI_443.md` — compartilhamento da porta 443 entre SoftEther e Apache via HAProxy SNI
 
 ## Projeto separado
 

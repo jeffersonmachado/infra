@@ -21,9 +21,14 @@ services:
 
   # ─── SOFTETHER VPN SERVER ─────────────────────────────────────────────────
   softether-vpn-server:
-    image: softethervpn/vpnserver:stable
+    image: softethervpn/vpnserver@sha256:fc9e78f69681345b6498fdff4c6b8b17f28d5181b9ea5183cb80274cbb5fb6bb
     container_name: rvpn
     restart: always
+    # Evita dependência circular no boot: os DNS internos também rodam em
+    # containers e ainda não estão disponíveis durante o restore do Docker.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     cap_add:
       - NET_ADMIN
     ports:

@@ -32,7 +32,7 @@ ssl_cert = <${MAIL_TLS_CERT_FILE}
 ssl_key = <${MAIL_TLS_KEY_FILE}
 protocol imap {
   ssl = yes
-  mail_plugins = quota imap_quota imap_sieve
+  mail_plugins = quota imap_quota imap_sieve fts fts_flatcurve
 }
 protocol pop3 {
   pop3_uidl_format = %08Xu%08Xv
@@ -67,8 +67,17 @@ plugin {
   imapsieve_mailbox4_from = Junk
   imapsieve_mailbox4_causes = COPY
   imapsieve_mailbox4_before = file:/etc/dovecot/sieve/report-ham.sieve
+
+  # FTS (Full-Text Search) - Flatcurve (Xapian backend)
+  fts = flatcurve
+  fts_languages = pt en es
+  fts_tokenizers = generic email-address
+  fts_flatcurve_substring_search = yes
+  fts_autoindex = yes
+  fts_enforced = no
 }
 namespace inbox {
+  fts_enabled = yes
   inbox = yes
   mailbox Spam {
     auto = subscribe

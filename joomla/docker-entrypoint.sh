@@ -25,7 +25,7 @@ EOF
 	chown www-data:www-data /var/www/html/results/webmail/config/managesieve-default.sieve
 	chmod 0644 /var/www/html/results/webmail/config/managesieve-default.sieve
 
-	# config.inc.php é fonte única vinda do lsyncd — não modificar
+	# config.inc.php fica só no volume (webmail/ é excluído do lsyncd) — não regenerar aqui
 fi
 
 # configuration.php é fonte única vinda do lsyncd — não modificar

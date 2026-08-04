@@ -71,6 +71,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - default
+      - ldap_default
 
   postfix-mx2:
     build:
@@ -144,6 +147,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - default
+      - ldap_default
 
   dovecot:
     build:
@@ -199,6 +205,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - default
+      - ldap_default
 
   rspamd:
     image: rspamd/rspamd:3.8
@@ -363,3 +372,6 @@ volumes:
 networks:
   default:
     name: infra-shared
+  ldap_default:
+    external: true
+    name: ldap_default

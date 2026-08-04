@@ -1,7 +1,21 @@
 FROM dovecot/dovecot:2.3.21
 
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gettext-base dovecot-mysql dovecot-ldap rspamd \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        gettext-base dovecot-mysql dovecot-ldap rspamd \
+        build-essential pkg-config libxapian-dev dovecot-dev wget autoconf automake libtool \
+    && cd /tmp \
+    && wget -q --timeout=30 -O dovecot-fts-flatcurve.tar.gz 'https://github.com/slusarz/dovecot-fts-flatcurve/archive/refs/tags/v1.0.5.tar.gz' \
+    && tar xzf dovecot-fts-flatcurve.tar.gz \
+    && cd dovecot-fts-flatcurve-* \
+    && ./autogen.sh \
+    && ./configure --with-dovecot=/usr/lib/dovecot \
+    && make -j$(nproc) \
+    && make install \
+    && cd /tmp \
+    && rm -rf dovecot-fts-flatcurve* \
+    && DEBIAN_FRONTEND=noninteractive apt-get purge -y --auto-remove \
+        build-essential pkg-config libxapian-dev dovecot-dev wget autoconf automake libtool \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /entrypoint.sh
