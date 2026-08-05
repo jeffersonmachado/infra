@@ -1,8 +1,13 @@
 FROM php:7.4-fpm
 
-# Instalar Apache + extensoes PHP
+# ⚠️ PHP 7.4 EOL desde Nov/2022. Joomla 3.9 requer PHP 5.6-7.4.
+# Migração urgente necessária: Joomla 3.9 → 4.x/5.x + PHP 8.x
+# Debian Bullseye LTS termina em Ago/2026.
+
+# Aplicar patches de seguranca do SO
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         apache2 \
         libfreetype-dev \
         libjpeg-dev \

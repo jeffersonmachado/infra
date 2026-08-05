@@ -1,6 +1,7 @@
 FROM dovecot/dovecot:2.3.21
 
 RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         gettext-base dovecot-mysql dovecot-ldap rspamd \
         build-essential pkg-config libxapian-dev dovecot-dev wget autoconf automake libtool \
