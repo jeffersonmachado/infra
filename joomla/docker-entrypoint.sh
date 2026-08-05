@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+# Iniciar php-fpm (vem da imagem php:7.4-fpm)
+if [ -x /usr/local/sbin/php-fpm ]; then
+    echo "Iniciando php-fpm..."
+    /usr/local/sbin/php-fpm -D
+fi
+
 mkdir -p /var/www/html/results/cache /var/www/html/results/logs /tmp
 chown -R www-data:www-data /var/www/html/results/cache /var/www/html/results/logs /tmp
 
