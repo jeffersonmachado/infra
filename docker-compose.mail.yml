@@ -292,6 +292,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      default:
+        aliases:
+          - ldap
+          - srvldap1
 
   mail-certs-bootstrap:
     image: certbot/certbot:v2.11.0
@@ -375,6 +380,9 @@ volumes:
 networks:
   default:
     name: infra-shared
+    ipam:
+      config:
+        - subnet: 192.168.48.0/20
   ldap_default:
     external: true
     name: ldap_default

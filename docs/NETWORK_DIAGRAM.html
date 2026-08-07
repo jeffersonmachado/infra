@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Rede — results.com.br</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;touch-action:none;-webkit-user-select:none;user-select:none;}
+#wrap{width:100%;height:100%;overflow:hidden;}
+#img{display:block;position:absolute;top:20px;left:20px;transform-origin:0 0;}
+.ctrl{position:fixed;bottom:8px;right:8px;z-index:9999;display:flex;gap:2px;background:#161b22;border:1px solid #30363d;border-radius:4px;padding:3px;touch-action:manipulation;}
+.ctrl button{width:26px;height:26px;border:none;background:transparent;color:#8b949e;font-size:14px;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;touch-action:manipulation;}
+.ctrl button:active{background:#388bfd;color:#fff;}
+.inf{position:fixed;top:4px;right:8px;z-index:9999;color:#8b949e;font-size:10px;background:#161b22;padding:2px 6px;border-radius:3px;border:1px solid #30363d;touch-action:manipulation;}
+</style>
+</head>
+<body>
+<div id="wrap"><img id="img" alt="Diagrama"></div>
+<div class="inf" id="info">100%</div>
+<div class="ctrl">
+<button id="bOut">-</button><button id="bIn">+</button><button id="bFit">=</button><button id="b1">1:1</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:false,theme:'dark',securityLevel:'loose'});
+var S=1,W=800,H=600,X=20,Y=20,wrap=document.getElementById('wrap'),img=document.getElementById('img'),info=document.getElementById('info');
+var dragging=false,px=0,py=0,pd=0,pS=1,pX=0,pY=0,pCX=0,pCY=0;
+
+function U(){img.style.transform='translate('+X+'px,'+Y+'px) scale('+S+')';info.textContent=Math.round(S*100)+'%';}
+function fit(){S=Math.min(wrap.clientWidth/W,wrap.clientHeight/H)*0.9;X=(wrap.clientWidth-W*S)/2;Y=(wrap.clientHeight-H*S)/2;U();}
+
+document.getElementById('bIn').onclick=function(){var cx=wrap.clientWidth/2,cy=wrap.clientHeight/2,oS=S;S=Math.min(20,S*1.3);X=cx-(S/oS)*(cx-X);Y=cy-(S/oS)*(cy-Y);U();};
+document.getElementById('bOut').onclick=function(){var cx=wrap.clientWidth/2,cy=wrap.clientHeight/2,oS=S;S=Math.max(0.03,S/1.3);X=cx-(S/oS)*(cx-X);Y=cy-(S/oS)*(cy-Y);U();};
+document.getElementById('bFit').onclick=fit;
+document.getElementById('b1').onclick=function(){S=1;X=20;Y=20;U();};
+
+wrap.addEventListener('pointerdown',function(e){dragging=true;px=e.clientX;py=e.clientY;wrap.setPointerCapture(e.pointerId);});
+wrap.addEventListener('pointermove',function(e){if(!dragging)return;X+=e.clientX-px;Y+=e.clientY-py;px=e.clientX;py=e.clientY;U();});
+wrap.addEventListener('pointerup',function(){dragging=false;});
+wrap.addEventListener('wheel',function(e){e.preventDefault();var r=wrap.getBoundingClientRect(),cx=e.clientX-r.left,cy=e.clientY-r.top,oS=S;S=Math.min(20,Math.max(0.03,S*(e.deltaY<0?1.1:1/1.1)));X=cx-(S/oS)*(cx-X);Y=cy-(S/oS)*(cy-Y);U();},{passive:false});
+
+wrap.addEventListener('touchstart',function(e){if(e.touches.length===1){dragging=true;px=e.touches[0].clientX;py=e.touches[0].clientY;}else if(e.touches.length===2){dragging=false;pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);pS=S;pX=X;pY=Y;pCX=(e.touches[0].clientX+e.touches[1].clientX)/2;pCY=(e.touches[0].clientY+e.touches[1].clientY)/2;}});
+wrap.addEventListener('touchmove',function(e){if(e.touches.length===1&&dragging){X+=e.touches[0].clientX-px;Y+=e.touches[0].clientY-py;px=e.touches[0].clientX;py=e.touches[0].clientY;U();}else if(e.touches.length===2){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY),rS=d/pd;S=Math.min(20,Math.max(0.03,pS*rS));X=pCX-rS*(pCX-pX);Y=pCY-rS*(pCY-pY);U();}});
+wrap.addEventListener('touchend',function(){dragging=false;});
+
+(async function(){
+var r=await mermaid.render('d',`graph TB
+    subgraph EXTERNO[" Internet"]
+        CLIENT["Clientes externos | MX records -> mx1/mx2 | A records -> results.com.br"]
+        WAN["WAN - 201.6.110.53 | IP publico, NAT no firewall"]
+    end
+    subgraph FW[" srvfw0 - 10.10.2.254 | Xen VM: gabao"]
+        PREROUTING["PREROUTING DNAT"]
+    end
+    subgraph HOST[" mexico - 10.10.2.30 | Alpine Linux + Docker 27.3.1"]
+        subgraph ETH0["eth0 - IPs vinculados"]
+            IP30["10.10.2.30/24  <- principal + VPN"]
+            IP1["10.10.2.1/32   <- VIP ns1"]
+            IP3["10.10.2.3/32   <- VIP mx1 / IMAP"]
+            IP20["10.10.2.20/32  <- VIP ns2"]
+            IP23["10.10.2.23/32  <- VIP mx2"]
+            IP60["10.10.2.60/32  <- VIP web"]
+            IP49["10.10.2.49/32  <- VIP mysql"]
+            IP79["10.10.2.79/32  <- VIP mysql"]
+            IP89["10.10.2.89/32  <- VIP mysql"]
+            IP99["10.10.2.99/32  <- VIP mysql"]
+        end
+        subgraph DOCKER[" Docker Engine"]
+            subgraph NET["infra-shared - bridge 192.168.48.0/20"]
+                DNS_DOCKER["127.0.0.11 | DNS interno Docker"]
+            end
+            subgraph STACK_WEB["Stack Web - docker-compose.yml"]
+                APACHE["secure-httpd | Apache 2.4-alpine | bind: 10.10.2.60:443"]
+                JOOMLA["results-joomla | PHP 7.4 + Roundcube | aliases: joomla"]
+                SUBDOMAIN["httpd-subdomain-sync | vhosts via MySQL"]
+                LSYNCD_AP["httpd-lsyncd | sync Apache configs"]
+                LSYNCD_JO["joomla-lsyncd | sync Joomla site"]
+            end
+            subgraph STACK_MAIL["Stack Mail - docker-compose.mail.yml"]
+                MX1["results-mail-postfix | Postfix MX1 | bind: 10.10.2.3:25,465,587"]
+                MX2["results-mail-postfix-mx2 | Postfix MX2 | bind: 10.10.2.23:25"]
+                DOVECOT["results-mail-dovecot | Dovecot IMAP/POP3/Sieve | bind: 10.10.2.3:143,993,4190"]
+                RSPAMD["results-mail-rspamd | Anti-spam + Redis"]
+                CLAMAV["results-mail-clamav | Antivirus"]
+                LDAP["results-ldap | OpenLDAP"]
+                CERTBOT["results-mail-certbot | TLS certs"]
+            end
+            subgraph STACK_DNS["Stack DNS - dns-consolidated/"]
+                DNSDIST["dns-dnsdist | bind: 10.10.2.1:53, 10.10.2.20:53"]
+                PDNS_AUTH["pdns-auth | 10.53.53.11:53"]
+                PDNS_REC["pdns-recursor | 10.53.53.12:53"]
+            end
+            subgraph STACK_EDGE["Stack Edge SNI"]
+                HAPROXY["edge-sni | HAProxy SNI | bind: 10.10.2.60:443"]
+            end
+            subgraph STACK_VPN["Stack VPN"]
+                VPN["rvpn | SoftEther | bind: 10.10.2.30:5555"]
+            end
+            subgraph STACK_DB["Stack MySQL - host network"]
+                MYSQL0["srvmysql0 | MariaDB Galera | bind: 10.10.2.79"]
+                MYSQL1["srvmysql1 | MariaDB Galera | bind: 10.10.2.89"]
+                MYSQL2["srvmysql2 | MariaDB Galera | bind: 10.10.2.49"]
+                PROXYSQL["mysql-proxysql | ProxySQL<br/>bind: 10.10.2.99:3306,6033,6034"]
+            end
+        end
+    end
+    WAN -->|"NAT"| FW
+    APACHE -.->|"bind"| IP60
+    MX1 -.->|"bind"| IP3
+    MX2 -.->|"bind"| IP23
+    DOVECOT -.->|"bind"| IP3
+    DNSDIST -.->|"bind"| IP1
+    DNSDIST -.->|"bind"| IP20
+    VPN -.->|"bind"| IP30
+    JOOMLA -->|"IMAPS:993"| DOVECOT
+    JOOMLA -->|"SMTP:587"| MX1
+    JOOMLA -->|"Sieve:4190"| DOVECOT
+    JOOMLA -->|"MySQL:3306"| PROXYSQL
+    SUBDOMAIN -->|"MySQL:3306"| PROXYSQL
+    APACHE -->|"proxy"| JOOMLA
+    HAPROXY -->|"SNI route"| APACHE
+    DNSDIST -->|"auth pool"| PDNS_AUTH
+    DNSDIST -->|"recurse pool"| PDNS_REC
+    MX1 -->|"antispam"| RSPAMD
+    MX1 -->|"antivirus"| CLAMAV
+    MX1 -->|"auth LDAP"| LDAP
+    DOVECOT -->|"auth LDAP"| LDAP
+    DOVECOT -->|"antispam sieve"| RSPAMD
+    MYSQL0 <-->|"Galera replication"| MYSQL1
+    MYSQL1 <-->|"Galera replication"| MYSQL2
+    PROXYSQL -->|"r/w:6033 r/o:6034"| MYSQL0
+    PROXYSQL -->|"r/w:6033 r/o:6034"| MYSQL1
+    APACHE -.- NET
+    JOOMLA -.- NET
+    SUBDOMAIN -.- NET
+    LSYNCD_AP -.- NET
+    LSYNCD_JO -.- NET
+    MX1 -.- NET
+    MX2 -.- NET
+    DOVECOT -.- NET
+    RSPAMD -.- NET
+    CLAMAV -.- NET
+    LDAP -.- NET
+    CERTBOT -.- NET
+    DNSDIST -.- NET
+    PDNS_AUTH -.- NET
+    PDNS_REC -.- NET
+    HAPROXY -.- NET
+    style HOST fill:#1a1a2e,stroke:#16213e,color:#eee
+    style DOCKER fill:#0f3460,stroke:#16213e,color:#eee
+    style NET fill:#1a3a5c,stroke:#2a5a8c,color:#bcd
+    style STACK_WEB fill:#162447,stroke:#1f4068,color:#ddd
+    style STACK_MAIL fill:#162447,stroke:#1f4068,color:#ddd
+    style STACK_DNS fill:#162447,stroke:#1f4068,color:#ddd
+    style STACK_EDGE fill:#162447,stroke:#1f4068,color:#ddd
+    style STACK_VPN fill:#162447,stroke:#1f4068,color:#ddd
+    style STACK_DB fill:#162447,stroke:#1f4068,color:#ddd
+    style FW fill:#533a1a,stroke:#6b4c1e,color:#ddd
+    style EXTERNO fill:#1a2e1a,stroke:#2e4e1e,color:#ddd
+`);
+var m=r.svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+if(m){W=parseFloat(m[1]);H=parseFloat(m[2]);r.svg=r.svg.replace(/width="[^"]*"/,'width="'+W+'"').replace(/height="[^"]*"/,'height="'+H+'"').replace(/style="[^"]*"/,'');r.svg=r.svg.replace('<svg','<svg style="max-width:none"');}
+img.src=URL.createObjectURL(new Blob([r.svg],{type:'image/svg+xml'}));
+img.onload=function(){if(W===800&&img.naturalWidth){W=img.naturalWidth;H=img.naturalHeight;}fit();};
+setTimeout(function(){if(W===800&&img.naturalWidth){W=img.naturalWidth;H=img.naturalHeight;fit();}},2000);
+})();
+</script>
+</body>
+</html>

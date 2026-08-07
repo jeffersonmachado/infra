@@ -43,9 +43,14 @@ Internet
   -> 10.10.2.60:443
   -> secure-httpd
   -> ProxyPass /webmail/ -> http://joomla/webmail/
-  -> results-joomla
+  -> results-joomla (alias de rede: joomla)
   -> Roundcube
 ```
+
+Atencao: o container tem `container_name: results-joomla`, mas o Apache
+referencia `joomla`. O alias de rede `joomla` e obrigatorio no
+`docker-compose.yml` (ver `networks.default.aliases`). Sem ele, o Apache
+retorna `500 Proxy Error - DNS lookup failure for: joomla`.
 
 Fluxo IMAP/SMTP (atualizado 2026-06-11):
 

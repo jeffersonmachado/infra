@@ -40,7 +40,7 @@ services:
       - "${VPN_BIND_IP:-0.0.0.0}:4500:4500/udp"
       - "${VPN_BIND_IP:-0.0.0.0}:1701:1701/udp"
     volumes:
-      - softetherdata:/mnt
+      - softetherdata:/var/lib/softether
     logging:
       driver: json-file
       options:

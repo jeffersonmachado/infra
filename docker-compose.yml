@@ -2,6 +2,7 @@ services:
   apache:
     build:
       context: ./apache
+    image: infra-apache:latest
     container_name: secure-httpd
     restart: unless-stopped
     depends_on:
@@ -66,6 +67,7 @@ services:
   joomla:
     build:
       context: ./joomla
+    image: results-joomla:php74-event
     container_name: results-joomla
     restart: unless-stopped
     depends_on:
@@ -74,7 +76,7 @@ services:
     dns:
       - ${HTTP_DOCKER_DNS:-127.0.0.11}
     extra_hosts:
-      - "srvmysql.results.intranet:10.10.2.79"
+      - "srvmysql.results.intranet:10.10.2.99"
       - "results-mail-dovecot:192.168.48.14"
       - "results-mail-postfix:192.168.48.11"
     environment:
@@ -93,6 +95,8 @@ services:
       - /tmp
     networks:
       default:
+        aliases:
+          - joomla
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -105,6 +109,7 @@ services:
   subdomain-sync:
     build:
       context: ./subdomain-sync
+    image: infra-subdomain-sync:latest
     container_name: httpd-subdomain-sync
     restart: unless-stopped
     environment:
@@ -134,6 +139,7 @@ services:
   lsyncd:
     build:
       context: ./lsyncd
+    image: infra-lsyncd:latest
     container_name: httpd-lsyncd
     restart: unless-stopped
     environment:
@@ -158,6 +164,7 @@ services:
   joomla-lsyncd:
     build:
       context: ./lsyncd
+    image: infra-joomla-lsyncd:latest
     container_name: joomla-lsyncd
     restart: unless-stopped
     environment:

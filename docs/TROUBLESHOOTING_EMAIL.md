@@ -195,7 +195,68 @@ docker exec results-mail-dovecot doveadm force-resync -u USUARIO '*'
 
 ---
 
-### 6. IMAP TLS certificate mismatch
+### 6. "500 Proxy Error - DNS lookup failure for: joomla" (webmail fora do ar)
+
+**Causa**: `secure-httpd` faz proxy para `http://joomla/` mas o container
+se chama `results-joomla` (`container_name` explícito no compose). O DNS
+embutido do Docker resolve por `container_name`, não pelo nome do serviço.
+
+**Diagnostico**:
+```bash
+# Verificar se o alias existe na rede
+docker exec secure-httpd ping -c1 joomla
+# "bad address 'joomla'" confirma o problema
+
+# Verificar nome do container
+docker ps --format '{{.Names}}' | grep joomla
+# Esperado: results-joomla
+
+# Verificar se o alias está configurado na rede
+docker network inspect infra-shared --format '{{range .Containers}}{{.Name}} {{end}}' | tr ' ' '\n' | grep joomla
+```
+
+**Solucao**:
+- Permanente: adicionar `aliases: [joomla]` no `docker-compose.yml`:
+  ```yaml
+  networks:
+    default:
+      aliases:
+        - joomla
+  ```
+- Hotfix (sem rebuild):
+  ```bash
+  docker network disconnect infra-shared results-joomla
+  docker network connect --alias joomla --alias results-joomla infra-shared results-joomla
+  ```
+
+---
+
+### 7. Certificado SSL inválido (ERR_CERT_AUTHORITY_INVALID) após restart do Apache
+
+**Causa**: `mod_md` fica no estado "certificate(rsa) is missing" (state=1)
+após o container `secure-httpd` ser recriado. O módulo não inicia a renovação
+automaticamente em todos os cenários.
+
+**Diagnostico**:
+```bash
+# Verificar estado dos certificados
+docker exec secure-httpd sh -c 'for d in /usr/local/apache2/md/domains/*/; do echo "$(basename $d): $(grep state $d/md.json)"; done'
+# state=1 → parado, state=2 → renovando
+
+# Verificar se está servindo fallback (autoassinado)
+echo | openssl s_client -connect 201.6.110.53:443 -servername www.results.com.br 2>&1 | grep 'CN = Apache Managed Domain Fallback'
+```
+
+**Solucao**:
+```bash
+# Disparar renovação forçando graceful restart
+docker exec secure-httpd httpd -k graceful
+# Aguardar ~30s e verificar novamente o state (deve ir para 2 e depois concluir)
+```
+
+---
+
+### 8. IMAP TLS certificate mismatch
 
 **Causa**: Certificado TLS do Dovecot tem CN `mx1.results.com.br` mas
 Roundcube conecta via hostname `results-mail-dovecot`

@@ -89,3 +89,58 @@ O Compose fixa o digest da imagem SoftEther 5.02. Nao substituir por
 4.41, que regravou o volume em formato incompatível, removeu os usuarios do
 hub e desativou o SecureNAT. Antes de atualizar o digest, validar a versao em
 ambiente separado e preservar um backup de `vpn_server.config`.
+
+## Troubleshooting
+
+### Usuarios zerados apos recriar container
+
+**Sintoma:** `docker exec rvpn vpncmd localhost:5555 /SERVER /HUB:DEFAULT /CMD:UserList` retorna vazio.
+
+**Causa:** Volume `vpn_softetherdata` montado em path errado (`/mnt` em vez de
+`/var/lib/softether`). O Docker cria volume anonimo em `/var/lib/softether` com
+config vazia.
+
+**Correcao:**
+1. Verificar mount: `docker inspect rvpn --format '{{range .Mounts}}{{.Destination}} -> {{.Name}}{{"\n"}}{{end}}'`
+2. Se `/var/lib/softether` aponta para volume anonimo (hash), corrigir o compose:
+   ```yaml
+   volumes:
+     - softetherdata:/var/lib/softether  # nao /mnt
+   ```
+3. Remover volumes anonimos e recriar:
+   ```bash
+   docker compose -p vpn -f docker-compose.vpn.yml --env-file .env.vpn down
+   docker volume ls | grep -v vpn_softetherdata  # anotar anonimos
+   docker volume rm <anonimo1> <anonimo2> <anonimo3>
+   docker compose -p vpn -f docker-compose.vpn.yml --env-file .env.vpn up -d
+   ```
+
+### Cliente nao autentica (Session Status: Repetindo)
+
+**Sintoma:** `AccountStatusGet` mostra `Session Status: Repetindo` e
+`Number of Established Sessions: 0 vezes`.
+
+**Causa:** Hashes de senha no `vpn_server.config` sao criptografados com a
+chave interna do servidor. Ao recriar o container, a chave muda e os hashes
+antigos ficam invalidos.
+
+**Correcao:** Resetar senhas no servidor e atualizar no cliente:
+
+Servidor:
+```bash
+docker exec rvpn /usr/local/bin/vpncmd localhost:5555 /SERVER /HUB:DEFAULT \
+  /PASSWORD: /CMD:UserPasswordSet <usuario> /PASSWORD:<nova_senha>
+```
+
+Cliente:
+```bash
+sudo vpncmd localhost /CLIENT /PASSWORD:teste \
+  /CMD:AccountPasswordSet <conta> /PASSWORD:<mesma_senha> /TYPE:standard
+```
+
+### Script de diagnostico
+
+Rodar no servidor para checagem completa:
+```bash
+cd /opt/results/infra && bash vpn/diagnose-rvpn-server.sh
+```

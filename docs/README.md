@@ -71,6 +71,7 @@ Se `https://r-observe.results.com.br/` falhar, revisar primeiro:
 
 - `RESULTS_DATABASE_RECOVERY.md`
 - `WEBMAIL_ENVIRONMENT_10.10.2.30.md` — Ambiente do webmail (atualizado 2026-06-11)
+- `NETWORK_DIAGRAM.md` — Diagrama completo da rede, VIPs e stacks (novo 2026-08-06)
 - `CONTAINER_IP_POLICY.md` — Politica: containers usam VIPs, nunca o IP do host (novo 2026-06-13)
 - `NETWORK_CONSOLIDATION.md` — Consolidacao de redes Docker (novo 2026-06-11)
 - `TROUBLESHOOTING_EMAIL.md` — Troubleshooting de email/webmail (novo 2026-06-11)
