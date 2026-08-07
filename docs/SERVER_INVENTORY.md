@@ -1,8 +1,49 @@
 # Inventário de Servidores — results.com.br
 
-**Data:** 2026-06-07
+**Data:** 2026-06-07 (atualizado 2026-08-07: roteador Claro, interfaces srvfw0)
 **Hypervisor:** `africasul.results.intranet` (10.10.2.29, Xen)
 **Firewall:** `srvfw0` (10.10.2.254)
+
+---
+
+## Roteador de Borda — Claro (Modem ISP)
+
+| IP Público | Modelo | DMZ |
+|---|---|---|
+| `201.6.110.53` | Modem Claro NXT (AS28573) | **DMZ → `192.168.0.2`** (eth2 do srvfw0) |
+
+**Atenção**: o IP público `201.6.110.53` pertence ao roteador da Claro, NÃO ao
+servidor `10.10.2.30`. O DMZ encaminha todo tráfego de entrada para o srvfw0,
+que então aplica DNAT por porta para as VIPs em `10.10.2.30`.
+
+**Problema conhecido (2026-08-07):** o DMZ do roteador Claro pode parar de
+encaminhar UDP porta 53 de fontes externas (TCP continua funcionando).
+Resolvedores externos fazem fallback para TCP, mas com latência adicional.
+Reiniciar o modem resolve.
+
+---
+
+## Firewall — srvfw0 / gabao (Xen VM)
+
+| Interface | IP | Função |
+|---|---|---|
+| `eth0` | `10.10.2.254/24` | Rede principal (gerência + SNAT) |
+| `eth1` | `192.168.15.3/24` | Rede interna paralela |
+| `eth2` | `192.168.0.2/24` | **Recebe DMZ do roteador Claro** |
+
+### Regras DNAT (PREROUTING) — tráfego externo
+
+| Origem | Porta | Destino | Serviço |
+|---|---|---|---|
+| `192.168.0.2` (eth2) | UDP/TCP 53 | `10.10.2.1:53` | DNS (ns1) |
+| `192.168.0.2` (eth2) | TCP 25,465,587 | `10.10.2.3` | SMTP (mx1) |
+| `192.168.0.2` (eth2) | TCP 110,143,993,995 | `10.10.2.3` | IMAP/POP3 |
+| `192.168.0.2` (eth2) | TCP 80,443 | `10.10.2.60` | Web |
+| `192.168.0.2` (eth2) | TCP 5555 | `10.10.2.30` | VPN |
+
+Fluxo DNS externo: `Internet → Claro (201.6.110.53:53) → DMZ → srvfw0 eth2
+(192.168.0.2:53) → DNAT → 10.10.2.1:53 → Docker DNAT → dnsdist
+(10.53.53.13:53) → pdns-auth`
 
 ---
 
@@ -30,21 +71,33 @@
 ### dnsdist — Configuração final
 
 ```lua
+-- Escuta
+addLocal("0.0.0.0:53", {reusePort=true})
+setACL({"0.0.0.0/0", "::/0"})
+
 -- Backends
 newServer({address="10.53.53.11:53", name="pdns-auth",     pool="auth",
-           checkType="SOA", checkName="results.com.br."})
+           checkType="SOA", checkName="results.com.br.", useProxyProtocol=true})
 newServer({address="10.53.53.12:53", name="pdns-recursor", pool="recurse"})
 
--- DEFAULT: auth (flag AA para qualquer origem)
-addAction(AllRule(), PoolAction("auth"))
+-- Rate limiting
+addAction(MaxQPSIPRule(100), DropAction())
+addAction(QTypeRule(DNSQType.ANY), TCAction())
 
--- OVERRIDE: IPs privados → recurse (cache + split-horizon)
+-- ACLs privadas (para roteamento interno/externo)
 local privateNets = newNMG()
 privateNets:addMask("127.0.0.0/8")
 privateNets:addMask("10.0.0.0/8")
 privateNets:addMask("172.16.0.0/12")
 privateNets:addMask("192.168.0.0/16")
-addAction(NetmaskGroupRule(privateNets), PoolAction("recurse"))
+
+-- Roteamento (ordem importa: mais específico primeiro, PoolAction é terminal)
+-- 1) results.com.br → auth (split-horizon nativo via PowerDNS Views)
+addAction(QNameSuffixRule({"results.com.br."}), PoolAction("auth"))
+-- 2) Demais consultas de clientes externos → auth (sem recursão aberta)
+addAction(NotRule(NetmaskGroupRule(privateNets)), PoolAction("auth"))
+-- 3) Demais consultas de clientes internos → recurse (cache + forward)
+addAction(AllRule(), PoolAction("recurse"))
 ```
 
 ---

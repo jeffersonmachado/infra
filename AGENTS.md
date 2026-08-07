@@ -23,6 +23,17 @@ produção.
   mantém apenas a **borda/exposição pública** dela: DNS de
   `r-observe.results.com.br`, SNI em `edge-sni/haproxy.cfg`, vhost no Apache
   e sincronização de conteúdo via `CONTENT_SOURCE_PATH`.
+- **Conectividade externa:** o servidor NÃO tem conectividade TCP/UDP de saída
+  para internet — apenas ICMP (ping). Firewall do provedor bloqueia todo
+  tráfego de saída. DNS externo (8.8.8.8, 1.1.1.1) é inalcançável. O
+  resolver DNS usado é o roteador MikroTik local `10.10.2.250:53`.
+- **Topologia de borda (WAN→LAN):** o IP público `201.6.110.53` pertence ao
+  **roteador da Claro** (modem ISP), NÃO ao servidor. O DMZ do roteador
+  encaminha todo tráfego de entrada para `192.168.0.2` (interface `eth2` da VM
+  **srvfw0** / `gabao`, Xen). O srvfw0 (`10.10.2.254`) aplica DNAT por porta
+  para as VIPs em `10.10.2.30`. Detalhes em `docs/NETWORK_DIAGRAM.md` e
+  `docs/SERVER_INVENTORY.md`. **Atenção:** o DMZ do roteador Claro pode
+  parar de encaminhar UDP porta 53 de fontes externas (TCP mantém).
 
 ## Stacks e arquivos Compose
 
@@ -131,6 +142,19 @@ docker compose --env-file .env up -d          # stack web
   `infra_site-data`).
 - Rede padrão compartilhada: `infra-shared` (criar com
   `docker network create infra-shared` se ausente).
+- **Alias de rede**: quando um serviço usa `container_name` explícito
+  (ex: `container_name: results-joomla`), o DNS do Docker resolve apenas o
+  `container_name`, **não** o nome do serviço no compose. Outros containers
+  que referenciem o nome do serviço (ex: `joomla`) precisam que o compose
+  declare um `aliases` na seção `networks`:
+  ```yaml
+  networks:
+    default:
+      aliases:
+        - joomla
+  ```
+  Hotfix manual (sem rebuild):
+  `docker network disconnect infra-shared <container> && docker network connect --alias <service-name> infra-shared <container>`
 - Logging `json-file` com rotação (`max-size: 50m`) nas stacks MySQL/DNS.
 - Senhas e endpoints vêm de variáveis de ambiente com defaults no compose;
   segredos reais só nos `.env` locais (gitignored).
