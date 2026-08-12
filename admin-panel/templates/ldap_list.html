@@ -78,7 +78,7 @@ tr:hover{background:rgb(236 72 153/.03)}
       <div class="fg"><label>Nome *</label><input name="cn" id="f_cn" required></div>
     </div>
     <div class="fg"><label>Email</label><input name="mail" id="f_mail"></div>
-    <div class="fg"><label>ObjectClass</label><select name="objectClass" id="f_objclass"><option value="inetOrgPerson">inetOrgPerson</option><option value="organizationalRole">organizationalRole</option><option value="account">account</option><option value="simpleSecurityObject">simpleSecurityObject</option></select></div>
+    <div class="fg"><label>ObjectClass</label><select name="objectClass" id="f_objclass"><option value="inetOrgPerson">inetOrgPerson (padrão — com email)</option><option value="person">person (básico)</option><option value="posixAccount">posixAccount (conta de sistema)</option></select></div>
     <div class="fg"><label>Senha (vazio = não alterar)</label><input name="password" type="password" id="f_password"></div>
     <div class="btns"><button class="btn btn-primary">Salvar</button><button type="button" class="btn btn-cancel" onclick="closeUserModal()">Cancelar</button></div>
     </form>

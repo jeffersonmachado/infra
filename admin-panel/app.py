@@ -382,9 +382,12 @@ def ldap_user_save():
     if not uid or not cn:
         return redirect(url_for("ldap_users"))
     dn = f"uid={uid},{CFG['ldap']['users_dn']}"
-    classes = ["top", objclass]
+    # Hierarquia real do diretório: person < organizationalPerson < inetOrgPerson
+    classes = ["top", "person", "organizationalPerson"]
     if objclass == "inetOrgPerson":
-        classes.extend(["organizationalPerson", "person"])
+        classes.append("inetOrgPerson")
+    if objclass == "posixAccount":
+        classes.extend(["inetOrgPerson", "posixAccount"])
     try:
         conn = ldap_connect()
         if old_uid and old_uid != uid:
@@ -395,6 +398,11 @@ def ldap_user_save():
             attrs["mail"] = mail
         if password:
             attrs["userPassword"] = password
+        if objclass == "posixAccount":
+            # posixAccount exige atributos numéricos
+            attrs["uidNumber"] = request.form.get("uidNumber", "10000")
+            attrs["gidNumber"] = request.form.get("gidNumber", "10000")
+            attrs["homeDirectory"] = request.form.get("homeDirectory", f"/home/{uid}")
         if old_uid:
             mods = {"cn": [(ldap3.MODIFY_REPLACE, [cn])]}
             if mail:
