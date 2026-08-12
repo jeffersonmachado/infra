@@ -46,6 +46,8 @@ services:
       RIPABX_INTERNAL_HOST: ${RIPABX_INTERNAL_HOST:-ripabx.results.intranet}
       RVPN_UPSTREAM_HOST: ${RVPN_UPSTREAM_HOST:-10.10.2.30}
       RVPN_UPSTREAM_PORT: ${RVPN_UPSTREAM_PORT:-10443}
+      ADMIN_SERVER_NAME: ${ADMIN_SERVER_NAME:-}
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
     volumes:
       - site-data:/usr/local/apache2/htdocs:ro
       - md-data:/usr/local/apache2/md
@@ -182,6 +184,46 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pgrep lsyncd >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Admin Panel (Python/Flask unificado) ─────────────────────────────────
+  admin-panel:
+    build:
+      context: ./admin-panel
+    image: infra-admin-panel:latest
+    container_name: admin-panel
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      MYSQL_HOST: ${MYSQL_HOST:-10.10.2.99}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-results}
+      MYSQL_USER: ${MYSQL_USER:-resultsdba}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      VHOSTS_TABLE: ${DYNAMIC_VHOSTS_TABLE:-apache_vhosts}
+      PDNS_API_KEY: ${DNS_API_KEY:-}
+      PDNS_API_URL: ${PDNS_API_URL:-http://pdns-auth:8081}
+      LDAP_URI: ${LDAP_URI:-ldap://results-ldap:389}
+      LDAP_BASE_DN: ${LDAP_BASE_DN:-dc=results,dc=com,dc=br}
+      LDAP_BIND_DN: ${LDAP_BIND_DN:-cn=admin,dc=results,dc=com,dc=br}
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
+      LDAP_USERS_DN: ${LDAP_USERS_DN:-ou=people,dc=results,dc=com,dc=br}
+      LDAP_GROUPS_DN: ${LDAP_GROUPS_DN:-ou=groups,dc=results,dc=com,dc=br}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-}
+      ADMIN_GROUP_DNS: ${ADMIN_GROUP_DNS:-cn=dns-admins,ou=groups,dc=results,dc=com,dc=br}
+      ADMIN_GROUP_VHOSTS: ${ADMIN_GROUP_VHOSTS:-cn=vhost-admins,ou=groups,dc=results,dc=com,dc=br}
+      ADMIN_GROUP_LDAP: ${ADMIN_GROUP_LDAP:-cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br}
+    tmpfs:
+      - /tmp
+    networks:
+      default:
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s -o /dev/null http://127.0.0.1:5000/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5

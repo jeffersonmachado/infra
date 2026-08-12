@@ -47,10 +47,11 @@ services:
     networks:
       dns-internal:
         ipv4_address: 10.53.53.11
+      infra-shared:
     ports:
       - "127.0.0.1:5300:53/udp"
       - "127.0.0.1:5300:53/tcp"
-      - "127.0.0.1:9081:8081"
+      - "9081:8081"
     healthcheck:
       test: ["CMD-SHELL", "pdnsutil list-all-zones >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -130,6 +131,9 @@ networks:
       config:
         - subnet: 10.53.53.0/24
           gateway: 10.53.53.254
+  infra-shared:
+    external: true
+    name: infra-shared
 
 volumes:
   pdns-auth-lmdb:
