@@ -31,6 +31,12 @@ TEST_IMAP_USER="${TEST_IMAP_USER:-}"
 TEST_IMAP_PASSWORD="${TEST_IMAP_PASSWORD:-}"
 TEST_POP3_USER="${TEST_POP3_USER:-}"
 TEST_POP3_PASSWORD="${TEST_POP3_PASSWORD:-}"
+TEST_SMTP_USER="${TEST_SMTP_USER:-}"
+TEST_SMTP_PASSWORD="${TEST_SMTP_PASSWORD:-}"
+TEST_MAIL_FROM="${TEST_MAIL_FROM:-}"
+TEST_MAIL_TO="${TEST_MAIL_TO:-}"
+SEND_RECEIVE_ATTEMPTS="${SEND_RECEIVE_ATTEMPTS:-30}"
+SEND_RECEIVE_INTERVAL="${SEND_RECEIVE_INTERVAL:-2}"
 
 SMTP_PORT="${SMTP_PORT:-25}"
 SMTPS_PORT="${SMTPS_PORT:-465}"
@@ -95,6 +101,10 @@ Opções:
   --imap-password PASS        Senha para teste autenticado IMAP/IMAPS
   --pop3-user USER            Usuário para teste autenticado POP3/POP3S
   --pop3-password PASS        Senha para teste autenticado POP3/POP3S
+  --smtp-user USER            Usuário para autenticação SMTP (envio)
+  --smtp-password PASS        Senha para autenticação SMTP (envio)
+  --mail-from ADDR            Remetente do e-mail de teste
+  --mail-to ADDR              Destinatário do e-mail de teste
   --test-compose              Testa também docker compose local
   --compose-file FILE         Arquivo compose da stack mail
   --compose-env-file FILE     Arquivo de ambiente usado no compose
@@ -178,6 +188,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --pop3-password)
       TEST_POP3_PASSWORD="$2"
+      shift 2
+      ;;
+    --smtp-user)
+      TEST_SMTP_USER="$2"
+      shift 2
+      ;;
+    --smtp-password)
+      TEST_SMTP_PASSWORD="$2"
+      shift 2
+      ;;
+    --mail-from)
+      TEST_MAIL_FROM="$2"
+      shift 2
+      ;;
+    --mail-to)
+      TEST_MAIL_TO="$2"
       shift 2
       ;;
     --test-compose)
@@ -340,6 +366,139 @@ check_compose() {
   fi
 }
 
+check_send_receive() {
+  local smtp_user="${TEST_SMTP_USER:-$TEST_IMAP_USER}"
+  local smtp_password="${TEST_SMTP_PASSWORD:-$TEST_IMAP_PASSWORD}"
+  local mail_from="${TEST_MAIL_FROM:-$TEST_IMAP_USER}"
+  local mail_to="${TEST_MAIL_TO:-$TEST_IMAP_USER}"
+
+  if [[ -z "$smtp_user" || -z "$smtp_password" || -z "$mail_from" || -z "$mail_to" ]]; then
+    skip "Envio/recebimento não configurado (use --smtp-user/--smtp-password ou --imap-user/--imap-password)"
+    return
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    skip "python3 não disponível para teste de envio/recebimento"
+    return
+  fi
+
+  local output
+  output=$(
+    SMTP_HOST="$SMTP_HOST" \
+    SMTP_SEND_PORT="$SUBMISSION_PORT" \
+    SMTP_SSL_SEND_PORT="$SMTPS_PORT" \
+    IMAP_HOST="$IMAP_HOST" \
+    IMAPS_PORT="$IMAPS_PORT" \
+    TEST_SMTP_USER="$smtp_user" \
+    TEST_SMTP_PASSWORD="$smtp_password" \
+    TEST_MAIL_FROM="$mail_from" \
+    TEST_MAIL_TO="$mail_to" \
+    SEND_RECEIVE_ATTEMPTS="$SEND_RECEIVE_ATTEMPTS" \
+    SEND_RECEIVE_INTERVAL="$SEND_RECEIVE_INTERVAL" \
+    python3 - <<'PY'
+import os
+import ssl
+import sys
+import time
+import uuid
+import smtplib
+import imaplib
+from email.message import EmailMessage
+from email.utils import formatdate
+
+smtp_host = os.environ["SMTP_HOST"]
+smtp_port = int(os.environ["SMTP_SEND_PORT"])
+smtp_ssl_port = int(os.environ["SMTP_SSL_SEND_PORT"])
+imap_host = os.environ["IMAP_HOST"]
+imap_port = int(os.environ["IMAPS_PORT"])
+user = os.environ["TEST_SMTP_USER"]
+password = os.environ["TEST_SMTP_PASSWORD"]
+mail_from = os.environ["TEST_MAIL_FROM"]
+mail_to = os.environ["TEST_MAIL_TO"]
+attempts = int(os.environ["SEND_RECEIVE_ATTEMPTS"])
+interval = int(os.environ["SEND_RECEIVE_INTERVAL"])
+
+token = uuid.uuid4().hex
+subject = "E2E mail test " + token
+
+msg = EmailMessage()
+msg["From"] = mail_from
+msg["To"] = mail_to
+msg["Subject"] = subject
+msg["Date"] = formatdate(localtime=True)
+msg.set_content("E2E send/receive test from test-mail-services.sh")
+
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+
+# ── Envio ──
+sent = False
+last_err = None
+for port, use_ssl in ((smtp_port, False), (smtp_ssl_port, True)):
+    try:
+        if use_ssl:
+            server = smtplib.SMTP_SSL(smtp_host, port, timeout=15, context=ctx)
+        else:
+            server = smtplib.SMTP(smtp_host, port, timeout=15)
+        server.ehlo()
+        if not use_ssl and server.has_extn("starttls"):
+            server.starttls(context=ctx)
+            server.ehlo()
+        server.login(user, password)
+        server.send_message(msg)
+        server.quit()
+        sent = True
+        break
+    except Exception as e:
+        last_err = e
+        try:
+            server.close()
+        except Exception:
+            pass
+
+if not sent:
+    print("SEND FAILED: %s" % last_err)
+    sys.exit(1)
+print("SEND OK via %s" % ("smtp %d" % port if not use_ssl else "smtps %d" % port))
+
+# ── Recebimento ──
+received = False
+last_err = None
+try:
+    M = imaplib.IMAP4_SSL(imap_host, imap_port, ssl_context=ctx)
+    M.login(user, password)
+    M.select("INBOX")
+    for _ in range(attempts):
+        typ, data = M.search(None, '(SUBJECT "%s")' % subject)
+        if typ == "OK" and data and data[0]:
+            ids = data[0].split()
+            if ids:
+                M.store(ids[0], "+FLAGS", "(\\Deleted)")
+                M.expunge()
+                received = True
+                break
+        time.sleep(interval)
+    M.logout()
+except Exception as e:
+    last_err = e
+
+if not received:
+    print("RECEIVE FAILED: %s" % last_err)
+    sys.exit(1)
+print("RECEIVE OK")
+PY
+  ) 2>&1 || true
+
+  if echo "$output" | grep -q "SEND OK" && echo "$output" | grep -q "RECEIVE OK"; then
+    pass "Envio e recebimento de e-mail (roundtrip)"
+    echo "$output" | sed 's/^/    /'
+  else
+    fail "Envio e recebimento de e-mail (roundtrip)"
+    echo "$output" | sed 's/^/    /'
+  fi
+}
+
 section "SMTP"
 check_tcp "$SMTP_HOST" "$SMTP_PORT" "SMTP"
 check_plain_dialog "$SMTP_HOST" "$SMTP_PORT" "SMTP banner" "EHLO test.results.local\r\nQUIT\r\n" "^220|^250"
@@ -384,6 +543,9 @@ check_mysql
 
 section "Compose"
 check_compose
+
+section "Roundtrip (Envio e Recebimento)"
+check_send_receive
 
 section "Resumo"
 echo "Falhas: $FAILURES"

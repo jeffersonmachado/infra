@@ -231,6 +231,9 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.48.16
     healthcheck:
       test: ["CMD-SHELL", "rspamc -h 127.0.0.1:11334 stat >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -246,6 +249,9 @@ services:
       - clamav-db:/var/lib/clamav
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.48.17
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 3310 || exit 1"]
       interval: 30s
@@ -262,6 +268,9 @@ services:
       - /data
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.48.15
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -294,6 +303,7 @@ services:
       start_period: 30s
     networks:
       default:
+        ipv4_address: 192.168.48.18
         aliases:
           - ldap
           - srvldap1
@@ -316,6 +326,9 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.48.20
     healthcheck:
       test: ["CMD-SHELL", "test -d /certs || exit 1"]
       interval: 30s
@@ -347,6 +360,9 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    networks:
+      default:
+        ipv4_address: 192.168.48.19
     healthcheck:
       test: ["CMD-SHELL", "test -d /certs || exit 1"]
       interval: 60s

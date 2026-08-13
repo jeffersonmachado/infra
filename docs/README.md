@@ -86,6 +86,8 @@ Se `https://r-observe.results.com.br/` falhar, revisar primeiro:
 - `DNS_PRODUCTION_RUNBOOK.md`
 - `DNS_AUTHORITY_FIX.md`
 - `DNS_SPF_DMARC_BIMI_FIX_2026-06-09.md`
+- `MAIL_POSTFIX_IP_COLLISION_FIX_2026-08-13.md` — Postfix "Created" por colisão
+  de IP no `infra-shared` + teste de envio/recebimento e conta de teste
 - `SERVER_INVENTORY.md`
 - `session-2026-06-04.md` — registro historico compartilhado de uma sessao
   anterior a separacao do `r-observe`

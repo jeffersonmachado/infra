@@ -17,7 +17,7 @@ SMTP_APP_VALIDATE_AUTH="${SMTP_APP_VALIDATE_AUTH:-true}"
 SMTP_APP_PURGE_MAILDIR="${SMTP_APP_PURGE_MAILDIR:-false}"
 JOOMLA_CONTAINER="${JOOMLA_CONTAINER:-results-joomla}"
 DOVECOT_CONTAINER="${DOVECOT_CONTAINER:-results-mail-dovecot}"
-MAIL_STORAGE_HOST_ROOT="${MAIL_STORAGE_HOST_ROOT:-/var/lib/docker/volumes/infra-mail_maildata/_data}"
+MAIL_STORAGE_HOST_ROOT="${MAIL_STORAGE_HOST_ROOT:-/var/lib/docker/volumes/infra_maildata/_data}"
 
 info() {
   printf '[INFO] %s\n' "$1"
@@ -109,7 +109,7 @@ run_mail_mysql_sql() {
   sql="$1"
 
   if command -v mysql >/dev/null 2>&1; then
-    MYSQL_PWD="$MAIL_MYSQL_PASSWORD" mysql -N -B -h "$MAIL_MYSQL_HOST" -P "$MAIL_MYSQL_PORT" -u "$MAIL_MYSQL_USER" -D "$MAIL_MYSQL_DATABASE" <<SQL
+    MYSQL_PWD="$MAIL_MYSQL_PASSWORD" mysql --ssl=0 -N -B -h "$MAIL_MYSQL_HOST" -P "$MAIL_MYSQL_PORT" -u "$MAIL_MYSQL_USER" -D "$MAIL_MYSQL_DATABASE" <<SQL
 $sql
 SQL
     return 0
