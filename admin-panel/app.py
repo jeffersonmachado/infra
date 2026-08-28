@@ -6,11 +6,14 @@ Autenticação LDAP com flags de acesso por grupo (memberOf).
 """
 import os
 import json
+import re
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import ldap3
 import requests
 import pymysql
+
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
@@ -479,7 +482,7 @@ MAIL_MAILBOX_TABLE = os.getenv("MAIL_MAILBOX_TABLE", "mailbox")
 def mail_groups_list():
     if not user_flags()["mail"]:
         return redirect(url_for("dashboard"))
-    error = None
+    error = request.args.get("error")
     aliases = []
     mailboxes = []
     try:
@@ -506,6 +509,9 @@ def mail_groups_save():
         return redirect(url_for("mail_groups_list"))
     # normaliza a lista de membros (vírgula ou quebra de linha)
     parts = [p.strip() for p in members.replace("\n", ",").split(",") if p.strip()]
+    for p in parts:
+        if not EMAIL_RE.match(p):
+            return redirect(url_for("mail_groups_list", error=f"Email inválido: {p}"))
     goto = ", ".join(parts)
     try:
         with mysql_conn() as db:

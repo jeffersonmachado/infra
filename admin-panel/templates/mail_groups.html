@@ -31,6 +31,15 @@ tr:hover{background:rgb(139 92 246/.03)}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;background:rgb(139 92 246/.12);color:#c4b5fd;border:1px solid rgb(139 92 246/.2)}
 .chip .del{font-size:12px;cursor:pointer;background:none;border:none;color:#c4b5fd;opacity:.55;padding:0;line-height:1}
 .chip .del:hover{opacity:1;color:#fca5a5}
+.chip-input{border:1px solid rgb(51 65 85/.6);border-radius:10px;background:rgb(15 23 42/.6);padding:8px}
+.chip-list{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip-input .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;background:rgb(139 92 246/.12);color:#c4b5fd;border:1px solid rgb(139 92 246/.2)}
+.chip-input .chip .del{font-size:12px;cursor:pointer;background:none;border:none;color:#c4b5fd;opacity:.55;padding:0;line-height:1}
+.chip-input .chip .del:hover{opacity:1;color:#fca5a5}
+.chip-add{display:flex;gap:8px}
+.chip-add input{flex:1;padding:8px 10px;border:1px solid rgb(51 65 85/.6);border-radius:8px;background:rgb(15 23 42/.6);color:#e2e8f0;font-size:13px;font-family:inherit;outline:none}
+.chip-add input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgb(139 92 246/.1)}
+.chip-error{font-size:12px;color:#fca5a5;margin-top:6px;display:none}
 .badge{padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600}
 .badge.on{background:rgb(34 197 94/.15);color:#86efac;border:1px solid rgb(34 197 94/.25)}
 .badge.off{background:rgb(100 116 139/.15);color:#94a3b8;border:1px solid rgb(100 116 139/.25)}
@@ -54,7 +63,7 @@ tr:hover{background:rgb(139 92 246/.03)}
 <div class="topbar"><div class="brand">✉️ <span>Email — Grupos</span></div><nav><a href="/">Dashboard</a><a href="/dns">DNS</a><a href="/vhosts">VHosts</a><a href="/ldap">LDAP</a><a href="/logout">Sair</a></nav></div>
 <div class="page">
   <div class="toolbar"><h1>✉️ Grupos de Email (Aliases)</h1><button class="btn btn-primary" onclick="openModal()">+ Novo Grupo</button></div>
-  {% if error %}<div class="error">Erro ao carregar: {{ error }}</div>{% endif %}
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
   <table>
     <thead><tr><th>Endereço</th><th>Membros</th><th>Status</th><th style="width:140px">Ações</th></tr></thead>
@@ -80,10 +89,18 @@ tr:hover{background:rgb(139 92 246/.03)}
 <div class="modal-overlay" id="groupModal">
   <div class="modal">
     <h2 id="groupTitle">Novo Grupo</h2>
-    <form method="POST" action="/mail-groups/save"><input type="hidden" name="id" id="f_id" value="">
+    <form method="POST" action="/mail-groups/save" onsubmit="return serializeMembers()"><input type="hidden" name="id" id="f_id" value="">
     <div class="fg"><label>Endereço do grupo *</label><input name="address" id="f_address" placeholder="ex: financeiro@results.com.br" required autofocus></div>
     <div class="fg"><label>Membros *</label>
-      <textarea name="members" id="f_members" placeholder="um por linha ou separados por vírgula" required></textarea>
+      <div class="chip-input">
+        <div class="chip-list" id="chipList"></div>
+        <div class="chip-add">
+          <input id="memberInput" list="mailboxList" placeholder="adicione um email e pressione Enter" autocomplete="off">
+          <button type="button" class="btn btn-sm btn-primary" id="addMemberBtn">Adicionar</button>
+        </div>
+      </div>
+      <div class="chip-error" id="chipError"></div>
+      <input type="hidden" name="members" id="f_members" value="">
       <datalist id="mailboxList">{% for m in mailboxes %}<option value="{{ m }}">{% endfor %}</datalist>
     </div>
     <div class="check-row"><label><input type="checkbox" name="active" id="f_active" checked> Grupo ativo (recebe e distribui)</label></div>
@@ -93,17 +110,68 @@ tr:hover{background:rgb(139 92 246/.03)}
 </div>
 
 <script>
-function openModal(){document.getElementById('groupModal').classList.add('show')}
-function closeModal(){document.getElementById('groupModal').classList.remove('show');resetForm()}
-function resetForm(){document.getElementById('groupTitle').textContent='Novo Grupo';
-  ['f_id','f_address','f_members'].forEach(function(id){document.getElementById(id).value=''});
-  document.getElementById('f_active').checked=true}
-function editGroup(id,address,goto,active){openModal();document.getElementById('groupTitle').textContent='Editar Grupo';
-  document.getElementById('f_id').value=id;
-  document.getElementById('f_address').value=address;
-  document.getElementById('f_members').value=(goto||'').split(',').map(function(s){return s.trim()}).filter(Boolean).join('\n');
-  document.getElementById('f_active').checked=(active==1)}
-document.getElementById('groupModal').addEventListener('click',function(e){if(e.target===this)closeModal()})
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var members = [];
+
+function renderChips(){
+  var list = document.getElementById('chipList');
+  list.innerHTML = '';
+  members.forEach(function(m, i){
+    var chip = document.createElement('span');
+    chip.className = 'chip';
+    var txt = document.createElement('span');
+    txt.textContent = m;
+    var x = document.createElement('button');
+    x.type = 'button'; x.className = 'del'; x.textContent = '✕'; x.title = 'Remover';
+    x.onclick = function(){ members.splice(i, 1); renderChips(); };
+    chip.appendChild(txt); chip.appendChild(x);
+    list.appendChild(chip);
+  });
+}
+function showError(msg){
+  var e = document.getElementById('chipError');
+  e.textContent = msg;
+  e.style.display = msg ? 'block' : 'none';
+}
+function addMember(){
+  var inp = document.getElementById('memberInput');
+  var v = inp.value.trim().toLowerCase();
+  showError('');
+  if(!v) return;
+  if(!EMAIL_RE.test(v)){ showError('Email inválido: ' + v); return; }
+  if(members.indexOf(v) !== -1){ showError('Membro já adicionado: ' + v); return; }
+  members.push(v);
+  inp.value = '';
+  renderChips();
+}
+function serializeMembers(){
+  document.getElementById('f_members').value = members.join(', ');
+  if(!members.length){ showError('Adicione ao menos um membro.'); return false; }
+  return true;
+}
+function openModal(){
+  members = []; renderChips(); showError('');
+  document.getElementById('groupTitle').textContent = 'Novo Grupo';
+  document.getElementById('f_id').value = '';
+  document.getElementById('f_address').value = '';
+  document.getElementById('f_active').checked = true;
+  document.getElementById('groupModal').classList.add('show');
+}
+function closeModal(){ document.getElementById('groupModal').classList.remove('show'); }
+function editGroup(id, address, goto, active){
+  openModal();
+  document.getElementById('groupTitle').textContent = 'Editar Grupo';
+  document.getElementById('f_id').value = id;
+  document.getElementById('f_address').value = address;
+  document.getElementById('f_active').checked = (active == 1);
+  members = (goto || '').split(',').map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
+  renderChips();
+}
+document.getElementById('memberInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){ e.preventDefault(); addMember(); }
+});
+document.getElementById('addMemberBtn').addEventListener('click', addMember);
+document.getElementById('groupModal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
 </script>
 </body>
 </html>
