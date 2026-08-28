@@ -499,6 +499,67 @@ PY
   fi
 }
 
+# Busca full-text com tempo limite: com FTS (flatcurve) a resposta é < 1-2s;
+# sem FTS o Dovecot varre o Maildir e a busca leva minutos. Falha indica
+# regressão do índice (incidente de 2026-08-15).
+check_fts_search() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    skip "python3 não disponível para teste de busca FTS"
+    return
+  fi
+
+  local output rc=0
+  output=$(
+    IMAP_HOST="$IMAP_HOST" \
+    IMAPS_PORT="$IMAPS_PORT" \
+    TEST_IMAP_USER="$TEST_IMAP_USER" \
+    TEST_IMAP_PASSWORD="$TEST_IMAP_PASSWORD" \
+    FTS_MAX_SECONDS="${FTS_MAX_SECONDS:-15}" \
+    python3 - <<'PY'
+import os
+import ssl
+import sys
+import time
+import imaplib
+
+host = os.environ["IMAP_HOST"]
+port = int(os.environ["IMAPS_PORT"])
+user = os.environ["TEST_IMAP_USER"]
+password = os.environ["TEST_IMAP_PASSWORD"]
+limit = float(os.environ["FTS_MAX_SECONDS"])
+
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+
+try:
+    M = imaplib.IMAP4_SSL(host, port, ssl_context=ctx, timeout=int(limit) + 10)
+    M.login(user, password)
+    M.select("INBOX", readonly=True)
+    start = time.time()
+    typ, _ = M.search(None, "TEXT", '"results-fts-probe"')
+    elapsed = time.time() - start
+    M.logout()
+    if typ != "OK":
+        print("SEARCH FAILED: status %s" % typ)
+        sys.exit(1)
+    print("SEARCH TIME %.1fs (limite %.0fs)" % (elapsed, limit))
+    sys.exit(0 if elapsed <= limit else 2)
+except Exception as e:
+    print("SEARCH ERROR: %s" % e)
+    sys.exit(1)
+PY
+  ) 2>&1 || rc=$?
+
+  if [[ "$rc" -eq 0 ]]; then
+    pass "Busca full-text via FTS (${output})"
+  elif [[ "$rc" -eq 2 ]]; then
+    fail "Busca full-text LENTA — FTS ausente/quebrado? (${output})"
+  else
+    fail "Busca full-text falhou (${output})"
+  fi
+}
+
 section "SMTP"
 check_tcp "$SMTP_HOST" "$SMTP_PORT" "SMTP"
 check_plain_dialog "$SMTP_HOST" "$SMTP_PORT" "SMTP banner" "EHLO test.results.local\r\nQUIT\r\n" "^220|^250"
@@ -515,8 +576,10 @@ check_tls_dialog "$IMAP_HOST" "$IMAPS_PORT" "IMAPS TLS" "a CAPABILITY\r\na LOGOU
 
 if [[ -n "$TEST_IMAP_USER" && -n "$TEST_IMAP_PASSWORD" ]]; then
   check_tls_dialog "$IMAP_HOST" "$IMAPS_PORT" "IMAPS LOGIN" "a LOGIN ${TEST_IMAP_USER} ${TEST_IMAP_PASSWORD}\r\na LOGOUT\r\n" "a OK|Authenticated|CAPABILITY"
+  check_fts_search
 else
   skip "IMAPS login não configurado"
+  skip "Busca FTS (sem credenciais IMAP)"
 fi
 
 section "POP3"

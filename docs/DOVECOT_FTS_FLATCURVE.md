@@ -36,7 +36,9 @@ Habilitado **Dovecot FTS Flatcurve** (backend Xapian) para indexação full-text
 ### Configuração adicionada (`dovecot.conf`)
 
 ```
-mail_plugins = quota imap_quota imap_sieve fts fts_flatcurve
+protocol imap {
+  mail_plugins = quota imap_quota imap_sieve fts fts_flatcurve
+}
 
 plugin {
   fts = flatcurve
@@ -46,11 +48,13 @@ plugin {
   fts_autoindex = yes
   fts_enforced = no
 }
-
-namespace inbox {
-  fts_enabled = yes
-}
 ```
+
+> **Correção 2026-08-15:** a versão original desta config incluía
+> `namespace inbox { fts_enabled = yes }`, que **não é uma setting válida** do
+> Dovecot 2.3.21 — `doveconf` rejeita com `Unknown setting` e o Dovecot não
+> sobe. Removida do template. O FTS é ativado apenas pelo `mail_plugins` do
+> protocolo imap + bloco `plugin {}`.
 
 ### Índices criados
 
@@ -104,14 +108,12 @@ Execução com `nohup` para sobreviver a queda de SSH.
     -o 'plugin/fts=flatcurve' \
     -o 'plugin/fts_languages=pt en es' \
     -o 'plugin/fts_tokenizers=generic email-address' \
-    -o 'namespace/inbox/fts_enabled=yes' \
     fts rescan -u <usuario>@results.com.br
   docker exec results-mail-dovecot doveadm \
     -o 'mail_plugins=fts fts_flatcurve' \
     -o 'plugin/fts=flatcurve' \
     -o 'plugin/fts_languages=pt en es' \
     -o 'plugin/fts_tokenizers=generic email-address' \
-    -o 'namespace/inbox/fts_enabled=yes' \
     index -u <usuario>@results.com.br '*'
   ```
 - **Otimizar índices**:
@@ -121,6 +123,34 @@ Execução com `nohup` para sobreviver a queda de SSH.
     fts optimize -A
   ```
 
+## Prevenção de regressão (adicionado em 2026-08-15)
+
+O incidente de 05–15/08/2026 (busca lenta por 10 dias) passou despercebido
+porque nada verificava o FTS depois do deploy. Três camadas de proteção:
+
+1. **Healthcheck do Compose** (`docker-compose.mail.yml`, serviço `dovecot`):
+   além da porta IMAP, exige `fts = flatcurve` no `doveconf -n` e
+   `libxapian.so.30` no `ldconfig` — container fica `unhealthy` se o FTS
+   regredir.
+2. **Smoke test pós-deploy** (`scripts/docker-deploy-local-images.sh`,
+   projeto `infra-mail`): roda `doveadm fts rescan` com o plugin e **aborta o
+   deploy com erro** se o plugin não carregar.
+3. **Bateria de testes** (`scripts/test-mail-services.sh`): novo teste
+   `check_fts_search` mede um `SEARCH TEXT` via IMAPS autenticado e falha se
+   passar de `FTS_MAX_SECONDS` (default 15s) — com FTS a resposta é < 2s.
+
 ## Próximo rebuild
 
 No próximo `docker compose up --build` do stack de mail, o flatcurve será compilado automaticamente e o FTS já virá habilitado. Após o rebuild, reexecutar a indexação com `/root/fts-index-all.sh`.
+
+> **Atenção (bug corrigido em 2026-08-15):** o `Dockerfile` purga
+> `libxapian-dev` com `--auto-remove`, o que removia também o runtime
+> `libxapian30` — o plugin `lib21_fts_flatcurve_plugin.so` ficava presente na
+> imagem mas falhava no `dlopen` (`libxapian.so.30: cannot open shared object
+> file`). O `apt-mark manual libxapian30` antes do purge resolve. Foi exatamente
+> esse o estado da imagem `infra-dovecot` de 2026-08-05: FTS configurado no
+> template novo, mas plugin quebrado — e, pior, o template dentro da imagem era
+> antigo (sem FTS), então de 05/08 a 15/08 a busca do webmail voltou a varrer
+> os Maildirs sequencialmente. Sempre validar após rebuild:
+> `docker exec results-mail-dovecot doveadm -o mail_plugins="fts fts_flatcurve" -o plugin/fts=flatcurve fts rescan -u postmaster@results.com.br`
+> (não pode retornar `Fatal`).

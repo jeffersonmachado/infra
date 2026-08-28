@@ -514,6 +514,18 @@ if [ "$SKIP_SMOKE" != "true" ] && [ "$DRY_RUN" != "true" ]; then
             capture_ssh "docker exec results-mail-dovecot doveadm instance list 2>&1 || echo 'N/A'" \
                 "Verificando Dovecot"
             info "Dovecot: ${CAPTURED:-N/A}"
+
+            # FTS (flatcurve): sem ele a busca do webmail varre os Maildirs
+            # sequencialmente (incidente de 2026-08-15). Falha o deploy se o
+            # plugin não carregar (ex.: libxapian30 ausente na imagem).
+            capture_ssh "docker exec results-mail-dovecot doveadm -o mail_plugins='fts fts_flatcurve' -o plugin/fts=flatcurve fts rescan -u postmaster@results.com.br 2>&1 || true" \
+                "Verificando plugin FTS (flatcurve)"
+            if echo "$CAPTURED" | grep -qiE "fatal|dlopen"; then
+                error "Plugin FTS do Dovecot NAO carregou: $CAPTURED"
+                error "A busca do webmail ficara lenta. Verifique a imagem (libxapian30) e o template."
+                exit 1
+            fi
+            info "✅ FTS flatcurve OK"
             ;;
     esac
 fi

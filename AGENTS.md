@@ -188,11 +188,13 @@ O rspamd usa classificador Bayes global com backend Redis. O treino é
 automático e bidirecional:
 
 - **Imapsieve (Dovecot):** detecta `COPY` de/para Spam e chama `rspamc
-  learn_spam`/`learn_ham`. Também detecta flags `NonJunk`/`Junk` setadas pelo
-  Roundcube (regras mailbox5/6).
+  learn_spam`/`learn_ham` (regras mailbox1–4 do template).
 - **Plugin markasjunk (Roundcube):** botões "Spam" e "Não é lixo" visíveis em
-  qualquer pasta. Setam flags `Junk`/`NonJunk`; o Dovecot imapsieve detecta e
-  chama o rspamd.
+  qualquer pasta; movem a mensagem de/para a pasta Spam, o que dispara as
+  regras COPY do imapsieve acima. (As regras mailbox5/6 de treino por flag
+  `Junk`/`NonJunk` sem mover a mensagem foram removidas do template em
+  2026-08-15: referenciavam os scripts `learn-ham-flag.sieve`/
+  `learn-spam-flag.sieve`, que não existem no repo nem na imagem.)
 - **Cron `train-rspamd-ham.sh`:** a cada 10 min, se `BAYES_HAM < 200`,
   alimenta o rspamd com emails de +60 dias dos Maildirs de usuários ativos
   (`ACTIVE_USERS=jefferson,wedila`). Cada email treinado recebe flag

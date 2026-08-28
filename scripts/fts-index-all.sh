@@ -26,14 +26,12 @@ for DOMAIN_DIR in "$MAILROOT"/*/; do
       -o plugin/fts=flatcurve \
       -o plugin/fts_languages="pt en es" \
       -o plugin/fts_tokenizers="generic email-address" \
-      -o namespace/inbox/fts_enabled=yes \
       fts rescan -u "$USER" 2>&1 | tee -a "$LOGFILE"
     docker exec results-mail-dovecot doveadm \
       -o mail_plugins="fts fts_flatcurve" \
       -o plugin/fts=flatcurve \
       -o plugin/fts_languages="pt en es" \
       -o plugin/fts_tokenizers="generic email-address" \
-      -o namespace/inbox/fts_enabled=yes \
       index -u "$USER" "*" 2>&1 | tee -a "$LOGFILE"
   done
 done

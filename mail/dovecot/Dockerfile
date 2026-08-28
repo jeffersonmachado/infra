@@ -15,6 +15,7 @@ RUN apt-get update \
     && make install \
     && cd /tmp \
     && rm -rf dovecot-fts-flatcurve* \
+    && apt-mark manual libxapian30 \
     && DEBIAN_FRONTEND=noninteractive apt-get purge -y --auto-remove \
         build-essential pkg-config libxapian-dev dovecot-dev wget autoconf automake libtool \
     && rm -rf /var/lib/apt/lists/*
