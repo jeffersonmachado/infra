@@ -38,3 +38,7 @@ tmp/
 
 # Configs renderizadas com segredos do DNS consolidado
 dns-consolidated/rendered/
+
+# Python
+__pycache__/
+*.pyc
