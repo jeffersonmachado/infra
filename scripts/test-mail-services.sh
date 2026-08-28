@@ -310,16 +310,34 @@ check_tls_dialog() {
 }
 
 check_ldap() {
-  if [[ -n "$LDAP_URI" && -n "$LDAP_BASE_DN" && -n "$LDAP_BIND_DN" && -n "$LDAP_BIND_PASSWORD" && $(command -v ldapsearch) ]]; then
+  if [[ -z "$LDAP_URI" || -z "$LDAP_BASE_DN" || -z "$LDAP_BIND_DN" || -z "$LDAP_BIND_PASSWORD" ]]; then
+    if [[ -n "$LDAP_HOST" ]]; then
+      check_tcp "$LDAP_HOST" 389 "LDAP TCP"
+    else
+      skip "LDAP não configurado para teste"
+    fi
+    return
+  fi
+
+  # Em produção o LDAP roda no container results-ldap (rede docker), sem porta
+  # publicada no host. Se o container existir, executa o ldapsearch dentro dele.
+  if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -Fx "results-ldap" >/dev/null; then
+    if timeout 10 docker exec results-ldap ldapsearch -x -H "$LDAP_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" -b "$LDAP_BASE_DN" -s base dn >/dev/null 2>&1; then
+      pass "LDAP bind e search base (container results-ldap)"
+    else
+      fail "LDAP bind/search falhou em $LDAP_URI (container results-ldap)"
+    fi
+    return
+  fi
+
+  if command -v ldapsearch >/dev/null 2>&1; then
     if timeout 10 ldapsearch -x -H "$LDAP_URI" -D "$LDAP_BIND_DN" -w "$LDAP_BIND_PASSWORD" -b "$LDAP_BASE_DN" -s base dn >/dev/null 2>&1; then
       pass "LDAP bind e search base"
     else
       fail "LDAP bind/search falhou em $LDAP_URI"
     fi
-  elif [[ -n "$LDAP_HOST" ]]; then
-    check_tcp "$LDAP_HOST" 389 "LDAP TCP"
   else
-    skip "LDAP não configurado para teste"
+    skip "ldapsearch não disponível localmente"
   fi
 }
 
@@ -341,7 +359,7 @@ check_mysql() {
     return
   fi
 
-  if timeout 10 "$mysql_cmd" --connect-timeout=5 -h "$MAIL_MYSQL_HOST" -P "$MAIL_MYSQL_PORT" -u "$MAIL_MYSQL_USER" -p"$MAIL_MYSQL_PASSWORD" -D "$MAIL_MYSQL_DATABASE" -NBe "select 1; select count(*) from mailbox; select count(*) from alias; select count(*) from domain;" >/dev/null 2>&1; then
+  if timeout 10 "$mysql_cmd" --ssl=0 --connect-timeout=5 -h "$MAIL_MYSQL_HOST" -P "$MAIL_MYSQL_PORT" -u "$MAIL_MYSQL_USER" -p"$MAIL_MYSQL_PASSWORD" -D "$MAIL_MYSQL_DATABASE" -NBe "select 1; select count(*) from mailbox; select count(*) from alias; select count(*) from domain;" >/dev/null 2>&1; then
     pass "MySQL backend mail acessível"
   else
     fail "MySQL backend mail inacessível"
