@@ -39,6 +39,7 @@ CFG = {
         "dns": os.getenv("ADMIN_GROUP_DNS", "cn=dns-admins,ou=groups,dc=results,dc=com,dc=br"),
         "vhosts": os.getenv("ADMIN_GROUP_VHOSTS", "cn=vhost-admins,ou=groups,dc=results,dc=com,dc=br"),
         "ldap": os.getenv("ADMIN_GROUP_LDAP", "cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br"),
+        "mail": os.getenv("ADMIN_GROUP_MAIL", "cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br"),
     },
 }
 
@@ -102,6 +103,7 @@ def user_flags():
         "dns": CFG["groups"]["dns"] in groups,
         "vhosts": CFG["groups"]["vhosts"] in groups,
         "ldap": CFG["groups"]["ldap"] in groups,
+        "mail": CFG["groups"]["mail"] in groups,
     }
 
 def get_user_groups(user_dn: str) -> list:
@@ -164,6 +166,9 @@ def dashboard():
     if flags["ldap"]:
         cards.append({"url": "/ldap", "icon": "👥", "title": "LDAP — Usuários/Grupos",
                        "desc": "Gerenciar usuários, grupos e permissões."})
+    if flags["mail"]:
+        cards.append({"url": "/mail-groups", "icon": "✉️", "title": "Email — Grupos (Aliases)",
+                       "desc": "Listas de distribuição: financeiro@, compras@, vendas@..."})
     return render_template("dashboard.html", user=session["user"], cards=cards)
 
 # ── DNS ──────────────────────────────────────────────────────────────────────
@@ -464,6 +469,99 @@ def ldap_user_delete():
         except Exception:
             pass
     return redirect(url_for("ldap_users"))
+
+# ── Email Groups (aliases de distribuição) ───────────────────────────────────
+MAIL_ALIAS_TABLE = os.getenv("MAIL_ALIAS_TABLE", "alias")
+MAIL_MAILBOX_TABLE = os.getenv("MAIL_MAILBOX_TABLE", "mailbox")
+
+@app.route("/mail-groups")
+@login_required
+def mail_groups_list():
+    if not user_flags()["mail"]:
+        return redirect(url_for("dashboard"))
+    error = None
+    aliases = []
+    mailboxes = []
+    try:
+        with mysql_conn() as db:
+            with db.cursor() as cur:
+                cur.execute(f"SELECT id, address, goto, domain, active FROM `{MAIL_ALIAS_TABLE}` ORDER BY address")
+                aliases = cur.fetchall()
+                cur.execute(f"SELECT username FROM `{MAIL_MAILBOX_TABLE}` WHERE active=1 ORDER BY username")
+                mailboxes = [r["username"] for r in cur.fetchall()]
+    except Exception as e:
+        error = str(e)
+    return render_template("mail_groups.html", user=session["user"], aliases=aliases, mailboxes=mailboxes, error=error)
+
+@app.route("/mail-groups/save", methods=["POST"])
+@login_required
+def mail_groups_save():
+    if not user_flags()["mail"]:
+        return redirect(url_for("dashboard"))
+    aid = request.form.get("id", "").strip()
+    address = request.form.get("address", "").strip().lower()
+    members = request.form.get("members", "").strip()
+    active = 1 if request.form.get("active") else 0
+    if not address or not members:
+        return redirect(url_for("mail_groups_list"))
+    # normaliza a lista de membros (vírgula ou quebra de linha)
+    parts = [p.strip() for p in members.replace("\n", ",").split(",") if p.strip()]
+    goto = ", ".join(parts)
+    try:
+        with mysql_conn() as db:
+            with db.cursor() as cur:
+                if aid:
+                    cur.execute(f"UPDATE `{MAIL_ALIAS_TABLE}` SET address=%s, goto=%s, active=%s, change_date=NOW() WHERE id=%s",
+                                (address, goto, active, int(aid)))
+                else:
+                    cur.execute(f"INSERT INTO `{MAIL_ALIAS_TABLE}` (address, goto, domain, create_date, change_date, active) VALUES (%s, %s, '', NOW(), NOW(), %s)",
+                                (address, goto, active))
+            db.commit()
+    except Exception:
+        pass
+    return redirect(url_for("mail_groups_list"))
+
+@app.route("/mail-groups/delete", methods=["POST"])
+@login_required
+def mail_groups_delete():
+    if not user_flags()["mail"]:
+        return redirect(url_for("dashboard"))
+    aid = request.form.get("id", "").strip()
+    if aid:
+        try:
+            with mysql_conn() as db:
+                with db.cursor() as cur:
+                    cur.execute(f"DELETE FROM `{MAIL_ALIAS_TABLE}` WHERE id=%s", (int(aid),))
+                db.commit()
+        except Exception:
+            pass
+    return redirect(url_for("mail_groups_list"))
+
+@app.route("/mail-groups/member/remove", methods=["POST"])
+@login_required
+def mail_groups_member_remove():
+    if not user_flags()["mail"]:
+        return redirect(url_for("dashboard"))
+    aid = request.form.get("id", "").strip()
+    member = request.form.get("member", "").strip()
+    if not aid or not member:
+        return redirect(url_for("mail_groups_list"))
+    try:
+        with mysql_conn() as db:
+            with db.cursor() as cur:
+                cur.execute(f"SELECT goto FROM `{MAIL_ALIAS_TABLE}` WHERE id=%s", (int(aid),))
+                row = cur.fetchone()
+                if not row:
+                    return redirect(url_for("mail_groups_list"))
+                goto = row["goto"] or ""
+                parts = [p.strip() for p in goto.split(",") if p.strip()]
+                parts = [p for p in parts if p.lower() != member.lower()]
+                cur.execute(f"UPDATE `{MAIL_ALIAS_TABLE}` SET goto=%s, change_date=NOW() WHERE id=%s",
+                            (", ".join(parts), int(aid)))
+            db.commit()
+    except Exception:
+        pass
+    return redirect(url_for("mail_groups_list"))
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

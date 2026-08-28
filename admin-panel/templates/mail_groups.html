@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email · Grupos · Results</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0b0f19;color:#e2e8f0;min-height:100vh}
+.topbar{background:rgb(15 18 30/.9);backdrop-filter:blur(20px);border-bottom:1px solid rgb(51 65 85/.5);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .brand{font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px}
+.topbar .brand span{background:linear-gradient(135deg,#8b5cf6,#6d28d9);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar nav{display:flex;gap:4px;font-size:13px}
+.topbar nav a{color:#94a3b8;text-decoration:none;padding:6px 14px;border-radius:8px;transition:all .2s;font-weight:500}
+.topbar nav a:hover{color:#e2e8f0;background:rgb(139 92 246/.12)}
+.page{padding:32px;max-width:1100px;margin:0 auto}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.toolbar h1{font-size:24px;font-weight:700;margin:0}
+.btn{padding:10px 20px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none;display:inline-block}
+.btn-primary{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff}
+.btn-primary:hover{box-shadow:0 4px 15px rgb(139 92 246/.3);transform:translateY(-1px)}
+.btn-sm{padding:5px 12px;font-size:11px;border-radius:8px}
+.btn-danger{background:rgb(220 38 38/.15);color:#fca5a5;border:1px solid rgb(220 38 38/.25)}
+.btn-danger:hover{background:rgb(220 38 38/.3)}
+.error{background:rgb(220 38 38/.12);border:1px solid rgb(220 38 38/.3);color:#fca5a5;padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:13px}
+table{width:100%;border-collapse:collapse;background:rgb(15 23 42/.5);border-radius:14px;overflow:hidden;border:1px solid rgb(51 65 85/.3)}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid rgb(51 65 85/.2);font-size:13px;vertical-align:top}
+th{background:rgb(30 41 59/.6);font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#64748b;font-weight:600}
+tr:hover{background:rgb(139 92 246/.03)}
+.addr{font-weight:600}
+.members{display:flex;gap:4px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;background:rgb(139 92 246/.12);color:#c4b5fd;border:1px solid rgb(139 92 246/.2)}
+.chip .del{font-size:12px;cursor:pointer;background:none;border:none;color:#c4b5fd;opacity:.55;padding:0;line-height:1}
+.chip .del:hover{opacity:1;color:#fca5a5}
+.badge{padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600}
+.badge.on{background:rgb(34 197 94/.15);color:#86efac;border:1px solid rgb(34 197 94/.25)}
+.badge.off{background:rgb(100 116 139/.15);color:#94a3b8;border:1px solid rgb(100 116 139/.25)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgb(0 0 0/.6);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:linear-gradient(145deg,rgb(30 41 59/.95),rgb(15 23 42/.95));border:1px solid rgb(51 65 85/.6);border-radius:18px;padding:32px;width:100%;max-width:540px;box-shadow:0 25px 60px rgb(0 0 0/.6)}
+.modal h2{font-size:18px;font-weight:600;margin-bottom:20px}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-weight:600}
+.fg input,.fg textarea,.fg select{padding:10px 14px;border:1px solid rgb(51 65 85/.6);border-radius:10px;background:rgb(15 23 42/.6);color:#e2e8f0;font-size:13px;font-family:inherit;outline:none}
+.fg textarea{min-height:120px;resize:vertical;line-height:1.6}
+.fg input:focus,.fg textarea:focus,.fg select:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgb(139 92 246/.1)}
+.check-row{display:flex;gap:24px;margin:16px 0;font-size:13px}
+.check-row label{cursor:pointer;display:flex;align-items:center;gap:6px}
+.check-row input[type=checkbox]{accent-color:#8b5cf6;width:16px;height:16px}
+.btns{display:flex;gap:10px;margin-top:20px}
+.btn-cancel{background:#334155;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="brand">✉️ <span>Email — Grupos</span></div><nav><a href="/">Dashboard</a><a href="/dns">DNS</a><a href="/vhosts">VHosts</a><a href="/ldap">LDAP</a><a href="/logout">Sair</a></nav></div>
+<div class="page">
+  <div class="toolbar"><h1>✉️ Grupos de Email (Aliases)</h1><button class="btn btn-primary" onclick="openModal()">+ Novo Grupo</button></div>
+  {% if error %}<div class="error">Erro ao carregar: {{ error }}</div>{% endif %}
+
+  <table>
+    <thead><tr><th>Endereço</th><th>Membros</th><th>Status</th><th style="width:140px">Ações</th></tr></thead>
+    <tbody>
+    {% for a in aliases %}
+      <tr>
+        <td class="addr">{{ a.address }}</td>
+        <td><div class="members">{% for m in (a.goto or '').split(',') %}{% if m.strip() %}<span class="chip">{{ m.strip() }}<form method="POST" action="/mail-groups/member/remove" style="display:inline" onsubmit="return confirm('Remover {{ m.strip() }} de {{ a.address }}?')"><input type="hidden" name="id" value="{{ a.id }}"><input type="hidden" name="member" value="{{ m.strip() }}"><button class="del" title="Remover">✕</button></form></span>{% endif %}{% endfor %}</div></td>
+        <td>{% if a.active %}<span class="badge on">Ativo</span>{% else %}<span class="badge off">Inativo</span>{% endif %}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick='editGroup({{ a.id }}, {{ a.address|tojson }}, {{ (a.goto or "")|tojson }}, {{ a.active }})'>Editar</button>
+          <form method="POST" action="/mail-groups/delete" style="display:inline" onsubmit="return confirm('Excluir {{ a.address }}?')"><input type="hidden" name="id" value="{{ a.id }}"><button class="btn btn-sm btn-danger">✕</button></form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:#64748b;text-align:center;padding:24px">Nenhum grupo cadastrado</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal Grupo de Email -->
+<div class="modal-overlay" id="groupModal">
+  <div class="modal">
+    <h2 id="groupTitle">Novo Grupo</h2>
+    <form method="POST" action="/mail-groups/save"><input type="hidden" name="id" id="f_id" value="">
+    <div class="fg"><label>Endereço do grupo *</label><input name="address" id="f_address" placeholder="ex: financeiro@results.com.br" required autofocus></div>
+    <div class="fg"><label>Membros *</label>
+      <textarea name="members" id="f_members" placeholder="um por linha ou separados por vírgula" required></textarea>
+      <datalist id="mailboxList">{% for m in mailboxes %}<option value="{{ m }}">{% endfor %}</datalist>
+    </div>
+    <div class="check-row"><label><input type="checkbox" name="active" id="f_active" checked> Grupo ativo (recebe e distribui)</label></div>
+    <div class="btns"><button class="btn btn-primary">Salvar</button><button type="button" class="btn btn-cancel" onclick="closeModal()">Cancelar</button></div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(){document.getElementById('groupModal').classList.add('show')}
+function closeModal(){document.getElementById('groupModal').classList.remove('show');resetForm()}
+function resetForm(){document.getElementById('groupTitle').textContent='Novo Grupo';
+  ['f_id','f_address','f_members'].forEach(function(id){document.getElementById(id).value=''});
+  document.getElementById('f_active').checked=true}
+function editGroup(id,address,goto,active){openModal();document.getElementById('groupTitle').textContent='Editar Grupo';
+  document.getElementById('f_id').value=id;
+  document.getElementById('f_address').value=address;
+  document.getElementById('f_members').value=(goto||'').split(',').map(function(s){return s.trim()}).filter(Boolean).join('\n');
+  document.getElementById('f_active').checked=(active==1)}
+document.getElementById('groupModal').addEventListener('click',function(e){if(e.target===this)closeModal()})
+</script>
+</body>
+</html>

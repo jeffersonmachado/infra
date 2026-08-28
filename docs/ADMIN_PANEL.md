@@ -1,6 +1,6 @@
 # Painel Administrativo — admin.results.com.br
 
-Criado em 2026-08-11. Atualizado em 2026-08-12 (migração para Python/Flask).
+Criado em 2026-08-11. Atualizado em 2026-08-28 (seção Grupos de Email).
 
 ## Visão geral
 
@@ -18,6 +18,7 @@ Acesso: `https://admin.results.com.br/`
 | `/dns` | Listar zonas DNS, ver/adicionar/remover registros | API REST do pdns-auth |
 | `/vhosts` | CRUD de virtual hosts Apache | MySQL (`apache_vhosts`) |
 | `/ldap` | Listar/criar/editar/remover usuários e grupos | OpenLDAP |
+| `/mail-groups` | CRUD de grupos de email (aliases de distribuição) | MySQL (`alias`) |
 
 ## Flags de acesso (memberOf)
 
@@ -26,6 +27,7 @@ Cada usuário vê apenas as funcionalidades dos grupos a que pertence:
 - `cn=dns-admins,ou=groups,...` → acesso ao DNS
 - `cn=vhost-admins,ou=groups,...` → acesso aos VHosts
 - `cn=ldap-admins,ou=groups,...` → acesso ao LDAP
+- `cn=ldap-admins,ou=groups,...` → acesso aos Grupos de Email (default; configurável via `ADMIN_GROUP_MAIL`)
 
 ## Container
 
@@ -57,6 +59,7 @@ LDAP_BIND_PASSWORD=<senha>
 ADMIN_GROUP_DNS=cn=dns-admins,ou=groups,dc=results,dc=com,dc=br
 ADMIN_GROUP_VHOSTS=cn=vhost-admins,ou=groups,dc=results,dc=com,dc=br
 ADMIN_GROUP_LDAP=cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br
+ADMIN_GROUP_MAIL=cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br
 ```
 
 ## Deploy

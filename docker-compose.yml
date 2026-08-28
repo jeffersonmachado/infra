@@ -216,6 +216,7 @@ services:
       ADMIN_GROUP_DNS: ${ADMIN_GROUP_DNS:-cn=dns-admins,ou=groups,dc=results,dc=com,dc=br}
       ADMIN_GROUP_VHOSTS: ${ADMIN_GROUP_VHOSTS:-cn=vhost-admins,ou=groups,dc=results,dc=com,dc=br}
       ADMIN_GROUP_LDAP: ${ADMIN_GROUP_LDAP:-cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br}
+      ADMIN_GROUP_MAIL: ${ADMIN_GROUP_MAIL:-cn=ldap-admins,ou=groups,dc=results,dc=com,dc=br}
     tmpfs:
       - /tmp
     networks:
