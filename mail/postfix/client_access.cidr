@@ -18,3 +18,10 @@
 98.136.0.0/14 permit
 74.6.128.0/18 permit
 67.195.0.0/16 permit
+
+# ── Bloqueios manuais (spam/spoofing/brute-force) ─────────────────────────
+# Brute-force SASL contra financeiro@results.com.br
+212.20.46.167/32 reject
+# mail.noreply2.site — spoofing de financeiro@results.com.br (backscatter)
+85.121.125.72/32 reject
+85.121.53.234/32 reject

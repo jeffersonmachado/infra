@@ -88,7 +88,7 @@ for f in "$ZONES_DIR"/*.json; do
   base="$(basename "$f")"
   [[ "$base" == _* ]] && continue
   name=$(jq -r '.name' "$f")
-  zone_id="${name%.}."   # zone_id da API == nome da zona com ponto final
+  zone_id="$name"        # zone_id da API == .name exato do JSON (ex.: results.com.br..internal não tem ponto final)
   [[ -n "$ONLY_ZONE" && "$ONLY_ZONE" != "$name" ]] && continue
 
   step "Zona: $name ($base)"
